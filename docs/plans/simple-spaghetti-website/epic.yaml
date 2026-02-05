@@ -1,6 +1,7 @@
 Epic: simple-spaghetti-website
 Features:
-- dependencies: []
+- Sprint: 1
+  dependencies: []
   description: Create the basic HTML5 document structure with DOCTYPE, html, head,
     and body tags. Include a title tag in the head section with 'I Love Spagheeti'.
   estimatedComplexity: low
@@ -10,7 +11,8 @@ Features:
   name: Create HTML5 Document Structure
   project: simple-spaghetti-website
   type: enabler
-- dependencies:
+- Sprint: 2
+  dependencies:
   - simple-spaghetti-website-feat-html-document-structure
   description: Add the text 'I love spagheeti' to the body element of the HTML document.
     The text should be displayed as plain text with no styling or formatting.
@@ -21,7 +23,8 @@ Features:
   name: Display Spaghetti Message
   project: simple-spaghetti-website
   type: feature
-- dependencies:
+- Sprint: 3
+  dependencies:
   - simple-spaghetti-website-feat-display-message
   description: Ensure the HTML document passes W3C HTML5 validation with no errors
     or warnings. Verify proper tag nesting, closing tags, and document structure.
@@ -32,7 +35,8 @@ Features:
   name: HTML5 Validation
   project: simple-spaghetti-website
   type: enabler
-- dependencies:
+- Sprint: 4
+  dependencies:
   - simple-spaghetti-website-feat-html-validation
   description: Verify that the HTML file contains no external CSS files, JavaScript
     files, images, or any other external resources. No link, script src, or img tags
@@ -44,7 +48,8 @@ Features:
   name: Zero External Dependencies
   project: simple-spaghetti-website
   type: enabler
-- dependencies:
+- Sprint: 5
+  dependencies:
   - simple-spaghetti-website-feat-no-external-dependencies
   description: 'Ensure the index.html file is under 1KB in size (target: under 500
     bytes) while maintaining readability and valid HTML5 structure.'
@@ -55,7 +60,8 @@ Features:
   name: File Size Optimization
   project: simple-spaghetti-website
   type: enabler
-- dependencies:
+- Sprint: 6
+  dependencies:
   - simple-spaghetti-website-feat-file-size-optimization
   description: Test the HTML file locally using a simple HTTP server (e.g., Python
     http.server) to verify it displays correctly in a browser environment.
@@ -66,7 +72,8 @@ Features:
   name: Local Development Testing
   project: simple-spaghetti-website
   type: enabler
-- dependencies:
+- Sprint: 7
+  dependencies:
   - simple-spaghetti-website-feat-local-testing
   description: Verify the website displays correctly in all major browsers (Chrome,
     Firefox, Safari, Edge) with consistent text rendering and no console errors.
@@ -77,7 +84,8 @@ Features:
   name: Cross-Browser Compatibility Testing
   project: simple-spaghetti-website
   type: feature
-- dependencies:
+- Sprint: 8
+  dependencies:
   - simple-spaghetti-website-feat-cross-browser-compatibility
   description: Add index.html to git repository with appropriate commit message following
     conventional commit format. Ensure proper line endings (LF) and UTF-8 encoding.
@@ -88,7 +96,8 @@ Features:
   name: Git Version Control Integration
   project: simple-spaghetti-website
   type: enabler
-- dependencies:
+- Sprint: 9
+  dependencies:
   - simple-spaghetti-website-feat-git-integration
   description: Deploy the index.html file to a static hosting platform (GitHub Pages,
     Netlify, or Vercel) and verify it is accessible via HTTPS with proper Content-Type
@@ -100,7 +109,19 @@ Features:
   name: Static Hosting Deployment
   project: simple-spaghetti-website
   type: feature
-- dependencies:
+- Sprint: 9
+  dependencies:
+  - simple-spaghetti-website-feat-static-hosting-deployment
+  description: Configure uptime monitoring (UptimeRobot, Pingdom, or hosting platform
+    built-in) to check site availability every 5 minutes and alert on downtime.
+  estimatedComplexity: low
+  files: []
+  id: simple-spaghetti-website-feat-uptime-monitoring
+  name: Uptime Monitoring Setup
+  project: simple-spaghetti-website
+  type: enabler
+- Sprint: 10
+  dependencies:
   - simple-spaghetti-website-feat-static-hosting-deployment
   description: Configure appropriate cache headers (Cache-Control, ETag) at the hosting
     platform level to enable browser and CDN caching for optimal performance.
@@ -110,7 +131,8 @@ Features:
   name: HTTP Caching Configuration
   project: simple-spaghetti-website
   type: enabler
-- dependencies:
+- Sprint: 10
+  dependencies:
   - simple-spaghetti-website-feat-caching-configuration
   description: Validate that the website loads in under 100ms, passes Core Web Vitals
     metrics (LCP < 100ms, CLS = 0), and achieves a perfect Lighthouse performance
@@ -122,14 +144,4 @@ Features:
   name: Performance Validation
   project: simple-spaghetti-website
   type: feature
-- dependencies:
-  - simple-spaghetti-website-feat-static-hosting-deployment
-  description: Configure uptime monitoring (UptimeRobot, Pingdom, or hosting platform
-    built-in) to check site availability every 5 minutes and alert on downtime.
-  estimatedComplexity: low
-  files: []
-  id: simple-spaghetti-website-feat-uptime-monitoring
-  name: Uptime Monitoring Setup
-  project: simple-spaghetti-website
-  type: enabler
 Version: v1alpha1
