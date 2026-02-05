@@ -1,0 +1,89 @@
+# Project Timeline
+
+metadata:
+  generated: 2026-02-05T20:57:00Z
+  totalSprints: 9
+  totalDuration: 71 days
+
+sprints:
+  - number: 1
+    startDate: 2026-02-05
+    endDate: 2026-02-12
+    duration: 7 days
+    features:
+      - id: simple-bolognese-website-feat-html-document-structure
+        name: HTML5 Document Structure
+        type: enabler
+  - number: 2
+    startDate: 2026-02-13
+    endDate: 2026-02-20
+    duration: 7 days
+    features:
+      - id: simple-bolognese-website-feat-character-encoding
+        name: UTF-8 Character Encoding
+        type: enabler
+  - number: 3
+    startDate: 2026-02-21
+    endDate: 2026-02-28
+    duration: 7 days
+    features:
+      - id: simple-bolognese-website-feat-page-title
+        name: Page Title Element
+        type: feature
+  - number: 4
+    startDate: 2026-03-01
+    endDate: 2026-03-08
+    duration: 7 days
+    features:
+      - id: simple-bolognese-website-feat-content-display
+        name: Content Text Display
+        type: feature
+      - id: simple-bolognese-website-feat-documentation
+        name: README Documentation
+        type: enabler
+  - number: 5
+    startDate: 2026-03-09
+    endDate: 2026-03-16
+    duration: 7 days
+    features:
+      - id: simple-bolognese-website-feat-no-external-dependencies
+        name: Zero External Dependencies
+        type: feature
+  - number: 7
+    startDate: 2026-03-17
+    endDate: 2026-03-24
+    duration: 7 days
+    features:
+      - id: simple-bolognese-website-feat-w3c-validation
+        name: W3C HTML5 Validation Compliance
+        type: feature
+  - number: 8
+    startDate: 2026-03-25
+    endDate: 2026-04-01
+    duration: 7 days
+    features:
+      - id: simple-bolognese-website-feat-browser-compatibility
+        name: Cross-Browser Compatibility
+        type: feature
+  - number: 6
+    startDate: 2026-04-02
+    endDate: 2026-04-09
+    duration: 7 days
+    features:
+      - id: simple-bolognese-website-feat-file-size-optimization
+        name: File Size Under 1KB
+        type: feature
+  - number: 9
+    startDate: 2026-04-10
+    endDate: 2026-04-17
+    duration: 7 days
+    features:
+      - id: simple-bolognese-website-feat-filesystem-accessibility
+        name: Filesystem Direct Access
+        type: feature
+
+criticalPath:
+  - simple-bolognese-website-feat-html-document-structure
+  - simple-bolognese-website-feat-content-display
+  - simple-bolognese-website-feat-no-external-dependencies
+  - simple-bolognese-website-feat-filesystem-accessibility
