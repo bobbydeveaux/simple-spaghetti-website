@@ -1,0 +1,1296 @@
+GeneratedAt: "2026-02-05T21:01:35Z"
+Plan: simple-bolognese-website-plan
+Sprints:
+- Features:
+  - FeatureID: simple-bolognese-website-feat-page-title
+    FeatureTitle: Page Title Element
+    Tasks:
+    - AcceptanceCriteria:
+      - index.html file exists in repository root
+      - DOCTYPE html declaration is present as first line
+      - Root html element includes lang='en' attribute
+      - File uses UTF-8 encoding and LF line endings
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create the index.html file with HTML5 DOCTYPE declaration and root
+        html element with lang attribute. This establishes the foundational document
+        structure required for a valid HTML5 page. Ensure proper encoding and line
+        endings (UTF-8, LF).
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-page-title-1
+      Title: Create HTML document structure with DOCTYPE and root element
+    - AcceptanceCriteria:
+      - Head element is present and properly positioned
+      - Meta charset UTF-8 tag is included in head
+      - Head section is properly closed before body
+      - Character encoding declaration appears before other head content
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-page-title-1
+      Description: Add the head section containing the meta charset declaration for
+        UTF-8 encoding. This ensures proper character rendering across all browsers
+        and meets accessibility standards. The head section must be properly nested
+        within the html element.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-page-title-2
+      Title: Implement head section with metadata
+    - AcceptanceCriteria:
+      - Title element exists within head section
+      - Title content is exactly 'I love bolognese'
+      - Title appears after meta charset declaration
+      - Browser tab displays 'I love bolognese' when page is opened
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-page-title-2
+      Description: Insert the title element within the head section with the exact
+        text 'I love bolognese'. This title appears in the browser tab/window and
+        is required for valid HTML5. Ensure proper placement after charset declaration.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-page-title-3
+      Title: Add title element displaying 'I love bolognese'
+    - AcceptanceCriteria:
+      - Body element is present after head section
+      - Body contains the text 'I love bolognese'
+      - No additional styling or elements are added
+      - Text is directly within body element (not nested)
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-page-title-1
+      Description: Add the body element containing the plain text 'I love bolognese'.
+        This creates the visible page content that users will see. The body should
+        be a sibling to the head element within the html root.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-page-title-4
+      Title: Implement body section with content text
+    - AcceptanceCriteria:
+      - Document passes W3C HTML5 validation
+      - All elements are properly nested and closed
+      - Document contains exactly the specified elements (no extras)
+      - File size is approximately 200-300 bytes
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-page-title-3
+      - task-simple-bolognese-website-feat-page-title-4
+      Description: Verify the complete HTML document validates against W3C HTML5 specification.
+        Check that all elements are properly nested, closed, and contain required
+        attributes. Ensure document structure matches LLD specification exactly.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-page-title-5
+      Title: Validate HTML5 compliance and proper structure
+    - AcceptanceCriteria:
+      - Page opens successfully in Chrome, Firefox, and Safari/Edge
+      - Browser tab displays 'I love bolognese' in all browsers
+      - Content text renders correctly with browser defaults
+      - No console errors or warnings appear in any browser
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-page-title-5
+      Description: Open the HTML file in multiple browsers (Chrome, Firefox, Safari/Edge)
+        to verify consistent rendering. Confirm that the title appears correctly in
+        browser tabs and the content displays with default browser styling. Document
+        any rendering differences.
+      EstimatedEffort: M
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-page-title-6
+      Title: Test cross-browser rendering and compatibility
+    - AcceptanceCriteria:
+      - Lang attribute is set to 'en' on html element
+      - Document passes automated accessibility checks (WAVE, axe)
+      - Screen reader can properly announce page title and content
+      - No accessibility warnings or errors reported
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-page-title-5
+      Description: Test the HTML document for accessibility compliance using automated
+        tools and manual review. Verify that the lang attribute is properly set, character
+        encoding is correct, and the document follows semantic HTML5 best practices
+        for screen readers and assistive technologies.
+      EstimatedEffort: M
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-page-title-7
+      Title: Verify accessibility and semantic HTML standards
+    - AcceptanceCriteria:
+      - README.md mentions index.html file
+      - Instructions for opening the file are clear and accurate
+      - Browser compatibility information is included
+      - Repository structure section reflects new file
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-page-title-6
+      Description: Modify the README.md file to document the existence of index.html
+        and provide clear instructions for opening it. Include information about browser
+        compatibility and expected rendering. Add reference to the new file in the
+        repository structure section.
+      EstimatedEffort: S
+      Files:
+      - README.md
+      ID: task-simple-bolognese-website-feat-page-title-8
+      Title: Update README with usage instructions
+  Sprint: 3
+- Features:
+  - FeatureID: simple-bolognese-website-feat-w3c-validation
+    FeatureTitle: W3C HTML5 Validation Compliance
+    Tasks:
+    - AcceptanceCriteria:
+      - index.html file created at repository root
+      - Valid DOCTYPE html declaration present
+      - html element includes lang='en' attribute
+      - head and body elements properly nested
+      - File uses UTF-8 encoding with LF line endings
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create the index.html file with proper HTML5 DOCTYPE declaration,
+        html root element with lang attribute, and empty head and body sections. Ensure
+        proper nesting and structure following W3C HTML5 specification. Use UTF-8
+        encoding and Unix-style line endings.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-w3c-validation-1
+      Title: Create HTML5 document structure
+    - AcceptanceCriteria:
+      - meta charset tag added to head section
+      - charset attribute set to 'UTF-8'
+      - meta tag positioned as first element in head
+      - Proper self-closing tag syntax used
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-w3c-validation-1
+      Description: Insert the UTF-8 character encoding meta tag within the head section
+        of index.html. Position it as the first child element of head to ensure proper
+        character interpretation by browsers. Verify the meta tag follows HTML5 specification
+        syntax.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-w3c-validation-2
+      Title: Add character encoding meta tag
+    - AcceptanceCriteria:
+      - title element added to head section
+      - title contains exact text 'I love bolognese'
+      - title positioned after charset meta tag
+      - title element properly opened and closed
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-w3c-validation-2
+      Description: Add the title element to the head section containing the text 'I
+        love bolognese'. Ensure the title is positioned after the charset meta tag
+        and properly closed. Verify title content matches specification requirements
+        for browser tab display.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-w3c-validation-3
+      Title: Implement page title element
+    - AcceptanceCriteria:
+      - Text 'I love bolognese' present in body section
+      - No additional HTML elements added to body
+      - No inline styles or attributes on body
+      - Content renders with browser default styling
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-w3c-validation-1
+      Description: Insert the plain text content 'I love bolognese' into the body
+        section of index.html. Ensure no additional HTML elements or styling are added,
+        allowing browser default rendering. Verify text content is properly placed
+        within body tags.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-w3c-validation-4
+      Title: Add body content text
+    - AcceptanceCriteria:
+      - W3C validator returns zero errors
+      - W3C validator returns zero warnings
+      - All required HTML5 elements present
+      - Proper tag nesting and closing verified
+      - Character encoding correctly declared
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-w3c-validation-2
+      - task-simple-bolognese-website-feat-w3c-validation-3
+      - task-simple-bolognese-website-feat-w3c-validation-4
+      Description: Run W3C HTML5 validator against index.html to ensure zero errors
+        and warnings. Check for proper DOCTYPE, required elements, valid nesting,
+        character encoding, and overall specification compliance. Document validation
+        results and fix any issues found.
+      EstimatedEffort: M
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-w3c-validation-5
+      Title: Validate HTML5 compliance
+    - AcceptanceCriteria:
+      - lang attribute present on html element
+      - lang value set to 'en'
+      - Document structure semantically correct
+      - Screen reader compatible markup verified
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-w3c-validation-5
+      Description: Confirm that the html element includes the lang attribute set to
+        'en' for proper accessibility and screen reader support. Validate that the
+        document structure supports assistive technologies and follows semantic HTML
+        best practices.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-w3c-validation-6
+      Title: Verify accessibility attributes
+    - AcceptanceCriteria:
+      - Page renders correctly in Chrome
+      - Page renders correctly in Firefox
+      - Text displays with browser default styling
+      - No console errors in any browser
+      - Consistent rendering across all tested browsers
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-w3c-validation-5
+      Description: Open index.html in multiple browsers (Chrome, Firefox, Safari,
+        Edge) to verify consistent rendering of the text content. Confirm that browser
+        default styles are applied correctly and no layout issues exist. Document
+        rendering behavior across browsers.
+      EstimatedEffort: M
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-w3c-validation-7
+      Title: Test cross-browser rendering
+    - AcceptanceCriteria:
+      - README.md updated with index.html reference
+      - Clear instructions for opening file provided
+      - Expected rendering behavior documented
+      - File location clearly stated
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-w3c-validation-6
+      - task-simple-bolognese-website-feat-w3c-validation-7
+      Description: Modify README.md to add a reference to index.html and provide instructions
+        for opening and viewing the HTML file. Include information about the purpose
+        of the file, how to open it in a browser, and expected rendering behavior.
+      EstimatedEffort: S
+      Files:
+      - README.md
+      ID: task-simple-bolognese-website-feat-w3c-validation-8
+      Title: Update README documentation
+  Sprint: 7
+- Features:
+  - FeatureID: simple-bolognese-website-feat-browser-compatibility
+    FeatureTitle: Cross-Browser Compatibility
+    Tasks:
+    - AcceptanceCriteria:
+      - index.html file created in repository root
+      - Valid HTML5 DOCTYPE declaration present
+      - UTF-8 charset meta tag included in head
+      - Text 'I love bolognese' present in body element
+      - File uses LF line endings and UTF-8 encoding
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create the index.html file with minimal HTML5 structure including
+        DOCTYPE, html, head, and body elements. Include UTF-8 charset meta tag and
+        lang attribute for accessibility. Add the title element and plain text content
+        in the body.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-browser-compatibility-1
+      Title: Create base HTML5 structure
+    - AcceptanceCriteria:
+      - HTML passes W3C validator without errors
+      - All required HTML5 elements present (DOCTYPE, html, head, body)
+      - Proper tag nesting and closure verified
+      - Meta charset declaration valid
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-browser-compatibility-1
+      Description: Validate the HTML file against W3C HTML5 specification to ensure
+        proper element nesting, required attributes, and valid markup. Verify all
+        tags are properly closed and the document structure follows HTML5 standards.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-browser-compatibility-2
+      Title: Validate W3C HTML5 compliance
+    - AcceptanceCriteria:
+      - Page opens successfully in Chrome without errors
+      - Text displays in black color (default styling)
+      - Background is white (default styling)
+      - No console errors or warnings present
+      - Character encoding displays correctly
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-browser-compatibility-2
+      Description: Open index.html in Google Chrome and verify the text renders with
+        default browser styles. Confirm black text on white background, proper character
+        encoding, and no console errors or warnings.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-browser-compatibility-3
+      Title: Test Chrome rendering
+    - AcceptanceCriteria:
+      - Page opens successfully in Firefox without errors
+      - Text renders consistently with Chrome (black on white)
+      - Default font and spacing applied correctly
+      - No console errors or warnings present
+      - UTF-8 characters display properly
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-browser-compatibility-2
+      Description: Open index.html in Mozilla Firefox and verify consistent rendering
+        with Chrome. Confirm text displays correctly with default browser styles,
+        proper encoding, and no rendering issues or console errors.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-browser-compatibility-4
+      Title: Test Firefox rendering
+    - AcceptanceCriteria:
+      - Page opens successfully in Safari without errors
+      - Text displays in black on white background
+      - Default browser styles applied consistently
+      - No rendering anomalies or layout issues
+      - Page accessible via file:// protocol
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-browser-compatibility-2
+      Description: Open index.html in Safari browser and verify rendering consistency
+        across browsers. Confirm default styles apply correctly, text is readable,
+        and no WebKit-specific issues occur.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-browser-compatibility-5
+      Title: Test Safari rendering
+    - AcceptanceCriteria:
+      - Page opens successfully in Edge without errors
+      - Rendering matches other tested browsers
+      - Text displays with proper encoding and styling
+      - No Chromium-specific rendering issues
+      - Console remains error-free
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-browser-compatibility-2
+      Description: Open index.html in Microsoft Edge and verify cross-browser compatibility.
+        Confirm the page renders identically to Chrome, Firefox, and Safari with consistent
+        default styling and no Edge-specific issues.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-browser-compatibility-6
+      Title: Test Edge rendering
+    - AcceptanceCriteria:
+      - Test report created with results from all four browsers
+      - Screenshots or visual evidence included for each browser
+      - Consistent black-on-white rendering confirmed across browsers
+      - Any minor style variations documented
+      - Report confirms HTML meets compatibility requirements
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-browser-compatibility-3
+      - task-simple-bolognese-website-feat-browser-compatibility-4
+      - task-simple-bolognese-website-feat-browser-compatibility-5
+      - task-simple-bolognese-website-feat-browser-compatibility-6
+      Description: Create a browser compatibility test report documenting rendering
+        behavior across Chrome, Firefox, Safari, and Edge. Include screenshots or
+        visual comparisons showing consistent rendering. Document any browser-specific
+        observations or default style variations.
+      EstimatedEffort: M
+      Files:
+      - docs/plans/simple-bolognese-website/browser-compatibility-report.md
+      ID: task-simple-bolognese-website-feat-browser-compatibility-7
+      Title: Document browser compatibility results
+    - AcceptanceCriteria:
+      - README.md includes reference to index.html
+      - Instructions for opening file in browsers added
+      - List of tested and compatible browsers documented
+      - File location and usage clearly explained
+      - Browser compatibility section added
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-browser-compatibility-7
+      Description: Update the README.md file to reference index.html and document
+        tested browsers. Include instructions for opening the file in different browsers
+        and note the confirmed browser compatibility.
+      EstimatedEffort: S
+      Files:
+      - README.md
+      ID: task-simple-bolognese-website-feat-browser-compatibility-8
+      Title: Update README with browser compatibility information
+  Sprint: 8
+- Features:
+  - FeatureID: simple-bolognese-website-feat-html-document-structure
+    FeatureTitle: HTML5 Document Structure
+    Tasks:
+    - AcceptanceCriteria:
+      - index.html file exists at repository root
+      - DOCTYPE declaration is present and correct
+      - HTML root element includes lang='en' attribute
+      - File uses UTF-8 encoding with LF line endings
+      - File size is approximately 200-300 bytes
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create the index.html file at the repository root with the complete
+        HTML5 document structure. Include the DOCTYPE declaration, html root element
+        with lang attribute, head section with meta charset and title, and body section
+        with the text content. Ensure proper UTF-8 encoding and Unix-style line endings
+        (LF).
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-html-document-structure-1
+      Title: Create basic HTML5 document structure
+    - AcceptanceCriteria:
+      - Meta charset UTF-8 declaration is present
+      - Title element contains 'I love bolognese' text
+      - Head section is properly nested within html element
+      - All required metadata for W3C validation is included
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-html-document-structure-1
+      Description: Configure the head section with required metadata elements. Add
+        the meta charset declaration for UTF-8 encoding and create the title element
+        with 'I love bolognese' text. Ensure proper nesting and W3C HTML5 compliance
+        for all head elements.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-html-document-structure-2
+      Title: Implement head section with metadata
+    - AcceptanceCriteria:
+      - Body element contains the text 'I love bolognese'
+      - Body is properly nested after head section
+      - No inline styles or CSS classes are present
+      - Content is plain text with no additional markup
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-html-document-structure-1
+      Description: Create the body section containing the plain text 'I love bolognese'.
+        Ensure the body is properly nested within the html element and positioned
+        after the head section. Verify that no additional styling or JavaScript is
+        added, allowing browser default styles to apply.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-html-document-structure-3
+      Title: Implement body section with content
+    - AcceptanceCriteria:
+      - Document passes W3C HTML5 validator without errors
+      - All elements are properly nested and closed
+      - Required elements (DOCTYPE, html, head, body) are present
+      - Character encoding is properly declared
+      - Lang attribute is correctly specified
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-html-document-structure-2
+      - task-simple-bolognese-website-feat-html-document-structure-3
+      Description: Validate the complete HTML document against W3C HTML5 standards.
+        Check for proper DOCTYPE declaration, correct element nesting, valid attributes,
+        proper closing tags, and character encoding declaration. Ensure the document
+        passes validation without errors or warnings.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-html-document-structure-4
+      Title: Validate W3C HTML5 compliance
+    - AcceptanceCriteria:
+      - Page loads successfully in Chrome, Firefox, Safari, and Edge
+      - Text renders with browser default styling
+      - Content is visible and readable in all tested browsers
+      - No console errors or warnings appear
+      - Page displays 'I love bolognese' in browser tab title
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-html-document-structure-4
+      Description: Verify the HTML document renders correctly across major browsers
+        (Chrome, Firefox, Safari, Edge). Confirm that the text displays with browser
+        default styles, positioned at top-left with 8px margin, using approximately
+        16px Times New Roman font. Ensure no layout shifts or rendering issues occur.
+      EstimatedEffort: M
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-html-document-structure-5
+      Title: Test cross-browser rendering
+    - AcceptanceCriteria:
+      - README.md includes reference to index.html
+      - Instructions for opening the file are provided
+      - Purpose of the HTML file is clearly explained
+      - Documentation is properly formatted in Markdown
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-html-document-structure-1
+      Description: Modify the README.md file to document the new index.html file.
+        Add instructions for opening the HTML file in a browser, explain its purpose,
+        and provide any relevant usage information. Ensure documentation is clear
+        and accessible for users.
+      EstimatedEffort: S
+      Files:
+      - README.md
+      ID: task-simple-bolognese-website-feat-html-document-structure-6
+      Title: Update README documentation
+    - AcceptanceCriteria:
+      - Lang attribute is present and correctly set to 'en'
+      - Document has a descriptive title element
+      - UTF-8 encoding is properly declared
+      - Content is accessible to screen readers
+      - Page structure is semantic and logical
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-html-document-structure-4
+      Description: Test the HTML document for basic accessibility compliance. Verify
+        the lang attribute enables proper screen reader functionality, confirm UTF-8
+        encoding supports international characters, and ensure the document has a
+        meaningful title for assistive technologies. Check that the content meets
+        WCAG basic requirements.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-html-document-structure-7
+      Title: Verify accessibility standards
+    - AcceptanceCriteria:
+      - File uses UTF-8 encoding without BOM
+      - Line endings are LF (Unix-style)
+      - File size is between 200-300 bytes
+      - Git recognizes file with correct attributes
+      - No hidden characters or encoding issues present
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-html-document-structure-1
+      Description: Validate that the index.html file uses UTF-8 encoding without BOM
+        and Unix-style LF line endings. Ensure the file can be properly version controlled
+        in Git and that no encoding issues exist that could cause rendering problems.
+        Verify file size is within expected range of 200-300 bytes.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-html-document-structure-8
+      Title: Verify file encoding and line endings
+  Sprint: 1
+- Features:
+  - FeatureID: simple-bolognese-website-feat-no-external-dependencies
+    FeatureTitle: Zero External Dependencies
+    Tasks:
+    - AcceptanceCriteria:
+      - index.html file created at repository root
+      - Valid HTML5 DOCTYPE declaration present
+      - HTML element includes lang='en' attribute
+      - Meta charset UTF-8 declaration included in head
+      - Proper nesting of html, head, and body elements
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create the index.html file at the repository root with valid HTML5
+        structure including DOCTYPE, html, head, and body elements. Add proper UTF-8
+        character encoding and lang attribute for accessibility. Ensure the document
+        follows W3C HTML5 specification with proper element nesting.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-no-external-dependencies-1
+      Title: Create minimal HTML5 document structure
+    - AcceptanceCriteria:
+      - Title element contains 'I love bolognese'
+      - Body contains plain text 'I love bolognese'
+      - No CSS styles or style attributes present
+      - No JavaScript or script tags present
+      - No external resource references
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-no-external-dependencies-1
+      Description: Implement the title element in the head section with text 'I love
+        bolognese'. Add the body content with the plain text 'I love bolognese'. Ensure
+        no styling, scripts, or external references are added - only semantic HTML
+        markup.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-no-external-dependencies-2
+      Title: Add page title and content text
+    - AcceptanceCriteria:
+      - HTML validates against W3C HTML5 specification
+      - File uses UTF-8 encoding without BOM
+      - Line endings are LF (Unix-style)
+      - File size is between 150-350 bytes
+      - All tags properly closed and nested
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-no-external-dependencies-2
+      Description: Verify the HTML file is W3C HTML5 compliant and uses UTF-8 encoding
+        with Unix-style (LF) line endings. Check that file size is approximately 200-300
+        bytes. Ensure no byte order mark (BOM) is present and encoding is correctly
+        specified.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-no-external-dependencies-3
+      Title: Validate HTML5 compliance and character encoding
+    - AcceptanceCriteria:
+      - No link tags with external href present
+      - No script tags with external src present
+      - No img tags with any src attributes present
+      - No external font references or @import statements
+      - No CDN or external domain references
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-no-external-dependencies-2
+      Description: Scan the HTML file to ensure it contains absolutely no references
+        to external CSS files, JavaScript files, images, fonts, or any other external
+        resources. Verify no CDN links, external stylesheets, script sources, img
+        src attributes, or link tags pointing to external resources exist.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-no-external-dependencies-4
+      Title: Verify zero external dependencies
+    - AcceptanceCriteria:
+      - Page renders correctly in Chrome with default styles
+      - Page renders correctly in Firefox with default styles
+      - Text 'I love bolognese' visible in body
+      - Title 'I love bolognese' appears in browser tab
+      - No browser console errors or warnings
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-no-external-dependencies-3
+      - task-simple-bolognese-website-feat-no-external-dependencies-4
+      Description: Open index.html in Chrome, Firefox, and Safari to verify correct
+        rendering with browser default styles. Confirm text displays as 'I love bolognese'
+        in black color with browser default font. Verify title appears correctly in
+        browser tab and no console errors occur.
+      EstimatedEffort: M
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-no-external-dependencies-5
+      Title: Test browser rendering across multiple browsers
+    - AcceptanceCriteria:
+      - README.md updated with reference to index.html
+      - Instructions for opening file in browser included
+      - Documentation mentions zero external dependencies
+      - Clear statement that no web server required
+      - File location specified as repository root
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-no-external-dependencies-5
+      Description: Add documentation to README.md explaining that index.html exists
+        at the repository root. Include instructions for opening the file in a web
+        browser. Document that the file has zero external dependencies and can be
+        opened directly without a web server.
+      EstimatedEffort: S
+      Files:
+      - README.md
+      ID: task-simple-bolognese-website-feat-no-external-dependencies-6
+      Title: Update README.md with usage instructions
+    - AcceptanceCriteria:
+      - HTML lang attribute properly set to 'en'
+      - Document has valid semantic structure
+      - Content accessible via keyboard navigation
+      - Screen reader can read content correctly
+      - No accessibility violations in automated testing
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-no-external-dependencies-5
+      Description: Test the HTML file for basic accessibility compliance including
+        proper lang attribute, semantic HTML structure, and valid document outline.
+        Verify screen reader compatibility and ensure the page meets WCAG basic requirements
+        without requiring additional ARIA attributes.
+      EstimatedEffort: M
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-no-external-dependencies-7
+      Title: Verify accessibility compliance
+  Sprint: 5
+- Features:
+  - FeatureID: simple-bolognese-website-feat-file-size-optimization
+    FeatureTitle: File Size Under 1KB
+    Tasks:
+    - AcceptanceCriteria:
+      - index.html file created in repository root
+      - File contains valid HTML5 DOCTYPE declaration
+      - HTML element includes lang='en' attribute
+      - Head section contains UTF-8 charset meta tag
+      - All tags properly nested and closed
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create the index.html file with minimal valid HTML5 structure.
+        Include DOCTYPE declaration, html element with lang attribute, head section
+        with charset meta tag, title element, and body element. Ensure proper nesting
+        and closing of all tags according to W3C HTML5 specification.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-file-size-optimization-1
+      Title: Create minimal HTML5 document structure
+    - AcceptanceCriteria:
+      - Body element contains exact text 'I love bolognese'
+      - No additional HTML elements added around the text
+      - Text renders as plain content with browser defaults
+      - No inline styles or CSS classes present
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-file-size-optimization-1
+      Description: Insert the required text 'I love bolognese' into the body element
+        of index.html. Ensure the text is placed as plain text content without any
+        additional markup, divs, or styling elements. Verify the text renders correctly
+        in browser with default styling.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-file-size-optimization-2
+      Title: Add content text to body
+    - AcceptanceCriteria:
+      - File size is less than 1024 bytes
+      - File uses UTF-8 encoding without BOM
+      - File uses LF (Unix-style) line endings
+      - HTML structure remains valid and readable
+      - No unnecessary whitespace or comments present
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-file-size-optimization-2
+      Description: Verify and optimize index.html file size to remain under 1024 bytes.
+        Remove any unnecessary whitespace, comments, or formatting while maintaining
+        valid HTML5 structure and readability. Use Unix-style LF line endings and
+        ensure UTF-8 encoding without BOM.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-file-size-optimization-3
+      Title: Optimize file size to under 1KB
+    - AcceptanceCriteria:
+      - Document passes W3C HTML5 validation
+      - All required HTML5 elements present
+      - Title element contains 'I love bolognese' text
+      - Character encoding properly declared as UTF-8
+      - No validation errors or warnings
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-file-size-optimization-3
+      Description: Validate the index.html file against W3C HTML5 specification. Ensure
+        all required elements are present (DOCTYPE, html, head, body), proper character
+        encoding is declared, and the document passes HTML5 validation. Verify the
+        title element contains appropriate content.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-file-size-optimization-4
+      Title: Validate HTML5 compliance
+    - AcceptanceCriteria:
+      - Text 'I love bolognese' renders correctly in Chrome
+      - Text 'I love bolognese' renders correctly in Firefox
+      - Text 'I love bolognese' renders correctly in Safari or Edge
+      - Browser default styles apply consistently
+      - No console errors or warnings in any browser
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-file-size-optimization-4
+      Description: Test index.html rendering across major browsers (Chrome, Firefox,
+        Safari, Edge) to verify consistent display of the text content. Confirm browser
+        default styling applies correctly with expected font, color, and positioning.
+        Document any rendering differences or issues.
+      EstimatedEffort: M
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-file-size-optimization-5
+      Title: Test cross-browser rendering
+    - AcceptanceCriteria:
+      - README.md includes reference to index.html
+      - Instructions for opening file in browser provided
+      - File location documented as repository root
+      - Expected display behavior described
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-file-size-optimization-5
+      Description: Update the README.md file to document the existence and usage of
+        index.html. Add clear instructions on how to open and view the file in a browser.
+        Include reference to file location and expected behavior.
+      EstimatedEffort: S
+      Files:
+      - README.md
+      ID: task-simple-bolognese-website-feat-file-size-optimization-6
+      Title: Update README documentation
+    - AcceptanceCriteria:
+      - File size verified as under 1024 bytes using ls -l
+      - File size verified using wc -c command
+      - Actual byte count documented
+      - At least 100 bytes margin below 1KB limit
+      - Verification process documented
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-file-size-optimization-6
+      Description: Perform final verification that index.html file size is under 1024
+        bytes using multiple measurement methods (ls, wc, stat). Create automated
+        check script if needed. Document the actual file size and confirm it meets
+        the constraint with reasonable margin.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-file-size-optimization-7
+      Title: Verify file size constraint compliance
+  Sprint: 6
+- Features:
+  - FeatureID: simple-bolognese-website-feat-filesystem-accessibility
+    FeatureTitle: Filesystem Direct Access
+    Tasks:
+    - AcceptanceCriteria:
+      - index.html file exists at repository root
+      - File contains valid HTML5 DOCTYPE declaration
+      - HTML root element includes lang='en' attribute
+      - Head and body sections are present and properly closed
+      - File uses UTF-8 encoding and LF line endings
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create the index.html file at repository root with proper HTML5
+        DOCTYPE declaration, html root element with lang attribute, and empty head
+        and body sections. Ensure UTF-8 encoding and LF line endings are used. This
+        establishes the foundational document structure required for all subsequent
+        content.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-filesystem-accessibility-1
+      Title: Create minimal HTML5 structure
+    - AcceptanceCriteria:
+      - Meta charset tag set to UTF-8 is present in head
+      - Title element contains exactly 'I love bolognese'
+      - Head section follows HTML5 specification order
+      - No extraneous metadata or external references exist
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-filesystem-accessibility-1
+      Description: Add required metadata elements to the head section including charset
+        meta tag for UTF-8 encoding and title element containing 'I love bolognese'.
+        This ensures proper character rendering and provides meaningful browser tab/window
+        identification for users and accessibility tools.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-filesystem-accessibility-2
+      Title: Implement head section metadata
+    - AcceptanceCriteria:
+      - Body section contains plain text 'I love bolognese'
+      - No CSS styling or inline styles are present
+      - No JavaScript or external dependencies included
+      - Text renders with browser default styling
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-filesystem-accessibility-1
+      Description: Insert the plain text content 'I love bolognese' into the body
+        section of the HTML document. Ensure no additional styling, markup, or formatting
+        is applied - the text should rely entirely on browser default styling for
+        rendering.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-filesystem-accessibility-3
+      Title: Add body content text
+    - AcceptanceCriteria:
+      - Document passes W3C HTML5 validation
+      - All tags are properly nested and closed
+      - File opens successfully using file:// protocol
+      - No validation warnings or errors present
+      - File size is between 200-300 bytes
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-filesystem-accessibility-2
+      - task-simple-bolognese-website-feat-filesystem-accessibility-3
+      Description: Verify the complete index.html file validates against W3C HTML5
+        specification. Check proper nesting and closing of all tags, required elements
+        presence, valid attribute usage, and overall document structure. Ensure the
+        file can be opened successfully via file:// protocol in major browsers.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-filesystem-accessibility-4
+      Title: Validate HTML5 compliance
+    - AcceptanceCriteria:
+      - File opens successfully in Chrome, Firefox, Safari, and Edge
+      - Text renders correctly with browser defaults in all tested browsers
+      - No JavaScript errors appear in browser console
+      - File loads instantly without network requests
+      - Accessibility tools can read content properly
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-filesystem-accessibility-4
+      Description: Test the index.html file across major browsers (Chrome, Firefox,
+        Safari, Edge) using file:// protocol. Verify consistent rendering behavior,
+        default styling application, and absence of console errors or warnings. Document
+        any browser-specific rendering differences.
+      EstimatedEffort: M
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-filesystem-accessibility-5
+      Title: Test cross-browser compatibility
+    - AcceptanceCriteria:
+      - README.md includes section about index.html
+      - Instructions for opening file via file:// protocol are clear
+      - Documentation mentions no web server requirement
+      - Browser compatibility information is included
+      - Expected rendering behavior is documented
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-filesystem-accessibility-4
+      Description: Modify README.md to add reference to the new index.html file and
+        provide clear instructions for opening it using file:// protocol. Include
+        information about browser compatibility, expected rendering behavior, and
+        verification that no web server is required.
+      EstimatedEffort: S
+      Files:
+      - README.md
+      ID: task-simple-bolognese-website-feat-filesystem-accessibility-6
+      Title: Update README documentation
+    - AcceptanceCriteria:
+      - index.html exists at repository root with correct permissions
+      - README.md modifications are present and correct
+      - No extraneous files or directories created
+      - Repository structure matches LLD specification
+      - Git status shows only expected new/modified files
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-filesystem-accessibility-6
+      Description: Confirm the final repository structure matches the expected layout
+        defined in LLD with index.html at root and updated README.md. Verify file
+        permissions are appropriate, no unexpected files were created, and the repository
+        remains clean with only intended changes.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      - README.md
+      ID: task-simple-bolognese-website-feat-filesystem-accessibility-7
+      Title: Verify repository structure
+  Sprint: 9
+- Features:
+  - FeatureID: simple-bolognese-website-feat-content-display
+    FeatureTitle: Content Text Display
+    Tasks:
+    - AcceptanceCriteria:
+      - index.html file exists at repository root
+      - File contains valid HTML5 DOCTYPE declaration
+      - HTML root element includes lang='en' attribute
+      - Head section contains UTF-8 meta charset and title element
+      - Body section contains plain text 'I love bolognese'
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create the index.html file at the repository root with valid HTML5
+        document structure. Include DOCTYPE declaration, html root element with lang
+        attribute, head section with meta charset and title, and body section with
+        the text 'I love bolognese'. Ensure proper UTF-8 encoding and LF line endings.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-content-display-1
+      Title: Create index.html with basic HTML5 structure
+    - AcceptanceCriteria:
+      - HTML passes W3C HTML5 validation
+      - All tags are properly nested and closed
+      - Character encoding is declared as UTF-8
+      - File size is approximately 200-300 bytes
+      - Line endings are LF (Unix-style)
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-content-display-1
+      Description: Verify that index.html complies with W3C HTML5 specification standards.
+        Check proper nesting and closing of all tags, validate character encoding
+        declaration, and ensure all required HTML5 elements are present. Confirm that
+        the file uses UTF-8 encoding and LF line endings.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-content-display-2
+      Title: Validate HTML5 compliance and structure
+    - AcceptanceCriteria:
+      - Page renders correctly in Chrome browser
+      - Page renders correctly in Firefox browser
+      - Page renders correctly in Safari browser
+      - Browser tab displays 'I love bolognese' as title
+      - No console errors or warnings appear
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-content-display-2
+      Description: Open index.html in Chrome, Firefox, and Safari browsers to verify
+        correct rendering. Confirm that text displays as 'I love bolognese' with browser
+        default styling. Verify that no console errors appear and that the page title
+        shows correctly in the browser tab.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-content-display-3
+      Title: Test browser rendering across multiple browsers
+    - AcceptanceCriteria:
+      - HTML lang attribute is properly set to 'en'
+      - Document structure is semantically correct
+      - Content is accessible to screen readers
+      - No accessibility warnings in browser dev tools
+      - Page is fully functional without CSS or JavaScript
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-content-display-2
+      Description: Test index.html for basic accessibility compliance using browser
+        accessibility tools. Verify that the lang attribute is set correctly for screen
+        readers, that the document has proper semantic structure, and that the content
+        is accessible without requiring any CSS or JavaScript.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-content-display-4
+      Title: Verify accessibility and semantic markup
+    - AcceptanceCriteria:
+      - README.md contains reference to index.html
+      - Instructions explain how to open the file in a browser
+      - File path is clearly documented
+      - Usage section is clear and concise
+      - Documentation follows existing README.md formatting
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-content-display-1
+      Description: Modify the README.md file to include a reference to index.html
+        and provide clear instructions for opening and viewing it. Add a section explaining
+        that users can open the file directly in any web browser to see the 'I love
+        bolognese' message. Include the file path and basic usage information.
+      EstimatedEffort: S
+      Files:
+      - README.md
+      ID: task-simple-bolognese-website-feat-content-display-5
+      Title: Update README.md with usage instructions
+  - FeatureID: simple-bolognese-website-feat-documentation
+    FeatureTitle: README Documentation
+    Tasks:
+    - AcceptanceCriteria:
+      - README.md contains new section referencing index.html
+      - Section includes file location information (root directory)
+      - 'Section includes clear instructions: ''Open index.html in any web browser
+        to view'''
+      - Documentation follows existing README formatting style
+      - Changes are clear and concise without unnecessary verbosity
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Add a new section to README.md that documents the existence of
+        index.html. Include a clear reference to the file location (repository root)
+        and provide instructions for how users can open and view the file in their
+        web browser. Follow existing README formatting conventions.
+      EstimatedEffort: S
+      Files:
+      - README.md
+      ID: task-simple-bolognese-website-feat-documentation-1
+      Title: Update README.md with index.html reference
+    - AcceptanceCriteria:
+      - Documentation clarity verified (instructions are unambiguous)
+      - Documentation completeness verified (all necessary information included)
+      - Formatting consistency verified (matches existing README style)
+      - No spelling or grammatical errors present
+      - Documentation provides adequate context about the file's purpose
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-documentation-1
+      Description: Review the updated README.md to ensure documentation quality meets
+        standards. Verify that instructions are clear, complete, and accurate. Check
+        that the documentation provides sufficient context for users to understand
+        the purpose of index.html and how to use it. Ensure formatting is consistent
+        with the rest of the README.
+      EstimatedEffort: S
+      Files:
+      - README.md
+      ID: task-simple-bolognese-website-feat-documentation-2
+      Title: Validate README.md documentation quality
+    - AcceptanceCriteria:
+      - index.html opens successfully following README instructions
+      - Instructions verified in at least 2 different browsers
+      - No additional steps required beyond what's documented
+      - Content displays correctly when following instructions
+      - Instructions are confirmed to be browser-agnostic
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-documentation-1
+      Description: Manually verify that the instructions provided in README.md are
+        accurate and complete. Open index.html following the exact instructions documented.
+        Test in multiple browsers if available (Chrome, Firefox, Safari, Edge) to
+        ensure instructions are browser-agnostic and work universally.
+      EstimatedEffort: S
+      Files:
+      - README.md
+      - index.html
+      ID: task-simple-bolognese-website-feat-documentation-3
+      Title: Test browser opening instructions
+    - AcceptanceCriteria:
+      - README renders correctly on GitHub web interface
+      - All markdown syntax renders as intended
+      - No broken formatting or display issues
+      - Links (if any) are functional and point to correct locations
+      - README is readable and well-structured in rendered form
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-documentation-1
+      Description: Ensure the updated README.md renders correctly in different contexts
+        where it might be viewed. Check rendering on GitHub web interface, in local
+        markdown viewers, and in IDEs. Verify that any markdown formatting used (headers,
+        lists, code blocks, etc.) displays properly across platforms.
+      EstimatedEffort: S
+      Files:
+      - README.md
+      ID: task-simple-bolognese-website-feat-documentation-4
+      Title: Verify README markdown rendering
+    - AcceptanceCriteria:
+      - All LLD requirements for README.md are implemented
+      - Reference to index.html is present as specified
+      - Usage instructions match LLD specifications
+      - No LLD requirements are missing from implementation
+      - Documentation aligns with repository structure outlined in LLD
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-documentation-2
+      - task-simple-bolognese-website-feat-documentation-4
+      Description: Cross-reference the implemented README.md changes against the Low-Level
+        Design specifications. Ensure all requirements from the LLD are met, including
+        the reference to index.html and usage instructions. Verify that the migration
+        strategy documentation requirements are satisfied.
+      EstimatedEffort: S
+      Files:
+      - README.md
+      ID: task-simple-bolognese-website-feat-documentation-5
+      Title: Validate documentation against LLD requirements
+  Sprint: 4
+- Features:
+  - FeatureID: simple-bolognese-website-feat-character-encoding
+    FeatureTitle: UTF-8 Character Encoding
+    Tasks:
+    - AcceptanceCriteria:
+      - DOCTYPE declaration '<!DOCTYPE html>' is present as first line
+      - No whitespace or characters appear before DOCTYPE
+      - Declaration uses correct HTML5 syntax
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Add the HTML5 DOCTYPE declaration as the first line of index.html.
+        This instructs the browser to use HTML5 parsing mode and is required for W3C
+        validation. Verify the declaration is properly formatted and positioned before
+        the html root element.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-character-encoding-1
+      Title: Add DOCTYPE declaration to HTML document
+    - AcceptanceCriteria:
+      - Opening <html lang='en'> tag present after DOCTYPE
+      - Closing </html> tag present at end of document
+      - lang attribute set to 'en' for English content
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-character-encoding-1
+      Description: Add the html root element with lang='en' attribute immediately
+        after the DOCTYPE declaration. This element serves as the container for the
+        entire document and provides accessibility information about the content language.
+        Ensure proper opening and closing tags are present.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-character-encoding-2
+      Title: Create HTML root element with language attribute
+    - AcceptanceCriteria:
+      - Meta tag '<meta charset="UTF-8">' present in head section
+      - Meta tag positioned before title element
+      - UTF-8 encoding specified correctly
+      - Tag is self-closing and properly formatted
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-character-encoding-2
+      Description: Add the meta charset tag within the head section to specify UTF-8
+        character encoding. This ensures proper text display across all browsers and
+        is the core requirement of this feature. The meta tag must be positioned early
+        in the head section before the title tag to take effect before any text content
+        is parsed.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-character-encoding-3
+      Title: Implement UTF-8 character encoding meta tag
+    - AcceptanceCriteria:
+      - Title element present in head section
+      - Title text is exactly 'I love bolognese'
+      - Title positioned after meta charset tag
+      - Proper opening and closing title tags used
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-character-encoding-3
+      Description: Create the title element within the head section containing the
+        text 'I love bolognese'. This text will appear in the browser tab or window
+        title bar. Position the title tag after the meta charset tag to ensure proper
+        character encoding is applied to the title text.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-character-encoding-4
+      Title: Add document title element
+    - AcceptanceCriteria:
+      - Body element present after head section
+      - Body contains exactly 'I love bolognese' as text content
+      - No additional HTML tags or styling within body
+      - Proper opening and closing body tags used
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-character-encoding-4
+      Description: Add the body element containing the plain text 'I love bolognese'
+        as visible page content. Ensure proper nesting within the html root element
+        and correct positioning after the head section. The body should contain only
+        the specified text with no additional styling or markup.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-character-encoding-5
+      Title: Implement body section with content
+    - AcceptanceCriteria:
+      - Document passes W3C HTML5 validation
+      - All tags properly nested and closed
+      - Required elements present (DOCTYPE, html, head, body)
+      - File opens successfully in Chrome, Firefox, and Safari
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-character-encoding-5
+      Description: Verify the complete HTML document complies with W3C HTML5 specification.
+        Check that all required elements are present and properly nested, tags are
+        correctly closed, and the document uses valid syntax. Test the file can be
+        opened in multiple browsers without errors.
+      EstimatedEffort: M
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-character-encoding-6
+      Title: Validate HTML5 compliance and structure
+    - AcceptanceCriteria:
+      - File saved with UTF-8 encoding (not UTF-16 or ASCII)
+      - Browser developer tools confirm UTF-8 encoding
+      - No encoding-related warnings in browser console
+      - File size matches expected UTF-8 byte count
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-character-encoding-6
+      Description: Test that the UTF-8 character encoding is correctly applied by
+        verifying the file is saved with UTF-8 encoding and that special characters
+        would render correctly. Confirm the meta charset tag takes effect before content
+        parsing. Validate encoding detection in browser developer tools.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-character-encoding-7
+      Title: Verify UTF-8 encoding functionality
+    - AcceptanceCriteria:
+      - Text renders identically in Chrome, Firefox, and Safari
+      - Default browser styles applied (16px black Times New Roman)
+      - Text positioned at top-left with 8px margin
+      - No layout shifts or rendering errors observed
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-bolognese-website-feat-character-encoding-7
+      Description: Verify the HTML document renders identically across Chrome, Firefox,
+        and Safari browsers. Confirm that browser default styles are applied consistently
+        and that the text appears at the expected position with expected formatting.
+        Document any rendering differences.
+      EstimatedEffort: M
+      Files:
+      - index.html
+      ID: task-simple-bolognese-website-feat-character-encoding-8
+      Title: Test cross-browser rendering consistency
+  Sprint: 2
