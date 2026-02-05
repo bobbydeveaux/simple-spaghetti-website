@@ -1,0 +1,116 @@
+Epic: simple-bolognese-website
+Features:
+- dependencies: []
+  description: Create valid HTML5 document structure with DOCTYPE, html, head, and
+    body elements following W3C standards
+  estimatedComplexity: low
+  files:
+  - index.html
+  id: simple-bolognese-website-feat-html-document-structure
+  name: HTML5 Document Structure
+  project: simple-bolognese-website
+  type: enabler
+- dependencies:
+  - simple-bolognese-website-feat-html-document-structure
+  description: Set UTF-8 character encoding in HTML meta tag to ensure proper text
+    display across all browsers
+  estimatedComplexity: low
+  files:
+  - index.html
+  id: simple-bolognese-website-feat-character-encoding
+  name: UTF-8 Character Encoding
+  project: simple-bolognese-website
+  type: enabler
+- dependencies:
+  - simple-bolognese-website-feat-html-document-structure
+  description: Add title element in head section displaying 'I love bolognese' for
+    browser tab/window
+  estimatedComplexity: low
+  files:
+  - index.html
+  id: simple-bolognese-website-feat-page-title
+  name: Page Title Element
+  project: simple-bolognese-website
+  type: feature
+- dependencies:
+  - simple-bolognese-website-feat-html-document-structure
+  description: Display the text 'I love bolognese' in the body element using plain
+    text with browser default styling
+  estimatedComplexity: low
+  files:
+  - index.html
+  id: simple-bolognese-website-feat-content-display
+  name: Content Text Display
+  project: simple-bolognese-website
+  type: feature
+- dependencies:
+  - simple-bolognese-website-feat-content-display
+  description: Ensure HTML file contains no references to external CSS, JavaScript,
+    images, or any other external resources
+  estimatedComplexity: low
+  files:
+  - index.html
+  id: simple-bolognese-website-feat-no-external-dependencies
+  name: Zero External Dependencies
+  project: simple-bolognese-website
+  type: feature
+- dependencies:
+  - simple-bolognese-website-feat-html-document-structure
+  - simple-bolognese-website-feat-character-encoding
+  - simple-bolognese-website-feat-page-title
+  - simple-bolognese-website-feat-content-display
+  description: Ensure HTML markup passes W3C validation with zero errors and warnings
+  estimatedComplexity: low
+  files:
+  - index.html
+  id: simple-bolognese-website-feat-w3c-validation
+  name: W3C HTML5 Validation Compliance
+  project: simple-bolognese-website
+  type: feature
+- dependencies:
+  - simple-bolognese-website-feat-content-display
+  - simple-bolognese-website-feat-no-external-dependencies
+  description: Verify HTML renders correctly in Chrome, Firefox, Safari, and Edge
+    with consistent black text on white background
+  estimatedComplexity: low
+  files:
+  - index.html
+  id: simple-bolognese-website-feat-browser-compatibility
+  name: Cross-Browser Compatibility
+  project: simple-bolognese-website
+  type: feature
+- dependencies:
+  - simple-bolognese-website-feat-html-document-structure
+  - simple-bolognese-website-feat-content-display
+  description: Ensure index.html file size remains under 1024 bytes while maintaining
+    valid HTML5 structure
+  estimatedComplexity: low
+  files:
+  - index.html
+  id: simple-bolognese-website-feat-file-size-optimization
+  name: File Size Under 1KB
+  project: simple-bolognese-website
+  type: feature
+- dependencies:
+  - simple-bolognese-website-feat-no-external-dependencies
+  description: Enable HTML file to be opened directly from local filesystem using
+    file:// protocol without requiring a web server
+  estimatedComplexity: low
+  files:
+  - index.html
+  id: simple-bolognese-website-feat-filesystem-accessibility
+  name: Filesystem Direct Access
+  project: simple-bolognese-website
+  type: feature
+- dependencies:
+  - simple-bolognese-website-feat-content-display
+  description: Update README.md with reference to index.html and instructions for
+    opening the file in a browser
+  estimatedComplexity: low
+  files:
+  - README.md
+  id: simple-bolognese-website-feat-documentation
+  name: README Documentation
+  project: simple-bolognese-website
+  type: enabler
+Version: v1alpha1
