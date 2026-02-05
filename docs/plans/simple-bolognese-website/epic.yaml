@@ -1,6 +1,7 @@
 Epic: simple-bolognese-website
 Features:
-- dependencies: []
+- Sprint: 1
+  dependencies: []
   description: Create valid HTML5 document structure with DOCTYPE, html, head, and
     body elements following W3C standards
   estimatedComplexity: low
@@ -10,7 +11,8 @@ Features:
   name: HTML5 Document Structure
   project: simple-bolognese-website
   type: enabler
-- dependencies:
+- Sprint: 2
+  dependencies:
   - simple-bolognese-website-feat-html-document-structure
   description: Set UTF-8 character encoding in HTML meta tag to ensure proper text
     display across all browsers
@@ -21,7 +23,8 @@ Features:
   name: UTF-8 Character Encoding
   project: simple-bolognese-website
   type: enabler
-- dependencies:
+- Sprint: 3
+  dependencies:
   - simple-bolognese-website-feat-html-document-structure
   description: Add title element in head section displaying 'I love bolognese' for
     browser tab/window
@@ -32,7 +35,8 @@ Features:
   name: Page Title Element
   project: simple-bolognese-website
   type: feature
-- dependencies:
+- Sprint: 4
+  dependencies:
   - simple-bolognese-website-feat-html-document-structure
   description: Display the text 'I love bolognese' in the body element using plain
     text with browser default styling
@@ -43,7 +47,8 @@ Features:
   name: Content Text Display
   project: simple-bolognese-website
   type: feature
-- dependencies:
+- Sprint: 5
+  dependencies:
   - simple-bolognese-website-feat-content-display
   description: Ensure HTML file contains no references to external CSS, JavaScript,
     images, or any other external resources
@@ -54,7 +59,8 @@ Features:
   name: Zero External Dependencies
   project: simple-bolognese-website
   type: feature
-- dependencies:
+- Sprint: 7
+  dependencies:
   - simple-bolognese-website-feat-html-document-structure
   - simple-bolognese-website-feat-character-encoding
   - simple-bolognese-website-feat-page-title
@@ -67,7 +73,8 @@ Features:
   name: W3C HTML5 Validation Compliance
   project: simple-bolognese-website
   type: feature
-- dependencies:
+- Sprint: 8
+  dependencies:
   - simple-bolognese-website-feat-content-display
   - simple-bolognese-website-feat-no-external-dependencies
   description: Verify HTML renders correctly in Chrome, Firefox, Safari, and Edge
@@ -79,7 +86,8 @@ Features:
   name: Cross-Browser Compatibility
   project: simple-bolognese-website
   type: feature
-- dependencies:
+- Sprint: 6
+  dependencies:
   - simple-bolognese-website-feat-html-document-structure
   - simple-bolognese-website-feat-content-display
   description: Ensure index.html file size remains under 1024 bytes while maintaining
@@ -91,7 +99,8 @@ Features:
   name: File Size Under 1KB
   project: simple-bolognese-website
   type: feature
-- dependencies:
+- Sprint: 9
+  dependencies:
   - simple-bolognese-website-feat-no-external-dependencies
   description: Enable HTML file to be opened directly from local filesystem using
     file:// protocol without requiring a web server
@@ -102,7 +111,8 @@ Features:
   name: Filesystem Direct Access
   project: simple-bolognese-website
   type: feature
-- dependencies:
+- Sprint: 4
+  dependencies:
   - simple-bolognese-website-feat-content-display
   description: Update README.md with reference to index.html and instructions for
     opening the file in a browser
