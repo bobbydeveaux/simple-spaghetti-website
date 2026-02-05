@@ -1,0 +1,1511 @@
+GeneratedAt: "2026-02-05T15:40:59Z"
+Plan: simple-spaghetti-website-plan
+Sprints:
+- Features:
+  - FeatureID: simple-spaghetti-website-feat-no-external-dependencies
+    FeatureTitle: Zero External Dependencies
+    Tasks:
+    - AcceptanceCriteria:
+      - All <link> tags in index.html are identified and catalogued
+      - Line numbers and href attributes are documented
+      - A report of external CSS dependencies is generated
+      AgentType: qa-engineer
+      Dependencies: []
+      Description: Scan index.html for all <link> tags that reference external CSS
+        files, favicons, or other external resources. Document all findings including
+        line numbers and resource URLs. This is the first step in ensuring zero external
+        dependencies.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-no-external-dependencies-1
+      Title: Audit index.html for link tags
+    - AcceptanceCriteria:
+      - All <script src=...> tags in index.html are identified
+      - Inline scripts (without src) are ignored as allowed
+      - Line numbers and src URLs are documented
+      - A report of external JavaScript dependencies is generated
+      AgentType: qa-engineer
+      Dependencies: []
+      Description: Scan index.html for all <script> tags with src attributes that
+        reference external JavaScript files. Document all findings including line
+        numbers and resource URLs. Identify both local and remote script dependencies.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-no-external-dependencies-2
+      Title: Audit index.html for script tags
+    - AcceptanceCriteria:
+      - All media tags with external resources are identified
+      - Tag types, line numbers, and src/srcset attributes are documented
+      - A comprehensive report of external media dependencies is generated
+      AgentType: qa-engineer
+      Dependencies: []
+      Description: Scan index.html for all <img>, <video>, <audio>, <source>, <picture>,
+        and <iframe> tags that reference external resources. Document all findings
+        including tag types, line numbers, and resource URLs.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-no-external-dependencies-3
+      Title: Audit index.html for image and media tags
+    - AcceptanceCriteria:
+      - All external <link> tags are removed from index.html
+      - HTML document remains well-formed after removal
+      - No broken references or dangling attributes remain
+      - File validates as HTML5
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-no-external-dependencies-1
+      Description: Remove all <link> tags identified in the audit that reference external
+        resources. This includes external CSS files, web fonts, favicons hosted externally,
+        and any other linked resources. Preserve the HTML structure and ensure no
+        broken references remain.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-no-external-dependencies-4
+      Title: Remove all external link tags
+    - AcceptanceCriteria:
+      - All <script src=...> tags are removed from index.html
+      - Inline <script> blocks without src are preserved if present
+      - HTML document remains well-formed after removal
+      - No script loading errors can occur
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-no-external-dependencies-2
+      Description: Remove all <script> tags with src attributes that were identified
+        in the audit. This includes both local file references and remote CDN scripts.
+        Preserve any inline scripts that contain embedded JavaScript code as these
+        are allowed.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-no-external-dependencies-5
+      Title: Remove all external script tags
+    - AcceptanceCriteria:
+      - All external media tags are removed from index.html
+      - No img, video, audio, iframe tags with external sources remain
+      - HTML structure is preserved and remains valid
+      - Only text content remains in the body
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-no-external-dependencies-3
+      Description: Remove all <img>, <video>, <audio>, <source>, <picture>, and <iframe>
+        tags that reference external resources. Clean up any related attributes like
+        srcset or poster that might reference external files. Ensure the document
+        contains only text content.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-no-external-dependencies-6
+      Title: Remove all external media resources
+    - AcceptanceCriteria:
+      - All inline style attributes are scanned for url() references
+      - Any external resource references in inline styles are removed
+      - Document remains valid HTML5
+      - No CSS-based external resource loading is possible
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-no-external-dependencies-4
+      - task-simple-spaghetti-website-feat-no-external-dependencies-5
+      - task-simple-spaghetti-website-feat-no-external-dependencies-6
+      Description: Scan all HTML elements for inline style attributes that might reference
+        external resources via url() CSS functions. This includes background images,
+        custom cursors, or other CSS properties that can load external files. Remove
+        or modify any such attributes.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-no-external-dependencies-7
+      Title: Verify zero inline style attributes with URLs
+    - AcceptanceCriteria:
+      - Test script parses index.html successfully
+      - Script checks for link, script src, img, video, audio, iframe tags
+      - Script validates no external URLs in style attributes
+      - Test fails with clear error message if external dependencies found
+      - Test passes when run against cleaned index.html
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-no-external-dependencies-7
+      Description: Write an automated test script that validates index.html contains
+        zero external dependencies. The script should parse the HTML and check for
+        any tags or attributes that could load external resources. This test will
+        be run in CI/CD to prevent regressions.
+      EstimatedEffort: M
+      Files:
+      - test/validate-no-external-deps.sh
+      ID: task-simple-spaghetti-website-feat-no-external-dependencies-8
+      Title: Create automated external dependency test
+    - AcceptanceCriteria:
+      - Documentation explains the zero-dependency requirement
+      - Instructions for running validation script are provided
+      - Manual verification steps are documented
+      - Examples of allowed vs disallowed patterns are included
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-no-external-dependencies-8
+      Description: Create documentation explaining how the zero external dependencies
+        requirement is verified. Include the validation script usage, what checks
+        are performed, and how to manually verify compliance. Add this to the project
+        README or a separate VALIDATION.md file.
+      EstimatedEffort: S
+      Files:
+      - README.md
+      ID: task-simple-spaghetti-website-feat-no-external-dependencies-9
+      Title: Document zero-dependency verification process
+  Sprint: 4
+- Features:
+  - FeatureID: simple-spaghetti-website-feat-file-size-optimization
+    FeatureTitle: File Size Optimization
+    Tasks:
+    - AcceptanceCriteria:
+      - index.html file exists in repository root
+      - File contains valid HTML5 structure with DOCTYPE declaration
+      - Body contains exact text 'I love spagheeti' with correct spelling
+      - File includes title element in head
+      - HTML validates against HTML5 standards
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create the index.html file with the minimal valid HTML5 structure
+        including DOCTYPE, html, head with title, and body elements. Place the literal
+        text 'I love spagheeti' in the body. Ensure no whitespace optimization yet
+        to maintain readability.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-file-size-optimization-1
+      Title: Create minimal HTML5 structure
+    - AcceptanceCriteria:
+      - File size measured and documented in bytes
+      - Baseline size recorded for comparison
+      - Size optimization opportunities identified
+      - Current size compared against 1KB and 500 byte targets
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-file-size-optimization-1
+      Description: Measure the initial file size of index.html to establish a baseline.
+        Document the byte count and identify opportunities for size reduction while
+        maintaining HTML5 validity and readability.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-file-size-optimization-2
+      Title: Measure baseline file size
+    - AcceptanceCriteria:
+      - Unnecessary whitespace removed between tags
+      - File size reduced from baseline measurement
+      - HTML remains valid against HTML5 standards
+      - Code maintains basic readability for humans
+      - Single newline character preserved between major elements
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-file-size-optimization-2
+      Description: Remove unnecessary whitespace, newlines, and indentation from the
+        HTML file while maintaining valid HTML5 structure. Balance between file size
+        reduction and code readability. Ensure the HTML remains human-readable.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-file-size-optimization-3
+      Title: Optimize whitespace and formatting
+    - AcceptanceCriteria:
+      - All optional attributes removed or minimized
+      - HTML5 validity maintained after optimization
+      - Optional closing tags evaluated and removed if safe
+      - File size reduced further from previous optimization
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-file-size-optimization-3
+      Description: Review all HTML attributes and minimize their verbosity where HTML5
+        allows. Remove optional closing tags if permitted by HTML5 spec while maintaining
+        validity. Ensure the lang attribute is omitted if not required.
+      EstimatedEffort: M
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-file-size-optimization-4
+      Title: Minimize attribute verbosity
+    - AcceptanceCriteria:
+      - Title element character count minimized
+      - Title remains meaningful and descriptive
+      - Overall file size reduced from previous iteration
+      - Title follows HTML5 best practices
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-file-size-optimization-4
+      Description: Review the title element and minimize its character count while
+        maintaining meaningful content. Test various title options that convey the
+        page purpose in minimal characters. Ensure the title remains descriptive.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-file-size-optimization-5
+      Title: Optimize title element length
+    - AcceptanceCriteria:
+      - Final file size measured and documented
+      - File size is under 1KB (1024 bytes)
+      - Target of under 500 bytes achieved if possible
+      - Size reduction percentage calculated from baseline
+      - Automated test script created to verify size constraint
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-file-size-optimization-5
+      Description: Measure the final optimized file size and verify it meets the requirements
+        of being under 1KB with a target of under 500 bytes. Document the final byte
+        count and the reduction achieved from baseline. Create test script to validate
+        size constraints.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-file-size-optimization-6
+      Title: Verify final file size compliance
+    - AcceptanceCriteria:
+      - HTML passes W3C HTML5 validator with no errors
+      - File renders correctly in Chrome, Firefox, and Safari
+      - DOCTYPE declaration properly triggers standards mode
+      - No console errors or warnings in browser developer tools
+      - Text displays exactly as 'I love spagheeti'
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-file-size-optimization-6
+      Description: Run the optimized index.html through HTML5 validators to ensure
+        all optimizations maintained valid HTML5 structure. Test in multiple browsers
+        to verify rendering. Document any validation warnings or errors and resolve
+        them.
+      EstimatedEffort: M
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-file-size-optimization-7
+      Title: Validate HTML5 compliance post-optimization
+    - AcceptanceCriteria:
+      - Documentation includes baseline and final file sizes
+      - Each optimization technique is described with rationale
+      - Trade-offs between size and readability documented
+      - Documentation added to appropriate project docs
+      - Reproducible steps provided for future reference
+      AgentType: operator-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-file-size-optimization-7
+      Description: Create documentation describing the optimization techniques applied
+        to achieve the file size target. Include before and after measurements, techniques
+        used, and any trade-offs made between size and readability. Update relevant
+        documentation files.
+      EstimatedEffort: S
+      Files:
+      - docs/plans/simple-spaghetti-website/LLD.md
+      ID: task-simple-spaghetti-website-feat-file-size-optimization-8
+      Title: Document optimization techniques
+  Sprint: 5
+- Features:
+  - FeatureID: simple-spaghetti-website-feat-static-hosting-deployment
+    FeatureTitle: Static Hosting Deployment
+    Tasks:
+    - AcceptanceCriteria:
+      - GitHub Pages is enabled in repository settings
+      - Source is configured to deploy from main branch root directory
+      - HTTPS enforcement is enabled in GitHub Pages settings
+      - Repository settings show GitHub Pages as active with a generated URL
+      AgentType: devops-engineer
+      Dependencies: []
+      Description: Set up GitHub Pages for the repository to serve content from the
+        main branch root directory. Configure repository settings to enable GitHub
+        Pages with HTTPS enforcement. Verify that the deployment source is set correctly
+        and that custom domain settings (if any) are properly configured.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-static-hosting-deployment-1
+      Title: Configure GitHub Pages deployment
+    - AcceptanceCriteria:
+      - Workflow file created at .github/workflows/deploy.yml
+      - Workflow triggers on push to main branch
+      - Workflow has proper permissions for pages deployment
+      - Workflow successfully uploads and deploys static content
+      - Workflow runs complete without errors
+      AgentType: devops-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-static-hosting-deployment-1
+      Description: Create a GitHub Actions workflow file that automatically deploys
+        the index.html file to GitHub Pages on push to main branch. The workflow should
+        include steps to checkout code, configure GitHub Pages, and upload the artifact
+        for deployment. Include proper permissions and environment configuration.
+      EstimatedEffort: M
+      Files:
+      - .github/workflows/deploy.yml
+      ID: task-simple-spaghetti-website-feat-static-hosting-deployment-2
+      Title: Create GitHub Actions deployment workflow
+    - AcceptanceCriteria:
+      - Website accessible via HTTPS URL without certificate warnings
+      - HTTP requests redirect to HTTPS automatically
+      - SSL certificate validation passes in browser
+      - Deployment URL documented in README or deployment notes
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-static-hosting-deployment-2
+      Description: Test that the deployed website is accessible via HTTPS at the GitHub
+        Pages URL. Verify that HTTP requests are properly redirected to HTTPS. Check
+        that the SSL certificate is valid and trusted. Document the final deployment
+        URL.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-static-hosting-deployment-3
+      Title: Verify HTTPS accessibility
+    - AcceptanceCriteria:
+      - Response header Content-Type is 'text/html' or 'text/html; charset=utf-8'
+      - Header validation performed using curl or browser dev tools
+      - No content-type warnings in browser console
+      - Header verification results documented
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-static-hosting-deployment-3
+      Description: Verify that the deployed index.html file is served with correct
+        Content-Type header (text/html). Use browser developer tools or curl commands
+        to inspect response headers. Ensure charset is properly specified (UTF-8).
+        Document the header configuration.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-static-hosting-deployment-4
+      Title: Validate Content-Type headers
+    - AcceptanceCriteria:
+      - Test script created that verifies HTTPS endpoint accessibility
+      - Test validates Content-Type header is text/html
+      - Test confirms page content contains 'I love spagheeti'
+      - Test returns non-zero exit code on any validation failure
+      - Test can be executed manually or in CI/CD pipeline
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-static-hosting-deployment-4
+      Description: Create an automated test script that verifies the deployment is
+        successful. The test should check HTTPS accessibility, validate Content-Type
+        headers, verify page content matches expected text, and confirm response status
+        is 200. This test can be integrated into CI/CD pipeline for continuous verification.
+      EstimatedEffort: M
+      Files:
+      - tests/deployment-verification.sh
+      ID: task-simple-spaghetti-website-feat-static-hosting-deployment-5
+      Title: Create deployment verification test
+  - FeatureID: simple-spaghetti-website-feat-uptime-monitoring
+    FeatureTitle: Uptime Monitoring Setup
+    Tasks:
+    - AcceptanceCriteria:
+      - Comparison matrix created for at least 3 monitoring services
+      - Selected service documented with clear rationale
+      - Free tier or low-cost option identified and validated
+      - Alert notification methods supported (email, SMS, webhook)
+      - 5-minute check interval confirmed as available
+      AgentType: devops-engineer
+      Dependencies: []
+      Description: Evaluate uptime monitoring options (UptimeRobot, Pingdom, and hosting
+        platform built-in tools). Compare features, pricing, and integration capabilities.
+        Document the selected service with rationale based on cost, ease of setup,
+        and alerting features. Create a decision document outlining the chosen provider
+        and configuration approach.
+      EstimatedEffort: S
+      Files:
+      - docs/plans/simple-spaghetti-website/monitoring-service-selection.md
+      ID: task-simple-spaghetti-website-feat-uptime-monitoring-1
+      Title: Research and select uptime monitoring service
+    - AcceptanceCriteria:
+      - Service account successfully created and activated
+      - Account credentials documented securely
+      - Dashboard access verified and functional
+      - Primary contact email configured for alerts
+      - Account settings reviewed and optimized
+      AgentType: devops-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-uptime-monitoring-1
+      Description: Register for the selected uptime monitoring service account. Set
+        up initial account configuration including contact information and notification
+        preferences. Document account credentials and access information in secure
+        manner. Verify account activation and access to dashboard.
+      EstimatedEffort: S
+      Files:
+      - docs/plans/simple-spaghetti-website/monitoring-setup-guide.md
+      ID: task-simple-spaghetti-website-feat-uptime-monitoring-2
+      Title: Create uptime monitoring service account
+    - AcceptanceCriteria:
+      - Monitor created with 5-minute check interval
+      - Production URL configured as monitoring target
+      - HTTP/HTTPS check type properly configured
+      - Timeout and retry settings defined
+      - Monitor status shows as active and checking
+      AgentType: devops-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-uptime-monitoring-2
+      Description: Create a new monitor in the uptime monitoring service targeting
+        the production website URL. Configure check interval to 5 minutes, set timeout
+        thresholds, and define what constitutes 'down' status. Select appropriate
+        check locations/regions. Verify the monitor is actively running and collecting
+        data.
+      EstimatedEffort: M
+      Files:
+      - docs/plans/simple-spaghetti-website/monitoring-setup-guide.md
+      ID: task-simple-spaghetti-website-feat-uptime-monitoring-3
+      Title: Configure uptime check for production URL
+    - AcceptanceCriteria:
+      - Email notification configured and tested
+      - Alert threshold rules defined and active
+      - Test alert successfully received
+      - Notification message format reviewed and acceptable
+      - Alert escalation policy documented if applicable
+      AgentType: devops-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-uptime-monitoring-3
+      Description: Set up alert notification channels including email alerts and optionally
+        SMS or webhook notifications. Configure alert thresholds and escalation rules.
+        Define when alerts should be sent based on number of failed checks or downtime
+        duration. Test notification delivery to ensure alerts are received.
+      EstimatedEffort: M
+      Files:
+      - docs/plans/simple-spaghetti-website/monitoring-setup-guide.md
+      ID: task-simple-spaghetti-website-feat-uptime-monitoring-4
+      Title: Configure alert notification channels
+    - AcceptanceCriteria:
+      - Dashboard configured with relevant metrics visible
+      - Uptime percentage prominently displayed
+      - Response time graphs available and accurate
+      - Historical data retention confirmed
+      - Dashboard access instructions documented
+      AgentType: devops-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-uptime-monitoring-4
+      Description: Configure the monitoring service dashboard to display key metrics
+        including uptime percentage, response times, and downtime incidents. Set up
+        weekly or monthly uptime reports if available. Create documentation explaining
+        how to access and interpret the monitoring dashboard. Take screenshots of
+        dashboard for documentation.
+      EstimatedEffort: S
+      Files:
+      - docs/plans/simple-spaghetti-website/monitoring-setup-guide.md
+      ID: task-simple-spaghetti-website-feat-uptime-monitoring-5
+      Title: Create monitoring dashboard and reporting
+    - AcceptanceCriteria:
+      - Simulated downtime test executed successfully
+      - Down alert received within expected timeframe
+      - Alert content includes relevant details (URL, time, status)
+      - Recovery notification received when site restored
+      - Test results documented with timestamps
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-uptime-monitoring-4
+      Description: Perform controlled testing of the monitoring system by simulating
+        website downtime. Temporarily take down the site or block access to verify
+        alerts trigger correctly. Confirm alert delivery timing and content. Verify
+        recovery notifications are sent when site comes back online. Document test
+        results and any issues found.
+      EstimatedEffort: M
+      Files:
+      - docs/plans/simple-spaghetti-website/monitoring-setup-guide.md
+      ID: task-simple-spaghetti-website-feat-uptime-monitoring-6
+      Title: Test monitoring with simulated downtime
+    - AcceptanceCriteria:
+      - Complete monitoring setup documentation created
+      - Alert response runbook written with clear steps
+      - Troubleshooting guide includes common scenarios
+      - Dashboard access and credentials documented
+      - README.md updated with monitoring status badge or link
+      AgentType: devops-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-uptime-monitoring-5
+      - task-simple-spaghetti-website-feat-uptime-monitoring-6
+      Description: Create comprehensive documentation covering monitoring setup, alert
+        interpretation, and incident response procedures. Include troubleshooting
+        steps for common issues and escalation paths. Document how to access monitoring
+        dashboard, interpret metrics, and respond to alerts. Add monitoring information
+        to main project README.
+      EstimatedEffort: M
+      Files:
+      - docs/plans/simple-spaghetti-website/monitoring-setup-guide.md
+      - README.md
+      ID: task-simple-spaghetti-website-feat-uptime-monitoring-7
+      Title: Document monitoring procedures and runbook
+  Sprint: 9
+- Features:
+  - FeatureID: simple-spaghetti-website-feat-display-message
+    FeatureTitle: Display Spaghetti Message
+    Tasks:
+    - AcceptanceCriteria:
+      - index.html file created in repository root
+      - DOCTYPE declaration is present and correct (<!DOCTYPE html>)
+      - html, head, and body elements are properly nested
+      - Title element contains 'I Love Spagheeti'
+      - Document structure validates as HTML5
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create the index.html file in the repository root with the basic
+        HTML5 structure. Include the DOCTYPE declaration, html element, head element
+        with title, and an empty body element. Ensure the document validates as HTML5.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-display-message-1
+      Title: Create minimal HTML5 document structure
+    - AcceptanceCriteria:
+      - Text 'I love spagheeti' is present in body element
+      - Text is added as plain text with no HTML formatting tags
+      - No CSS styling is applied to the text
+      - No JavaScript is included in the document
+      - Exact spelling 'spagheeti' is preserved
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-display-message-1
+      Description: Add the text 'I love spagheeti' (with the intentional misspelling)
+        as plain text content directly inside the body element. Ensure no additional
+        HTML tags, CSS styling, or JavaScript are included. Verify the text appears
+        exactly as specified.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-display-message-2
+      Title: Add spaghetti message to body element
+    - AcceptanceCriteria:
+      - HTML validates against HTML5 W3C standards
+      - No CSS files are referenced or included
+      - No JavaScript files are referenced or included
+      - File size is approximately 180 bytes or less
+      - Only required HTML5 elements are present
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-display-message-2
+      Description: Validate the complete index.html file against HTML5 standards.
+        Ensure no additional elements, attributes, or external resource references
+        exist. Verify the file size is under 200 bytes and contains only the minimal
+        required structure.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-display-message-3
+      Title: Validate HTML5 compliance
+    - AcceptanceCriteria:
+      - Page displays 'I love spagheeti' text in at least 3 browsers
+      - Browser tab shows 'I Love Spagheeti' title
+      - No browser console errors or warnings
+      - Text renders as plain unstyled content
+      - Document renders in standards mode
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-display-message-3
+      Description: Open the index.html file in multiple modern browsers to verify
+        correct rendering. Ensure the text displays correctly without styling and
+        the page title appears in the browser tab. Verify no console errors or warnings
+        appear.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-display-message-4
+      Title: Test document rendering in browsers
+    - AcceptanceCriteria:
+      - Dependency feature simple-spaghetti-website-feat-html-document-structure is
+        completed
+      - HTML structure matches dependency requirements
+      - All structural elements are properly implemented
+      - No conflicts with dependency implementation
+      - Feature integration is seamless
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-display-message-4
+      Description: Confirm that the prerequisite feature simple-spaghetti-website-feat-html-document-structure
+        is completed and its requirements are satisfied. Verify that the HTML document
+        structure created meets all dependency requirements before finalizing this
+        feature.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-display-message-5
+      Title: Verify dependency satisfaction
+  Sprint: 2
+- Features:
+  - FeatureID: simple-spaghetti-website-feat-html-validation
+    FeatureTitle: HTML5 Validation
+    Tasks:
+    - AcceptanceCriteria:
+      - HTML5 validator tool installed and accessible from command line or CI environment
+      - Validator successfully runs against a test HTML file and produces output
+      - Installation and usage instructions documented in repository
+      AgentType: devops-engineer
+      Dependencies: []
+      Description: Set up the W3C HTML5 validator tool in the development environment
+        to enable automated validation of HTML documents. This task involves selecting
+        an appropriate validator (such as validator.nu, html5validator, or the W3C
+        online validator API), installing it as a development dependency or system
+        tool, and verifying it can successfully validate a sample HTML document. Document
+        the installation steps and usage instructions for future reference.
+      EstimatedEffort: S
+      Files:
+      - package.json
+      - README.md
+      ID: task-simple-spaghetti-website-feat-html-validation-1
+      Title: Install W3C HTML5 validator tool
+    - AcceptanceCriteria:
+      - Test suite validates DOCTYPE declaration is present and correct
+      - Test verifies proper nesting of html, head, title, and body tags
+      - Test fails if validator reports any errors or warnings
+      - Test can be executed via npm script or equivalent command
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-html-validation-1
+      Description: Develop an automated test suite that validates the HTML5 structure
+        of index.html against W3C standards. The test should check for proper DOCTYPE
+        declaration, valid tag nesting, presence of required elements (html, head,
+        title, body), and absence of syntax errors or warnings. Implement this as
+        a script or test case that can be executed both locally and in CI/CD pipelines.
+      EstimatedEffort: M
+      Files:
+      - test/validate-html.test.js
+      - package.json
+      ID: task-simple-spaghetti-website-feat-html-validation-2
+      Title: Create HTML5 validation test suite
+    - AcceptanceCriteria:
+      - index.html contains valid HTML5 DOCTYPE declaration
+      - Root <html> element present with proper structure
+      - Head and body elements properly nested within html element
+      - Validator confirms document structure passes HTML5 standards
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-html-validation-2
+      Description: Review index.html to ensure it has a valid HTML5 DOCTYPE declaration
+        and proper document structure. Verify that the DOCTYPE is exactly '<!DOCTYPE
+        html>' (case-insensitive), the root element is <html>, and that head and body
+        elements are properly nested within the html element. Run the validator tool
+        against the current index.html and document any structural issues found.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-html-validation-3
+      Title: Validate DOCTYPE and document structure
+    - AcceptanceCriteria:
+      - Title element exists within head section with valid content
+      - All head section tags properly opened and closed
+      - No deprecated attributes or invalid elements in head
+      - W3C validator reports no errors or warnings for head section
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-html-validation-3
+      Description: Validate the head section of index.html for HTML5 compliance. Ensure
+        the <title> element is present, properly placed within the head, has valid
+        content, and that all tags in the head section are properly opened and closed.
+        Check for any deprecated attributes or invalid elements within the head. Address
+        any validation errors or warnings reported by the W3C validator specific to
+        the head section.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-html-validation-4
+      Title: Verify head section compliance
+    - AcceptanceCriteria:
+      - Body element properly opened and closed
+      - Text content correctly placed within body element
+      - No invalid elements or syntax errors in body section
+      - W3C validator reports no errors or warnings for body section
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-html-validation-4
+      Description: Validate the body section of index.html for HTML5 compliance. Ensure
+        the body element is properly opened and closed, that the text content 'I love
+        spagheeti' is correctly placed within the body without any syntax errors,
+        and that no invalid or deprecated elements are present. Run the W3C validator
+        and address any errors or warnings specific to the body section.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-html-validation-5
+      Title: Verify body section compliance
+    - AcceptanceCriteria:
+      - W3C validator reports zero errors for index.html
+      - W3C validator reports zero warnings for index.html
+      - All tag nesting and closing issues resolved
+      - Document passes complete HTML5 validation successfully
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-html-validation-5
+      Description: Address all remaining HTML5 validation errors and warnings identified
+        by the W3C validator. This includes fixing any tag nesting issues, unclosed
+        tags, invalid attributes, encoding problems, or other HTML5 compliance violations.
+        Iterate through validator feedback until index.html passes with zero errors
+        and zero warnings. Document all changes made to achieve compliance.
+      EstimatedEffort: M
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-html-validation-6
+      Title: Fix all validation errors and warnings
+    - AcceptanceCriteria:
+      - CI/CD pipeline configured to run HTML5 validation tests
+      - Pipeline fails when validation errors or warnings detected
+      - Validation runs automatically on commits and pull requests
+      - CI/CD integration documented for contributors
+      AgentType: devops-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-html-validation-6
+      Description: Integrate the HTML5 validation test suite into the CI/CD pipeline
+        to ensure all future changes maintain HTML5 compliance. Configure the pipeline
+        to automatically run validation tests on every commit or pull request. Set
+        up the pipeline to fail if any validation errors or warnings are detected.
+        Document the CI/CD integration and validation requirements for contributors.
+      EstimatedEffort: M
+      Files:
+      - .github/workflows/validate.yml
+      - README.md
+      ID: task-simple-spaghetti-website-feat-html-validation-7
+      Title: Add validation to CI/CD pipeline
+    - AcceptanceCriteria:
+      - Validation guide created with W3C HTML5 standards reference
+      - Local validation testing instructions documented
+      - Validator output interpretation guide included
+      - Common validation issues and solutions documented
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-html-validation-7
+      Description: Document the HTML5 validation process, standards compliance requirements,
+        and troubleshooting guidance. Create a validation guide that explains which
+        W3C HTML5 standards apply, how to run validation tests locally, how to interpret
+        validator output, and common validation issues with solutions. Include instructions
+        for maintaining validation compliance during future development.
+      EstimatedEffort: S
+      Files:
+      - docs/validation-guide.md
+      - README.md
+      ID: task-simple-spaghetti-website-feat-html-validation-8
+      Title: Create validation documentation
+  Sprint: 3
+- Features:
+  - FeatureID: simple-spaghetti-website-feat-cross-browser-compatibility
+    FeatureTitle: Cross-Browser Compatibility Testing
+    Tasks:
+    - AcceptanceCriteria:
+      - Testing framework installed with all dependencies configured
+      - Test harness can successfully launch all four target browsers
+      - Basic test can load index.html in each browser without errors
+      - Test output provides clear pass/fail results per browser
+      AgentType: qa-engineer
+      Dependencies: []
+      Description: Install and configure browser testing tools (Playwright or Selenium)
+        to automate testing across Chrome, Firefox, Safari, and Edge. Set up the test
+        runner framework and create a basic test harness that can load index.html
+        in each browser. Ensure all target browsers are available in the testing environment.
+      EstimatedEffort: M
+      Files:
+      - test/cross-browser-test.js
+      - package.json
+      ID: task-simple-spaghetti-website-feat-cross-browser-compatibility-1
+      Title: Setup cross-browser testing environment
+    - AcceptanceCriteria:
+      - Test verifies exact text 'I love spagheeti' is present in all browsers
+      - Test confirms text is visible and not hidden by CSS or rendering issues
+      - Test validates UTF-8 character encoding is preserved
+      - Test passes in Chrome, Firefox, Safari, and Edge
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-cross-browser-compatibility-1
+      Description: Create automated tests to verify that 'I love spagheeti' text displays
+        correctly in all browsers. Test should check for text presence, correct spelling,
+        proper encoding, and visibility. Verify no text truncation, wrapping issues,
+        or character encoding problems occur across browsers.
+      EstimatedEffort: S
+      Files:
+      - test/cross-browser-test.js
+      ID: task-simple-spaghetti-website-feat-cross-browser-compatibility-2
+      Title: Implement text content verification tests
+    - AcceptanceCriteria:
+      - Test validates DOCTYPE triggers standards mode in all browsers
+      - Test confirms document title 'I Love Spagheeti' appears in browser tab
+      - Test verifies HTML structure is parsed without quirks mode activation
+      - Test passes across all four target browsers
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-cross-browser-compatibility-1
+      Description: Create tests to verify the HTML structure renders consistently
+        across all browsers. Check that DOCTYPE, html, head, title, and body elements
+        are properly recognized and rendered. Verify the document title displays correctly
+        in browser tabs for all target browsers.
+      EstimatedEffort: S
+      Files:
+      - test/cross-browser-test.js
+      ID: task-simple-spaghetti-website-feat-cross-browser-compatibility-3
+      Title: Implement HTML structure validation tests
+    - AcceptanceCriteria:
+      - Test captures console logs from all browsers during page load
+      - Test fails if any console errors or warnings are detected
+      - Test verifies no 404 errors for missing resources
+      - Test passes with clean console output in all four browsers
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-cross-browser-compatibility-1
+      Description: Create tests to capture and analyze browser console output during
+        page load and rendering. Verify no JavaScript errors, CSS warnings, network
+        errors, or other console messages appear. Test should fail if any error, warning,
+        or exception is logged to the console in any browser.
+      EstimatedEffort: M
+      Files:
+      - test/cross-browser-test.js
+      ID: task-simple-spaghetti-website-feat-cross-browser-compatibility-4
+      Title: Implement console error detection tests
+    - AcceptanceCriteria:
+      - Test captures screenshots from all four browsers
+      - Test verifies text is rendered with visible default font
+      - Test confirms no visual artifacts or rendering glitches
+      - Test validates page dimensions and layout are consistent
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-cross-browser-compatibility-2
+      - task-simple-spaghetti-website-feat-cross-browser-compatibility-3
+      Description: Create tests to verify visual rendering consistency across browsers
+        by capturing screenshots and comparing layout properties. Check that text
+        renders with default browser styling consistently, page dimensions are as
+        expected, and no unexpected visual artifacts appear. Verify font rendering
+        produces readable output in all browsers.
+      EstimatedEffort: M
+      Files:
+      - test/cross-browser-test.js
+      ID: task-simple-spaghetti-website-feat-cross-browser-compatibility-5
+      Title: Implement visual rendering consistency tests
+    - AcceptanceCriteria:
+      - Test validates HTML against W3C HTML5 specifications
+      - Test confirms zero validation errors or warnings
+      - Test verifies proper element nesting and structure
+      - Test passes with valid HTML5 markup
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-cross-browser-compatibility-1
+      Description: Create tests to validate HTML5 standards compliance using W3C validator
+        or similar tools. Verify the HTML structure meets HTML5 specifications and
+        produces no validation errors. Test should check for proper element nesting,
+        required attributes, and adherence to HTML5 syntax rules.
+      EstimatedEffort: S
+      Files:
+      - test/cross-browser-test.js
+      ID: task-simple-spaghetti-website-feat-cross-browser-compatibility-6
+      Title: Implement HTML5 standards compliance tests
+    - AcceptanceCriteria:
+      - Test suite generates comprehensive HTML or JSON report
+      - Report includes pass/fail status for each browser
+      - Report contains screenshots and console output from all browsers
+      - Report clearly indicates overall compatibility status
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-cross-browser-compatibility-2
+      - task-simple-spaghetti-website-feat-cross-browser-compatibility-3
+      - task-simple-spaghetti-website-feat-cross-browser-compatibility-4
+      - task-simple-spaghetti-website-feat-cross-browser-compatibility-5
+      Description: Implement test reporting functionality that aggregates results
+        from all browser tests. Generate a detailed report showing pass/fail status
+        per browser, any errors encountered, screenshots, and console logs. Report
+        should clearly indicate whether cross-browser compatibility requirements are
+        met.
+      EstimatedEffort: M
+      Files:
+      - test/cross-browser-test.js
+      - test/report-generator.js
+      ID: task-simple-spaghetti-website-feat-cross-browser-compatibility-7
+      Title: Create comprehensive test report generation
+    - AcceptanceCriteria:
+      - CI pipeline configured to run cross-browser tests automatically
+      - Tests execute in all four browsers in CI environment
+      - Failed tests block PR merges and deployments
+      - Test results are visible in CI dashboard with clear status
+      AgentType: devops-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-cross-browser-compatibility-7
+      Description: Add cross-browser compatibility tests to the CI/CD pipeline to
+        run automatically on commits and PRs. Configure the pipeline to execute tests
+        in all four browsers using headless mode or browser testing services. Ensure
+        test failures block deployments and provide clear feedback to developers.
+      EstimatedEffort: M
+      Files:
+      - .github/workflows/test.yml
+      ID: task-simple-spaghetti-website-feat-cross-browser-compatibility-8
+      Title: Integrate cross-browser tests into CI pipeline
+  Sprint: 7
+- Features:
+  - FeatureID: simple-spaghetti-website-feat-git-integration
+    FeatureTitle: Git Version Control Integration
+    Tasks:
+    - AcceptanceCriteria:
+      - index.html file exists in repository root
+      - File contains valid HTML5 structure with DOCTYPE declaration
+      - Body contains exact text 'I love spagheeti' with no additional markup
+      - No CSS, JavaScript, or external resource references present
+      - File size is under 200 bytes
+      AgentType: qa-engineer
+      Dependencies: []
+      Description: Validate that the index.html file exists in the repository root
+        and contains the exact expected HTML5 structure with 'I love spagheeti' text.
+        Verify the file has proper HTML5 DOCTYPE, html, head with title, and body
+        elements. Ensure no additional CSS, JavaScript, or external resources are
+        present.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-git-integration-1
+      Title: Verify index.html file exists and has correct content
+    - AcceptanceCriteria:
+      - File encoding verified as UTF-8 without BOM
+      - All line endings are LF (Unix-style), not CRLF
+      - File passes UTF-8 validation checks
+      - No hidden characters or encoding issues detected
+      AgentType: devops-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-git-integration-1
+      Description: Ensure index.html uses UTF-8 encoding without BOM (Byte Order Mark)
+        and has Unix-style line endings (LF). Use file inspection tools to verify
+        encoding format. Convert line endings if necessary to ensure cross-platform
+        compatibility and adherence to modern web standards.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-git-integration-2
+      Title: Validate file encoding and line endings
+    - AcceptanceCriteria:
+      - Git repository exists and is properly initialized
+      - index.html shows as untracked or modified in git status
+      - No other unexpected files are staged or modified
+      - Git user.name and user.email are configured
+      - Working directory is clean except for index.html
+      AgentType: devops-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-git-integration-2
+      Description: Check that the git repository is in a clean state before committing.
+        Verify that index.html is either already tracked or appears as an untracked
+        file. Ensure no unexpected files are staged or modified. Validate that the
+        repository has proper git configuration including user name and email.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-git-integration-3
+      Title: Verify git repository status and cleanliness
+    - AcceptanceCriteria:
+      - index.html successfully added to git staging area
+      - Git status shows index.html in 'Changes to be committed'
+      - File status is marked as 'new file' or 'modified' appropriately
+      - No other files are accidentally staged
+      AgentType: devops-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-git-integration-3
+      Description: Add index.html to the git staging area using 'git add index.html'.
+        Verify the file is properly staged and ready for commit. Check git status
+        to confirm index.html appears in the 'Changes to be committed' section with
+        the correct status (new file or modified).
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-git-integration-4
+      Title: Stage index.html for commit
+    - AcceptanceCriteria:
+      - Commit message follows conventional commit format
+      - Message uses 'feat' type for new feature
+      - Includes appropriate scope identifier
+      - Description clearly indicates what was added
+      - Message is under 72 characters for the subject line
+      AgentType: devops-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-git-integration-4
+      Description: 'Craft a commit message following the conventional commit format
+        specification. The message should use the ''feat'' type since this adds a
+        new feature (the website). Include a clear scope and description. The format
+        should be ''feat(website): add index.html with spaghetti message'' or similar,
+        following the pattern ''type(scope): description''.'
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-git-integration-5
+      Title: Create conventional commit message
+    - AcceptanceCriteria:
+      - Git commit executes successfully without errors
+      - Commit hash is generated and captured
+      - Git log shows the new commit with correct message
+      - Commit author and timestamp are properly recorded
+      - Working directory is clean after commit
+      AgentType: devops-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-git-integration-5
+      Description: Execute the git commit command with the conventional commit message
+        created in the previous task. Verify the commit is successful and creates
+        a new commit object in the repository. Capture the commit hash for verification
+        and potential rollback if needed.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-git-integration-6
+      Title: Commit index.html to git repository
+    - AcceptanceCriteria:
+      - Git log displays the new commit with correct message
+      - Git show reveals only index.html changes in the commit
+      - Commit diff matches expected file content
+      - No unintended files or changes are included in commit
+      - Commit metadata (author, date, hash) is valid
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-git-integration-6
+      Description: Validate that the commit was properly recorded in git history.
+        Use git log and git show commands to verify the commit contains the correct
+        file changes, commit message, and metadata. Ensure the commit diff shows only
+        the expected changes to index.html with no unexpected modifications.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-git-integration-7
+      Title: Verify commit integrity and history
+  Sprint: 8
+- Features:
+  - FeatureID: simple-spaghetti-website-feat-caching-configuration
+    FeatureTitle: HTTP Caching Configuration
+    Tasks:
+    - AcceptanceCriteria:
+      - Document created listing all cache header configuration options for target
+        platform
+      - Identified supported Cache-Control directives and values
+      - Confirmed ETag support and generation mechanism
+      - Noted any platform-specific limitations or constraints
+      AgentType: devops-engineer
+      Dependencies: []
+      Description: Investigate the target static hosting platform's (GitHub Pages,
+        Netlify, Vercel, or chosen provider) native support for HTTP cache headers.
+        Document available configuration methods including custom headers files, platform-specific
+        config files, and any limitations on Cache-Control directives or ETag generation.
+      EstimatedEffort: S
+      Files:
+      - docs/plans/simple-spaghetti-website/caching-strategy.md
+      ID: task-simple-spaghetti-website-feat-caching-configuration-1
+      Title: Research hosting platform caching capabilities
+    - AcceptanceCriteria:
+      - Cache-Control directive defined with specific max-age value
+      - ETag strategy selected for content validation
+      - Documented rationale for chosen cache duration
+      - Considered mobile and desktop browser compatibility
+      AgentType: devops-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-caching-configuration-1
+      Description: Design the cache policy for index.html considering the single-file
+        static nature. Determine appropriate Cache-Control max-age values, immutability
+        settings, and revalidation strategies. Balance between performance optimization
+        and update propagation needs for this minimal website.
+      EstimatedEffort: S
+      Files:
+      - docs/plans/simple-spaghetti-website/caching-strategy.md
+      ID: task-simple-spaghetti-website-feat-caching-configuration-2
+      Title: Define optimal cache policy for static HTML
+    - AcceptanceCriteria:
+      - Configuration file created in repository root
+      - Cache-Control header configured for index.html
+      - ETag generation enabled if platform supports configuration
+      - Configuration syntax validated against platform documentation
+      AgentType: devops-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-caching-configuration-2
+      Description: Implement the cache header configuration using the hosting platform's
+        native method. Create _headers file for Netlify, vercel.json for Vercel, or
+        equivalent configuration for the chosen platform. Apply the cache policy defined
+        in the strategy to index.html.
+      EstimatedEffort: M
+      Files:
+      - _headers
+      - vercel.json
+      - netlify.toml
+      ID: task-simple-spaghetti-website-feat-caching-configuration-3
+      Title: Create platform-specific cache configuration file
+    - AcceptanceCriteria:
+      - Test script created that requests index.html from deployed URL
+      - Validates Cache-Control header matches expected policy
+      - Checks for presence and format of ETag header
+      - Confirms 304 Not Modified response on conditional requests
+      - Script exits with appropriate status codes for CI integration
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-caching-configuration-3
+      Description: Create a test script that validates HTTP response headers after
+        deployment. Script should make requests to the deployed site, verify Cache-Control
+        headers match configuration, check for ETag presence, and validate cache behavior
+        across multiple requests.
+      EstimatedEffort: M
+      Files:
+      - scripts/test-cache-headers.sh
+      - scripts/test-cache-headers.js
+      ID: task-simple-spaghetti-website-feat-caching-configuration-4
+      Title: Implement cache validation test script
+    - AcceptanceCriteria:
+      - Cache test integrated into deployment workflow
+      - Test runs after deployment completes successfully
+      - Pipeline fails if cache headers do not match expected values
+      - Added retry logic for CDN propagation delays
+      - Test results reported in workflow output
+      AgentType: devops-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-caching-configuration-4
+      Description: Integrate the cache validation test into the CI/CD pipeline as
+        a post-deployment verification step. Ensure the test runs after successful
+        deployment and fails the pipeline if cache headers are misconfigured. Add
+        appropriate wait times for DNS and CDN propagation.
+      EstimatedEffort: M
+      Files:
+      - .github/workflows/deploy.yml
+      ID: task-simple-spaghetti-website-feat-caching-configuration-5
+      Title: Add cache testing to deployment pipeline
+    - AcceptanceCriteria:
+      - Documentation added to README or docs folder
+      - Explains Cache-Control policy and rationale
+      - Provides examples of expected HTTP response headers
+      - Includes troubleshooting guide for cache issues
+      - Documents process for modifying cache policy
+      AgentType: devops-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-caching-configuration-5
+      Description: Create comprehensive documentation explaining the caching strategy,
+        configuration implementation, testing procedures, and troubleshooting steps.
+        Include examples of expected response headers and guidance on updating cache
+        policies if content changes in future.
+      EstimatedEffort: S
+      Files:
+      - docs/plans/simple-spaghetti-website/caching-configuration.md
+      - README.md
+      ID: task-simple-spaghetti-website-feat-caching-configuration-6
+      Title: Document caching configuration and maintenance
+  - FeatureID: simple-spaghetti-website-feat-performance-validation
+    FeatureTitle: Performance Validation
+    Tasks:
+    - AcceptanceCriteria:
+      - Lighthouse CI configuration file created with performance thresholds
+      - Configuration validates perfect score requirement (100/100)
+      - LCP threshold set to < 100ms and CLS threshold set to 0
+      - Configuration can run against local static HTML file
+      AgentType: qa-engineer
+      Dependencies: []
+      Description: Configure Lighthouse CI to run automated performance audits on
+        the index.html file. Set up configuration file with thresholds for perfect
+        performance score (100), LCP < 100ms, and CLS = 0. Configure Lighthouse to
+        run in a local environment targeting the static HTML file.
+      EstimatedEffort: S
+      Files:
+      - lighthouserc.json
+      ID: task-simple-spaghetti-website-feat-performance-validation-1
+      Title: Setup Lighthouse CI configuration
+    - AcceptanceCriteria:
+      - Script successfully measures LCP metric
+      - Script successfully measures CLS metric
+      - Script outputs results in JSON format with pass/fail status
+      - Script can run in headless browser environment
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-performance-validation-1
+      Description: Create a test script that measures Core Web Vitals metrics (LCP,
+        CLS, FID) for the static HTML page. Use web-vitals library or browser performance
+        APIs to capture metrics. Script should output structured data showing measured
+        values vs. target thresholds.
+      EstimatedEffort: M
+      Files:
+      - tests/performance/measure-web-vitals.js
+      ID: task-simple-spaghetti-website-feat-performance-validation-2
+      Title: Implement Core Web Vitals measurement script
+    - AcceptanceCriteria:
+      - Test measures actual page load time accurately
+      - Test runs 10+ iterations and calculates statistics
+      - Test fails if average load time exceeds 100ms
+      - Test outputs detailed timing breakdown (DNS, connection, response)
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-performance-validation-1
+      Description: Create an automated test that validates the complete page load
+        time is under 100ms. Test should measure time from initial request to DOMContentLoaded
+        event. Run test multiple times and calculate average, p95, and p99 load times
+        to ensure consistency.
+      EstimatedEffort: M
+      Files:
+      - tests/performance/load-time-test.js
+      ID: task-simple-spaghetti-website-feat-performance-validation-3
+      Title: Implement load time validation test
+    - AcceptanceCriteria:
+      - GitHub Actions workflow file created with performance test jobs
+      - Workflow installs dependencies and serves static file
+      - All three performance tests execute in workflow
+      - Workflow fails CI if any performance threshold is not met
+      AgentType: devops-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-performance-validation-2
+      - task-simple-spaghetti-website-feat-performance-validation-3
+      Description: Set up GitHub Actions workflow that runs all performance tests
+        on every commit and PR. Workflow should serve the index.html file locally,
+        run Lighthouse CI, execute Web Vitals measurement, and validate load times.
+        Configure workflow to fail if any metric doesn't meet requirements.
+      EstimatedEffort: M
+      Files:
+      - .github/workflows/performance-validation.yml
+      ID: task-simple-spaghetti-website-feat-performance-validation-4
+      Title: Create performance validation CI workflow
+    - AcceptanceCriteria:
+      - Performance data logged with timestamp and commit hash
+      - Historical data stored in accessible format (JSON/CSV)
+      - Report generation script compares current vs. baseline metrics
+      - Alert mechanism triggers on metric degradation
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-performance-validation-4
+      Description: Implement system to track performance metrics over time and detect
+        regressions. Store historical performance data and generate reports comparing
+        current metrics to baseline. Set up alerts if metrics degrade beyond acceptable
+        thresholds.
+      EstimatedEffort: M
+      Files:
+      - tests/performance/track-metrics.js
+      - tests/performance/generate-report.js
+      ID: task-simple-spaghetti-website-feat-performance-validation-5
+      Title: Create performance regression monitoring
+    - AcceptanceCriteria:
+      - File size validation confirms HTML is under 200 bytes
+      - HTML parser confirms no external resource references
+      - Validation confirms no inline scripts or styles
+      - Script outputs optimization report with pass/fail for each check
+      AgentType: qa-engineer
+      Dependencies: []
+      Description: 'Analyze index.html to ensure it follows all performance best practices:
+        minimal file size, no render-blocking resources, proper DOCTYPE, no unused
+        whitespace/comments. Create validation script that checks HTML against performance
+        optimization checklist.'
+      EstimatedEffort: S
+      Files:
+      - tests/performance/validate-html-optimization.js
+      - index.html
+      ID: task-simple-spaghetti-website-feat-performance-validation-6
+      Title: Validate HTML optimization for performance
+    - AcceptanceCriteria:
+      - Documentation explains all performance metrics being measured
+      - Instructions provided for running tests locally
+      - Troubleshooting guide included for common performance issues
+      - Expected baseline metrics documented with justification
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-performance-validation-5
+      Description: Document performance validation strategy, test methodology, and
+        how to interpret results. Include instructions for running performance tests
+        locally, understanding metric thresholds, and debugging performance issues.
+        Document expected performance characteristics of the static HTML site.
+      EstimatedEffort: S
+      Files:
+      - docs/performance-validation.md
+      ID: task-simple-spaghetti-website-feat-performance-validation-7
+      Title: Create performance documentation
+  Sprint: 10
+- Features:
+  - FeatureID: simple-spaghetti-website-feat-html-document-structure
+    FeatureTitle: Create HTML5 Document Structure
+    Tasks:
+    - AcceptanceCriteria:
+      - index.html file exists in repository root directory
+      - File contains valid DOCTYPE html declaration
+      - html, head, and body tags are properly nested
+      - Document passes basic HTML5 syntax validation
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create the index.html file in the repository root with the minimal
+        HTML5 document structure. Include DOCTYPE declaration, html root element,
+        head section, and empty body section. Ensure proper nesting and syntax according
+        to HTML5 standards.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-html-document-structure-1
+      Title: Create base HTML5 document structure
+    - AcceptanceCriteria:
+      - Title tag exists within head section
+      - Title content is exactly 'I Love Spagheeti' (matching specified spelling)
+      - Title tag has proper opening and closing tags
+      - Title is visible in browser tab when file is opened
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-html-document-structure-1
+      Description: Implement the title element within the head section of index.html
+        with the exact text 'I Love Spagheeti'. Ensure the title tag is properly placed
+        inside the head element and follows HTML5 specifications for metadata elements.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-html-document-structure-2
+      Title: Add title tag to head section
+    - AcceptanceCriteria:
+      - Text 'I love spagheeti' exists in body element
+      - Text is direct child of body (no wrapper divs or spans)
+      - Text displays visibly when HTML file is opened in browser
+      - No additional content exists in body section
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-html-document-structure-1
+      Description: Add the literal text 'I love spagheeti' to the body element of
+        index.html. Place the text directly as a text node within the body tag without
+        any wrapper elements or additional markup. Verify the text displays correctly
+        when the HTML file is rendered.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-html-document-structure-3
+      Title: Add body content text
+    - AcceptanceCriteria:
+      - HTML passes W3C validator or equivalent validation tool
+      - No CSS stylesheets are referenced or embedded
+      - No JavaScript files are referenced or embedded
+      - File size is under 250 bytes
+      - Only required elements (DOCTYPE, html, head, title, body) are present
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-html-document-structure-2
+      - task-simple-spaghetti-website-feat-html-document-structure-3
+      Description: Verify the complete index.html file adheres to HTML5 standards
+        and specifications. Check that no extraneous elements, attributes, or resources
+        are included. Ensure file size is minimal and only contains required elements
+        specified in the LLD.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-html-document-structure-4
+      Title: Validate HTML5 compliance
+    - AcceptanceCriteria:
+      - Page renders successfully in Chrome, Firefox, and Safari
+      - Title 'I Love Spagheeti' appears in browser tab
+      - Text 'I love spagheeti' is visible in viewport
+      - No JavaScript or CSS errors in browser console
+      - Page loads in under 100ms
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-html-document-structure-4
+      Description: Test the index.html file in multiple modern browsers to ensure
+        proper rendering and display. Confirm that the text appears correctly, the
+        title shows in the browser tab, and no console errors are generated. Document
+        browser compatibility.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-html-document-structure-5
+      Title: Verify browser rendering
+  Sprint: 1
+- Features:
+  - FeatureID: simple-spaghetti-website-feat-local-testing
+    FeatureTitle: Local Development Testing
+    Tasks:
+    - AcceptanceCriteria:
+      - index.html file exists in repository root directory
+      - File is readable and contains valid HTML5 structure
+      - File contains the text 'I love spagheeti' in the body element
+      - File size is under 500 bytes as expected
+      AgentType: qa-engineer
+      Dependencies: []
+      Description: Confirm that index.html file exists in the repository root directory
+        and contains the required HTML5 structure. Validate that the file is accessible
+        and readable before proceeding with local server testing. This is a prerequisite
+        check to ensure the file from the previous feature is present and properly
+        formatted.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-local-testing-1
+      Title: Verify index.html file exists and structure
+    - AcceptanceCriteria:
+      - Python 3 http.server command documented
+      - Default port (8000) specified for local testing
+      - Server startup command works from repository root
+      - Server serves files from current directory correctly
+      AgentType: devops-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-local-testing-1
+      Description: Create a script or documentation for launching a Python HTTP server
+        to serve the static HTML file. Determine the appropriate Python version (Python
+        3's http.server module) and configure the server to run on a specific port
+        (e.g., 8000). Document the command needed to start the server from the repository
+        root directory.
+      EstimatedEffort: S
+      Files:
+      - README.md
+      ID: task-simple-spaghetti-website-feat-local-testing-2
+      Title: Set up Python HTTP server configuration
+    - AcceptanceCriteria:
+      - HTTP server starts successfully without errors
+      - Server responds to requests on http://localhost:8000
+      - index.html is accessible at http://localhost:8000/index.html
+      - Server returns HTTP 200 status code for valid requests
+      - Content-Type header is set to text/html
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-local-testing-2
+      Description: Start the Python HTTP server and verify that the index.html file
+        is accessible via localhost. Test that the server responds to HTTP requests
+        on the configured port and serves the HTML file without errors. Verify the
+        server correctly sets Content-Type headers for HTML files.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-local-testing-3
+      Title: Execute local server and verify accessibility
+    - AcceptanceCriteria:
+      - Page loads successfully in at least two different browsers
+      - Text 'I love spagheeti' renders correctly and is visible
+      - No JavaScript console errors appear
+      - No HTML validation warnings in browser DevTools
+      - Page title displays as 'I Love Spagheeti'
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-local-testing-3
+      Description: Open the locally served index.html file in multiple modern browsers
+        (Chrome, Firefox, Safari, or Edge) to verify correct rendering. Confirm that
+        the text 'I love spagheeti' displays correctly without any rendering errors,
+        console warnings, or layout issues. Document any browser-specific behavior
+        or issues encountered.
+      EstimatedEffort: M
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-local-testing-4
+      Title: Perform browser rendering validation
+    - AcceptanceCriteria:
+      - HTML5 validation completed using W3C validator or equivalent
+      - Zero HTML errors reported by validator
+      - Zero HTML warnings reported by validator
+      - DOCTYPE declaration recognized as HTML5
+      - Validation results documented
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-local-testing-4
+      Description: Run the HTML file through HTML5 validation tools (W3C Markup Validation
+        Service or equivalent) to ensure the markup is standards-compliant. Verify
+        there are no errors, warnings, or accessibility issues. Document the validation
+        results and address any issues found.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-local-testing-5
+      Title: Validate HTML5 compliance using validators
+    - AcceptanceCriteria:
+      - Root URL (http://localhost:8000/) serves index.html automatically
+      - Direct path (http://localhost:8000/index.html) works correctly
+      - URLs with and without trailing slashes behave consistently
+      - All access patterns return identical HTML content
+      - No 404 errors occur for valid access patterns
+      AgentType: qa-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-local-testing-3
+      Description: Verify that the website is accessible through different URL patterns
+        including root path (http://localhost:8000/), explicit index.html path, and
+        with/without trailing slashes. Confirm that the HTTP server's default index
+        file behavior works correctly and all access patterns return the same content.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-spaghetti-website-feat-local-testing-6
+      Title: Test different URL access patterns
+    - AcceptanceCriteria:
+      - README.md contains local testing section
+      - Step-by-step server startup instructions documented
+      - Browser access instructions with example URLs provided
+      - Expected results clearly described
+      - Common troubleshooting scenarios included
+      AgentType: devops-engineer
+      Dependencies:
+      - task-simple-spaghetti-website-feat-local-testing-4
+      - task-simple-spaghetti-website-feat-local-testing-5
+      - task-simple-spaghetti-website-feat-local-testing-6
+      Description: Create comprehensive documentation in the README.md file describing
+        the complete local testing procedure. Include step-by-step instructions for
+        starting the server, accessing the website, expected output, and troubleshooting
+        common issues. Ensure documentation is clear for developers unfamiliar with
+        the project.
+      EstimatedEffort: M
+      Files:
+      - README.md
+      ID: task-simple-spaghetti-website-feat-local-testing-7
+      Title: Document local testing procedure
+  Sprint: 6
