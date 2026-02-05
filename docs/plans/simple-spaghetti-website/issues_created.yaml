@@ -1,0 +1,33 @@
+GeneratedAt: "2026-02-05T15:41:31Z"
+Issues:
+- IssueNumber: 1
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/1
+  TaskID: task-simple-spaghetti-website-feat-html-document-structure-1
+- IssueNumber: 2
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/2
+  TaskID: task-simple-spaghetti-website-feat-html-document-structure-2
+- IssueNumber: 3
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/3
+  TaskID: task-simple-spaghetti-website-feat-html-document-structure-3
+- IssueNumber: 4
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/4
+  TaskID: task-simple-spaghetti-website-feat-html-document-structure-4
+- IssueNumber: 5
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/5
+  TaskID: task-simple-spaghetti-website-feat-html-document-structure-5
+- IssueNumber: 6
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/6
+  TaskID: task-simple-spaghetti-website-feat-display-message-1
+- IssueNumber: 7
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/7
+  TaskID: task-simple-spaghetti-website-feat-display-message-2
+- IssueNumber: 8
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/8
+  TaskID: task-simple-spaghetti-website-feat-display-message-3
+- IssueNumber: 9
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/9
+  TaskID: task-simple-spaghetti-website-feat-display-message-4
+- IssueNumber: 10
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/10
+  TaskID: task-simple-spaghetti-website-feat-display-message-5
+Plan: simple-spaghetti-website-plan
