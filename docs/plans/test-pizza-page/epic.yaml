@@ -1,0 +1,13 @@
+Epic: test-pizza-page
+Features:
+- dependencies: []
+  description: Create index.html file with valid HTML5 structure displaying 'I love
+    pizza' text
+  estimatedComplexity: low
+  files:
+  - index.html
+  id: test-pizza-page-feat-html-page
+  name: Create HTML Page
+  project: simple-spaghetti-repo
+  type: feature
+Version: v1alpha1
