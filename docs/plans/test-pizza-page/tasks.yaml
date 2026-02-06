@@ -1,0 +1,23 @@
+GeneratedAt: "2026-02-06T07:19:27Z"
+Plan: test-pizza-page-plan
+Sprints:
+- Features:
+  - FeatureID: test-pizza-page-feat-html-page
+    FeatureTitle: Create HTML Page
+    Tasks:
+    - AcceptanceCriteria:
+      - index.html exists in repository root with valid HTML5 DOCTYPE
+      - Page contains properly nested html, head, and body elements
+      - Text 'I love pizza' displays when opened in browser
+      - HTML validates as HTML5 compliant
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create index.html file in repository root with valid HTML5 structure
+        (DOCTYPE, html, head, body tags) displaying the text 'I love pizza'. Use semantic
+        HTML and ensure the page validates as HTML5.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-test-pizza-page-feat-html-page-1
+      Title: Create HTML page with 'I love pizza' text
+  Sprint: 1
