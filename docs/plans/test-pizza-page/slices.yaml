@@ -1,0 +1,9 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: test-pizza-page-feat-html-page
+        name: Create HTML Page
+        type: feature
+        files: [index.html]
