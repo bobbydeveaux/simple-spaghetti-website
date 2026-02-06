@@ -1,0 +1,6 @@
+{
+  "prTitle": "feat: create HTML page with 'I love pizza' text",
+  "prBody": "## Summary\n\nCreated a simple HTML5 page displaying 'I love pizza' text as requested in issue #29.\n\n### Changes Made:\n- Added `index.html` file in the repository root\n- Implemented valid HTML5 structure with proper DOCTYPE\n- Added the required text content 'I love pizza'\n- Followed minimal static HTML approach as per project requirements\n\n### Technical Details:\n- Clean HTML5 structure with html, head, and body elements\n- No external dependencies, CSS, or JavaScript\n- File size optimized for minimal footprint\n- Cross-browser compatible\n\nCloses #29",
+  "testsPass": true,
+  "filesChanged": ["index.html"]
+}
