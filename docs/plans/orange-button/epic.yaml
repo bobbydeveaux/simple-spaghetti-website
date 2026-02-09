@@ -1,6 +1,7 @@
 Epic: orange-button
 Features:
-- dependencies: []
+- Sprint: 1
+  dependencies: []
   description: Add an orange-colored submit button to the contact form with proper
     styling and accessibility
   estimatedComplexity: low

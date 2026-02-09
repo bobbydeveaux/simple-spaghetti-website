@@ -1,0 +1,9 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: orange-button-feat-submit-button
+        name: Orange Submit Button
+        type: feature
+        files: [index.html]
