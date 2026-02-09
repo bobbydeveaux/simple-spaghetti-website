@@ -3,8 +3,86 @@
 <head>
     <meta charset="utf-8">
     <title>I Love Spagheeti</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            grid-template-rows: 1fr;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+        }
+
+        .sidebar {
+            background-color: #663399;
+            color: white;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .sidebar h2 {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+            padding-bottom: 10px;
+        }
+
+        .sidebar .menu-item {
+            padding: 10px 15px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .sidebar .menu-item:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .main-content {
+            padding: 40px;
+            background-color: #f5f5f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2em;
+            color: #333;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+
+            .sidebar {
+                padding: 15px;
+            }
+
+            .main-content {
+                padding: 20px;
+                font-size: 1.5em;
+            }
+        }
+    </style>
 </head>
 <body>
-    I love spagheeti
+    <div class="sidebar">
+        <h2>Menu</h2>
+        <div class="menu-item">Home</div>
+        <div class="menu-item">About</div>
+        <div class="menu-item">Recipes</div>
+        <div class="menu-item">Contact</div>
+    </div>
+    <div class="main-content">
+        I love spagheeti
+    </div>
 </body>
 </html>
