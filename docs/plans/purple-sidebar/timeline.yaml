@@ -1,0 +1,27 @@
+# Project Timeline
+
+metadata:
+  generated: 2026-02-09T18:42:17Z
+  totalSprints: 1
+  totalDuration: 7 days
+
+sprints:
+  - number: 1
+    startDate: 2026-02-09
+    endDate: 2026-02-16
+    duration: 7 days
+    features:
+      - id: purple-sidebar-feat-sidebar-component
+        name: Sidebar Component Structure
+        type: enabler
+      - id: purple-sidebar-feat-collapsible-navigation
+        name: Collapsible Navigation Logic
+        type: feature
+      - id: purple-sidebar-feat-page-integration
+        name: Page Layout Integration
+        type: feature
+
+criticalPath:
+  - purple-sidebar-feat-sidebar-component
+  - purple-sidebar-feat-collapsible-navigation
+  - purple-sidebar-feat-page-integration
