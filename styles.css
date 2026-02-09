@@ -1,0 +1,45 @@
+/* Green Header Navigation Styles */
+
+.site-header {
+    background-color: #2d7d2d;
+    color: white;
+    width: 100%;
+    padding: 1rem 0;
+    box-sizing: border-box;
+}
+
+.site-header nav {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+.site-header nav a {
+    color: white;
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+    margin-right: 1rem;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.site-header nav a:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.site-header nav a:last-child {
+    margin-right: 0;
+}
+
+/* Reset default margins on body for better header display */
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+}
+
+/* Main content styling */
+.content {
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
