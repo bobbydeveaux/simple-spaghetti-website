@@ -1,0 +1,37 @@
+Epic: purple-sidebar
+Features:
+- dependencies: []
+  description: Create reusable sidebar HTML partial with purple styling and hierarchical
+    navigation markup
+  estimatedComplexity: low
+  files:
+  - sidebar.html
+  - css/sidebar.css
+  id: purple-sidebar-feat-sidebar-component
+  name: Sidebar Component Structure
+  project: simple-spaghetti-repo
+  type: enabler
+- dependencies:
+  - purple-sidebar-feat-sidebar-component
+  description: Implement JavaScript for section expand/collapse toggle and active
+    page highlighting
+  estimatedComplexity: low
+  files:
+  - js/sidebar.js
+  id: purple-sidebar-feat-collapsible-navigation
+  name: Collapsible Navigation Logic
+  project: simple-spaghetti-repo
+  type: feature
+- dependencies:
+  - purple-sidebar-feat-sidebar-component
+  - purple-sidebar-feat-collapsible-navigation
+  description: Integrate sidebar into existing pages with CSS Grid layout and include
+    sidebar component
+  estimatedComplexity: low
+  files:
+  - index.html
+  id: purple-sidebar-feat-page-integration
+  name: Page Layout Integration
+  project: simple-spaghetti-repo
+  type: feature
+Version: v1alpha1
