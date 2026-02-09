@@ -1,0 +1,13 @@
+Epic: orange-button
+Features:
+- dependencies: []
+  description: Add an orange-colored submit button to the contact form with proper
+    styling and accessibility
+  estimatedComplexity: low
+  files:
+  - index.html
+  id: orange-button-feat-submit-button
+  name: Orange Submit Button
+  project: simple-spaghetti-repo
+  type: feature
+Version: v1alpha1
