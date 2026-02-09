@@ -1,6 +1,7 @@
 Epic: blue-footer
 Features:
-- dependencies: []
+- Sprint: 1
+  dependencies: []
   description: Add footer element with blue background color to the pizza page HTML
     before the closing body tag
   estimatedComplexity: low

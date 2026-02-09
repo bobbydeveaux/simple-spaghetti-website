@@ -1,0 +1,9 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: blue-footer-feat-add-footer
+        name: Add Blue Footer Element
+        type: feature
+        files: [index.html]
