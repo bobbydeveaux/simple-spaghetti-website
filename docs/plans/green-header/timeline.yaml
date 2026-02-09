@@ -1,0 +1,19 @@
+# Project Timeline
+
+metadata:
+  generated: 2026-02-09T14:43:21Z
+  totalSprints: 1
+  totalDuration: 7 days
+
+sprints:
+  - number: 1
+    startDate: 2026-02-09
+    endDate: 2026-02-16
+    duration: 7 days
+    features:
+      - id: green-header-feat-navigation-header
+        name: Green Navigation Header
+        type: feature
+
+criticalPath:
+  - green-header-feat-navigation-header
