@@ -1,0 +1,21 @@
+{
+  "name": "simple-bolognese-website-tests",
+  "version": "1.0.0",
+  "description": "Cross-browser testing for simple bolognese website",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:chromium": "playwright test --project=chromium",
+    "test:firefox": "playwright test --project=firefox",
+    "test:webkit": "playwright test --project=webkit",
+    "install:browsers": "playwright install"
+  },
+  "keywords": ["testing", "cross-browser", "e2e", "playwright"],
+  "author": "QA Engineer",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.40.0"
+  }
+}
