@@ -1,0 +1,149 @@
+/* Purple Sidebar Component Styles */
+
+/* Main layout grid */
+body {
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: 250px 1fr;
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Sidebar container */
+.sidebar {
+    background-color: #6B46C1;
+    color: white;
+    padding: 20px 0;
+    overflow-y: auto;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 250px;
+    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Sidebar navigation */
+.sidebar-nav {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+/* Navigation sections */
+.nav-section {
+    margin-bottom: 10px;
+}
+
+/* Section headers (collapsible) */
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    transition: background-color 0.2s ease;
+}
+
+.section-header:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Collapse/expand indicator */
+.section-toggle {
+    font-size: 12px;
+    transition: transform 0.3s ease;
+}
+
+.nav-section.collapsed .section-toggle {
+    transform: rotate(-90deg);
+}
+
+/* Section content (collapsible) */
+.section-content {
+    max-height: 500px;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.nav-section.collapsed .section-content {
+    max-height: 0;
+}
+
+/* Navigation items */
+.nav-item {
+    display: block;
+    padding: 10px 20px 10px 40px;
+    color: rgba(255, 255, 255, 0.9);
+    text-decoration: none;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    border-left: 3px solid transparent;
+}
+
+.nav-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+    border-left-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Active navigation item */
+.nav-item.active {
+    background-color: #553C9A;
+    color: white;
+    border-left-color: #E5E7EB;
+    font-weight: 500;
+}
+
+/* Main content area */
+.main-content {
+    grid-column: 2;
+    padding: 40px;
+    background-color: #F9FAFB;
+    min-height: 100vh;
+}
+
+/* Content section styling */
+.content-section {
+    background: white;
+    border-radius: 8px;
+    padding: 30px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.content-section h1 {
+    color: #1F2937;
+    margin-top: 0;
+}
+
+/* Responsive behavior for smaller screens */
+@media (max-width: 768px) {
+    body {
+        grid-template-columns: 1fr;
+    }
+
+    .sidebar {
+        position: fixed;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+        z-index: 1000;
+    }
+
+    .sidebar.mobile-open {
+        transform: translateX(0);
+    }
+
+    .main-content {
+        grid-column: 1;
+        margin-left: 0;
+    }
+}
