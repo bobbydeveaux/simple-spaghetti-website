@@ -1,0 +1,84 @@
+GeneratedAt: "2026-02-09T18:43:01Z"
+Plan: purple-sidebar-plan
+Sprints:
+- Features:
+  - FeatureID: purple-sidebar-feat-sidebar-component
+    FeatureTitle: Sidebar Component Structure
+    Tasks:
+    - AcceptanceCriteria:
+      - sidebar.html contains semantic nav structure with nested ul elements
+      - css/sidebar.css applies purple theme (#6B46C1) with grid layout and collapse
+        transitions
+      - index.html includes sidebar partial and links stylesheet
+      - Sidebar renders with fixed positioning and 250px width
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Implement the complete sidebar component with HTML partial containing
+        hierarchical navigation markup, purple-themed CSS with grid layout and collapse
+        animations, and update index.html to include the sidebar. The sidebar should
+        support 5 levels of nesting with section headers and navigation links.
+      EstimatedEffort: M
+      Files:
+      - sidebar.html
+      - css/sidebar.css
+      - index.html
+      ID: task-purple-sidebar-feat-sidebar-component-1
+      Title: Create sidebar HTML structure and purple styling
+    - AcceptanceCriteria:
+      - js/sidebar.js initializes on DOMContentLoaded with event listeners
+      - Section toggle functionality expands/collapses nested navigation
+      - Active page highlighting matches current URL to data-route attributes
+      - index.html loads sidebar.js script before closing body tag
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-purple-sidebar-feat-sidebar-component-1
+      Description: Create JavaScript controller for sidebar collapse/expand functionality
+        and active state highlighting. Define NAV_CONFIG with navigation structure
+        and implement event handlers for section toggling and URL-based active link
+        highlighting.
+      EstimatedEffort: S
+      Files:
+      - js/sidebar.js
+      - index.html
+      ID: task-purple-sidebar-feat-sidebar-component-2
+      Title: Implement sidebar interaction logic
+  - FeatureID: purple-sidebar-feat-collapsible-navigation
+    FeatureTitle: Collapsible Navigation Logic
+    Tasks:
+    - AcceptanceCriteria:
+      - Section headers toggle collapsed/expanded state when clicked
+      - Active page is highlighted based on current URL matching data-route attributes
+      - Navigation supports up to 5 levels of depth as specified
+      - All event listeners properly attached on DOMContentLoaded
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create js/sidebar.js with complete navigation logic including section
+        expand/collapse toggle functionality and active page highlighting. Implement
+        initSidebar() to attach event listeners, handleSectionToggle() for collapsing
+        sections, highlightActivePage() for URL matching, and define NAV_CONFIG array
+        for navigation structure.
+      EstimatedEffort: S
+      Files:
+      - js/sidebar.js
+      ID: task-purple-sidebar-feat-collapsible-navigation-1
+      Title: Implement sidebar navigation controller
+  - FeatureID: purple-sidebar-feat-page-integration
+    FeatureTitle: Page Layout Integration
+    Tasks:
+    - AcceptanceCriteria:
+      - index.html includes sidebar markup and references css/sidebar.css and js/sidebar.js
+      - Sidebar renders with purple background and navigation structure
+      - Page layout uses CSS Grid with sidebar and main content areas
+      - Sidebar collapse/expand functionality works on page load
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Update index.html to include the sidebar component, link the sidebar
+        stylesheet in the head section, and load the sidebar script before the closing
+        body tag. Apply CSS Grid layout to integrate the sidebar with existing page
+        content.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-purple-sidebar-feat-page-integration-1
+      Title: Integrate sidebar into index.html with grid layout
+  Sprint: 1
