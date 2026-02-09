@@ -1,0 +1,16 @@
+Epic: green-header
+Features:
+- dependencies: []
+  description: Add a green header bar with navigation links (Home, About, Menu) to
+    all pages using shared HTML/CSS
+  estimatedComplexity: low
+  files:
+  - index.html
+  - about.html
+  - menu.html
+  - styles.css
+  id: green-header-feat-navigation-header
+  name: Green Navigation Header
+  project: simple-spaghetti-repo
+  type: feature
+Version: v1alpha1
