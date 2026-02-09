@@ -1,0 +1,22 @@
+GeneratedAt: "2026-02-09T11:23:41Z"
+Plan: red-background-plan
+Sprints:
+- Features:
+  - FeatureID: red-background-feat-add-inline-style
+    FeatureTitle: Add Red Background Style
+    Tasks:
+    - AcceptanceCriteria:
+      - 'Body tag contains style attribute with background-color: red'
+      - No other HTML structure is modified
+      - Browser displays red background when loading index.html
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: 'Locate the <body> tag in index.html and add the inline style attribute
+        ''style="background-color: red;"''. This is a direct file modification with
+        no other changes required.'
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-red-background-feat-add-inline-style-1
+      Title: Add red background inline style to body tag
+  Sprint: 1
