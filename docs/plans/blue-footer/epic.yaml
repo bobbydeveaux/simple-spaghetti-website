@@ -1,0 +1,13 @@
+Epic: blue-footer
+Features:
+- dependencies: []
+  description: Add footer element with blue background color to the pizza page HTML
+    before the closing body tag
+  estimatedComplexity: low
+  files:
+  - index.html
+  id: blue-footer-feat-add-footer
+  name: Add Blue Footer Element
+  project: simple-spaghetti-repo
+  type: feature
+Version: v1alpha1
