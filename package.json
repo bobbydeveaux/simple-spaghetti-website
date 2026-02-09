@@ -1,0 +1,20 @@
+{
+  "name": "15-simple-bolognese-website-sprint-1-issue-15",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "validate-html": "html-validate index.html",
+    "validate-w3c": "curl -H 'Content-Type: text/html; charset=utf-8' --data-binary @index.html 'https://validator.w3.org/nu/?out=json'"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "html-validate": "^10.7.0"
+  }
+}
