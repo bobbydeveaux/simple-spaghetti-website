@@ -1,7 +1,12 @@
 {
-  "prTitle": "feat: add body content text for simple spaghetti website",
-  "prBody": "## Summary\n\nCompleted task #3 of the simple spaghetti website implementation by adding the required body content text.\n\n### Changes Made\n- Updated title from 'Test Pizza Page' to 'I Love Spagheeti'\n- Changed body content from 'I love pizza' to 'I love spagheeti'\n- Removed all inline CSS styling (red background, blue footer)\n- Removed footer element\n- Added meta charset declaration for proper HTML5 compliance\n- Ensured minimal file structure with only required elements\n\n### Validation Results\n- ✅ HTML5 W3C validator compliance confirmed\n- ✅ File size: 144 bytes (well under 250-byte requirement)\n- ✅ Text 'I love spagheeti' is direct child of body element\n- ✅ No additional content in body section\n- ✅ No CSS, JavaScript, or external resources\n\nCloses #3",
+  "prTitle": "feat: implement green navigation header across all HTML pages",
+  "prBody": "## Summary\n\nImplemented a green navigation header across all HTML pages as requested in issue #50. The header includes navigation links for Home, About, and Menu pages with consistent styling and hover effects.\n\n### Changes Made\n\n- **Created `styles.css`** - Added green header styling with #2d7d2d background color, navigation layout, and hover states\n- **Updated `index.html`** - Added navigation header and enhanced content structure\n- **Created `about.html`** - New About page with navigation header and descriptive content\n- **Created `menu.html`** - New Menu page with navigation header and spaghetti menu items\n\n### Technical Implementation\n\n- Green header background (#2d7d2d) spans full width\n- Navigation includes Home, About, Menu links with proper routing\n- Responsive design with hover effects on navigation links\n- Consistent header implementation across all pages\n- Clean CSS structure with proper spacing and typography\n\n### Acceptance Criteria Met\n\n✅ Green header bar appears at the top of all pages\n✅ Header contains three navigation links: Home, About, Menu\n✅ Clicking each link navigates to the corresponding page\n✅ Consistent styling and user experience across all pages\n\nCloses #50",
   "testsPass": true,
-  "filesChanged": ["index.html"],
-  "completedTasks": [3]
+  "filesChanged": [
+    "styles.css",
+    "index.html",
+    "about.html",
+    "menu.html"
+  ],
+  "completedTasks": [1, 2, 3, 4, 5, 6]
 }
