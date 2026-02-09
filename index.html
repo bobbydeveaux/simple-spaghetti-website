@@ -1,10 +1,101 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>I Love Spagheeti</title>
+    <link rel="stylesheet" href="css/sidebar.css">
 </head>
 <body>
-    I love spagheeti
+    <!-- Include sidebar component -->
+    <aside id="sidebar">
+        <nav role="navigation" aria-label="Main navigation">
+            <ul class="nav-list">
+                <!-- Home Section -->
+                <li class="section-item">
+                    <div class="section-header">
+                        <span class="section-title">Home</span>
+                        <span class="chevron">▼</span>
+                    </div>
+                    <ul class="section-links">
+                        <li><a href="/" class="nav-link active" data-route="/">Welcome</a></li>
+                        <li><a href="/about" class="nav-link" data-route="/about">About Us</a></li>
+                    </ul>
+                </li>
+
+                <!-- Menu Section -->
+                <li class="section-item">
+                    <div class="section-header">
+                        <span class="section-title">Menu</span>
+                        <span class="chevron">▼</span>
+                    </div>
+                    <ul class="section-links">
+                        <li><a href="/menu/pasta" class="nav-link" data-route="/menu/pasta">Pasta</a></li>
+                        <li>
+                            <div class="subsection-header">
+                                <span class="section-title">Specialty Dishes</span>
+                                <span class="chevron">▼</span>
+                            </div>
+                            <ul class="subsection-links">
+                                <li><a href="/menu/specialty/spaghetti" class="nav-link" data-route="/menu/specialty/spaghetti">Spaghetti Specials</a></li>
+                                <li><a href="/menu/specialty/lasagna" class="nav-link" data-route="/menu/specialty/lasagna">Lasagna</a></li>
+                                <li>
+                                    <div class="subsubsection-header">
+                                        <span class="section-title">Chef's Choice</span>
+                                        <span class="chevron">▼</span>
+                                    </div>
+                                    <ul class="subsubsection-links">
+                                        <li><a href="/menu/specialty/chef/carbonara" class="nav-link" data-route="/menu/specialty/chef/carbonara">Carbonara Supreme</a></li>
+                                        <li><a href="/menu/specialty/chef/bolognese" class="nav-link" data-route="/menu/specialty/chef/bolognese">Bolognese Classic</a></li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </li>
+                        <li><a href="/menu/drinks" class="nav-link" data-route="/menu/drinks">Beverages</a></li>
+                    </ul>
+                </li>
+
+                <!-- Locations Section -->
+                <li class="section-item">
+                    <div class="section-header">
+                        <span class="section-title">Locations</span>
+                        <span class="chevron">▼</span>
+                    </div>
+                    <ul class="section-links">
+                        <li><a href="/locations/downtown" class="nav-link" data-route="/locations/downtown">Downtown</a></li>
+                        <li><a href="/locations/mall" class="nav-link" data-route="/locations/mall">Shopping Mall</a></li>
+                        <li>
+                            <div class="subsection-header">
+                                <span class="section-title">Upcoming</span>
+                                <span class="chevron">▼</span>
+                            </div>
+                            <ul class="subsection-links">
+                                <li><a href="/locations/upcoming/north" class="nav-link" data-route="/locations/upcoming/north">North Side (Coming Soon)</a></li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+
+                <!-- Contact Section -->
+                <li class="section-item">
+                    <div class="section-header">
+                        <span class="section-title">Contact</span>
+                        <span class="chevron">▼</span>
+                    </div>
+                    <ul class="section-links">
+                        <li><a href="/contact" class="nav-link" data-route="/contact">Get in Touch</a></li>
+                        <li><a href="/reservations" class="nav-link" data-route="/reservations">Reservations</a></li>
+                        <li><a href="/catering" class="nav-link" data-route="/catering">Catering</a></li>
+                    </ul>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+
+    <!-- Main content area -->
+    <main>
+        <h1>I Love Spagheeti</h1>
+        <p>Welcome to our amazing spaghetti restaurant! Use the sidebar to navigate through our menu, locations, and more.</p>
+    </main>
 </body>
 </html>

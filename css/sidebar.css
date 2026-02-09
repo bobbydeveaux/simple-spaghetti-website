@@ -1,0 +1,214 @@
+/* Purple Sidebar Styles */
+
+/* Reset and base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Grid layout for page structure */
+body {
+    display: grid;
+    grid-template-columns: 250px 1fr;
+    min-height: 100vh;
+    font-family: Arial, sans-serif;
+}
+
+/* Sidebar container */
+#sidebar {
+    background: #6B46C1; /* Primary purple */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 250px;
+    height: 100vh;
+    overflow-y: auto;
+    z-index: 1000;
+    padding: 20px 0;
+    border-right: 1px solid #553C9A;
+}
+
+/* Navigation styles */
+#sidebar nav {
+    padding: 0 15px;
+}
+
+/* List reset */
+.nav-list,
+.section-links,
+.subsection-links,
+.subsubsection-links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+/* Section item */
+.section-item {
+    margin-bottom: 10px;
+}
+
+/* Section headers */
+.section-header,
+.subsection-header,
+.subsubsection-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    border-radius: 4px;
+    margin-bottom: 5px;
+    user-select: none;
+}
+
+.section-header:hover,
+.subsection-header:hover,
+.subsubsection-header:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Section titles */
+.section-title {
+    font-weight: bold;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Chevron icons */
+.chevron {
+    font-size: 12px;
+    transition: transform 0.3s ease;
+}
+
+/* Rotated chevron for expanded sections */
+.expanded .chevron {
+    transform: rotate(180deg);
+}
+
+/* Navigation links */
+.nav-link {
+    display: block;
+    color: rgba(255, 255, 255, 0.9);
+    text-decoration: none;
+    padding: 10px 20px;
+    transition: all 0.3s ease;
+    border-radius: 4px;
+    margin-bottom: 2px;
+    font-size: 13px;
+}
+
+.nav-link:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    transform: translateX(5px);
+}
+
+.nav-link:focus {
+    outline: 2px solid white;
+    outline-offset: 2px;
+}
+
+/* Active navigation link */
+.nav-link.active {
+    background: #553C9A; /* Darker purple for active state */
+    color: white;
+    font-weight: bold;
+}
+
+/* Nested section styling */
+.section-links {
+    margin-left: 0;
+}
+
+.subsection-links {
+    margin-left: 15px;
+    padding-top: 5px;
+}
+
+.subsubsection-links {
+    margin-left: 30px;
+    padding-top: 5px;
+}
+
+/* Subsection headers styling */
+.subsection-header {
+    background: rgba(255, 255, 255, 0.05);
+    margin-left: 15px;
+    padding: 8px 12px;
+    font-size: 12px;
+}
+
+.subsubsection-header {
+    background: rgba(255, 255, 255, 0.03);
+    margin-left: 30px;
+    padding: 6px 10px;
+    font-size: 11px;
+}
+
+/* Collapse animations */
+.section-links,
+.subsection-links,
+.subsubsection-links {
+    max-height: 1000px;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+    opacity: 1;
+}
+
+/* Collapsed state */
+.collapsed .section-links,
+.collapsed .subsection-links,
+.collapsed .subsubsection-links {
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.3s ease-in, opacity 0.3s ease-in;
+}
+
+/* Content area adjustment */
+main {
+    margin-left: 250px;
+    padding: 20px;
+    background: #f8f9fa;
+    min-height: 100vh;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    body {
+        grid-template-columns: 1fr;
+    }
+
+    #sidebar {
+        width: 100%;
+        height: auto;
+        position: static;
+    }
+
+    main {
+        margin-left: 0;
+    }
+}
+
+/* Scrollbar styling for webkit browsers */
+#sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+#sidebar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+#sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+}
+
+#sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+}
