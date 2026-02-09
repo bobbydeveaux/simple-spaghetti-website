@@ -1,0 +1,9 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: simple-donkey-website-feat-html-page
+        name: HTML Page Implementation
+        type: feature
+        files: [index.html]
