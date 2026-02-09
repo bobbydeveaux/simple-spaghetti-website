@@ -1,0 +1,41 @@
+GeneratedAt: "2026-02-09T14:43:38Z"
+Plan: green-header-plan
+Sprints:
+- Features:
+  - FeatureID: green-header-feat-navigation-header
+    FeatureTitle: Green Navigation Header
+    Tasks:
+    - AcceptanceCriteria:
+      - styles.css created with .site-header class and green background
+      - Navigation link styles defined with appropriate spacing and hover states
+      - CSS is reusable across multiple HTML pages
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create styles.css file with header component styling including
+        green background (#2d7d2d), navigation layout, and link styles. This provides
+        the shared styling foundation for the navigation header across all pages.
+      EstimatedEffort: S
+      Files:
+      - styles.css
+      ID: task-green-header-feat-navigation-header-1
+      Title: Create shared CSS stylesheet with header styles
+    - AcceptanceCriteria:
+      - All three pages contain identical header element with Home, About, Menu links
+      - All pages link to styles.css in the head section
+      - Navigation links point to correct pages (index.html, about.html, menu.html)
+      - Header appears at top of page body on all pages
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-green-header-feat-navigation-header-1
+      Description: Insert the header HTML snippet into index.html, about.html, and
+        menu.html at the top of each <body> tag. Add <link> tag references to styles.css
+        in each page's <head> section. Create about.html and menu.html if they don't
+        exist with basic HTML structure.
+      EstimatedEffort: M
+      Files:
+      - index.html
+      - about.html
+      - menu.html
+      ID: task-green-header-feat-navigation-header-2
+      Title: Add navigation header to all HTML pages
+  Sprint: 1
