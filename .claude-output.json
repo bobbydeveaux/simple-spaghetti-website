@@ -1,7 +1,7 @@
 {
-  "prTitle": "feat: add body content text for simple spaghetti website",
-  "prBody": "## Summary\n\nCompleted task #3 of the simple spaghetti website implementation by adding the required body content text.\n\n### Changes Made\n- Updated title from 'Test Pizza Page' to 'I Love Spagheeti'\n- Changed body content from 'I love pizza' to 'I love spagheeti'\n- Removed all inline CSS styling (red background, blue footer)\n- Removed footer element\n- Added meta charset declaration for proper HTML5 compliance\n- Ensured minimal file structure with only required elements\n\n### Validation Results\n- ✅ HTML5 W3C validator compliance confirmed\n- ✅ File size: 144 bytes (well under 250-byte requirement)\n- ✅ Text 'I love spagheeti' is direct child of body element\n- ✅ No additional content in body section\n- ✅ No CSS, JavaScript, or external resources\n\nCloses #3",
+  "prTitle": "feat: implement green header with shared CSS stylesheet",
+  "prBody": "## Summary\n\nImplemented a green header navigation component with shared CSS stylesheet as requested in issue #49.\n\n### Changes Made\n\n- **Created `styles.css`** - Shared stylesheet with green header styling (#2d7d2d background)\n- **Updated `index.html`** - Added navigation header and linked to shared stylesheet\n- **Created `about.html`** - New page with header navigation and restaurant information\n- **Created `menu.html`** - New page with header navigation and menu items\n\n### Features Implemented\n\n- Green header with consistent styling across all pages\n- Navigation menu with Home, About, and Menu links  \n- Responsive design with hover and focus states\n- Clean, professional layout with proper semantic HTML\n- Shared CSS architecture for maintainability\n\n### Technical Details\n\n- All pages use the same shared `styles.css` file\n- Header uses semantic HTML5 `<header>` and `<nav>` elements\n- CSS includes proper box-sizing, reset styles, and accessibility features\n- Navigation links have hover and focus states for better UX\n\nCloses #49",
   "testsPass": true,
-  "filesChanged": ["index.html"],
-  "completedTasks": [3]
+  "filesChanged": ["index.html", "styles.css", "about.html", "menu.html"],
+  "completedTasks": [1, 2, 3, 4, 5]
 }
