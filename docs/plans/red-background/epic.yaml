@@ -1,6 +1,7 @@
 Epic: red-background
 Features:
-- dependencies: []
+- Sprint: 1
+  dependencies: []
   description: Add inline style attribute with red background color to the body tag
     in index.html
   estimatedComplexity: low
