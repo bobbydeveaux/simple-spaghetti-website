@@ -1,0 +1,13 @@
+Epic: red-background
+Features:
+- dependencies: []
+  description: Add inline style attribute with red background color to the body tag
+    in index.html
+  estimatedComplexity: low
+  files:
+  - index.html
+  id: red-background-feat-add-inline-style
+  name: Add Red Background Style
+  project: simple-spaghetti-repo
+  type: feature
+Version: v1alpha1
