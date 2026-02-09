@@ -1,0 +1,15 @@
+GeneratedAt: "2026-02-09T18:43:21Z"
+Issues:
+- IssueNumber: 51
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/51
+  TaskID: task-purple-sidebar-feat-sidebar-component-1
+- IssueNumber: 52
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/52
+  TaskID: task-purple-sidebar-feat-sidebar-component-2
+- IssueNumber: 53
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/53
+  TaskID: task-purple-sidebar-feat-collapsible-navigation-1
+- IssueNumber: 54
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/54
+  TaskID: task-purple-sidebar-feat-page-integration-1
+Plan: purple-sidebar-plan
