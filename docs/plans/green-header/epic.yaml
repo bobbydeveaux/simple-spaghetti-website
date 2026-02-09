@@ -1,6 +1,7 @@
 Epic: green-header
 Features:
-- dependencies: []
+- Sprint: 1
+  dependencies: []
   description: Add a green header bar with navigation links (Home, About, Menu) to
     all pages using shared HTML/CSS
   estimatedComplexity: low
