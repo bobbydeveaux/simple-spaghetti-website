@@ -1,0 +1,17 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: purple-sidebar-feat-sidebar-component
+        name: Sidebar Component Structure
+        type: enabler
+        files: [sidebar.html css/sidebar.css]
+      - id: purple-sidebar-feat-collapsible-navigation
+        name: Collapsible Navigation Logic
+        type: feature
+        files: [js/sidebar.js]
+      - id: purple-sidebar-feat-page-integration
+        name: Page Layout Integration
+        type: feature
+        files: [index.html]
