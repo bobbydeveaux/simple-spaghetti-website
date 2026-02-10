@@ -1,0 +1,21 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: python-auth-api-feat-core-infrastructure
+        name: Core Infrastructure Setup
+        type: enabler
+        files: [api/__init__.py api/main.py api/config.py api/models/__init__.py api/models/user.py api/models/token.py api/utils/__init__.py api/utils/jwt_manager.py api/utils/password.py api/services/__init__.py api/services/user_repository.py requirements.txt]
+  - number: 2
+    features:
+      - id: python-auth-api-feat-authentication
+        name: Authentication Endpoints
+        type: feature
+        files: [api/routes/__init__.py api/routes/auth.py api/services/auth_service.py api/middleware/__init__.py api/middleware/auth_middleware.py]
+  - number: 3
+    features:
+      - id: python-auth-api-feat-protected-endpoint
+        name: Protected Endpoint
+        type: feature
+        files: [api/routes/protected.py]

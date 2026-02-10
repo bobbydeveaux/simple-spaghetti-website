@@ -1,0 +1,37 @@
+# Project Timeline
+
+metadata:
+  generated: 2026-02-10T19:26:53Z
+  totalSprints: 3
+  totalDuration: 23 days
+
+sprints:
+  - number: 2
+    startDate: 2026-02-10
+    endDate: 2026-02-17
+    duration: 7 days
+    features:
+      - id: python-auth-api-feat-authentication
+        name: Authentication Endpoints
+        type: feature
+  - number: 3
+    startDate: 2026-02-18
+    endDate: 2026-02-25
+    duration: 7 days
+    features:
+      - id: python-auth-api-feat-protected-endpoint
+        name: Protected Endpoint
+        type: feature
+  - number: 1
+    startDate: 2026-02-26
+    endDate: 2026-03-05
+    duration: 7 days
+    features:
+      - id: python-auth-api-feat-core-infrastructure
+        name: Core Infrastructure Setup
+        type: enabler
+
+criticalPath:
+  - python-auth-api-feat-core-infrastructure
+  - python-auth-api-feat-authentication
+  - python-auth-api-feat-protected-endpoint
