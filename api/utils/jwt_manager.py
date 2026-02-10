@@ -3,18 +3,18 @@
 import jwt
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional
-import os
+from api.config import settings
 
 
 class JWTManager:
     """Handles JWT token creation, validation, and decoding."""
 
     def __init__(self):
-        """Initialize JWT manager with secret key from environment."""
-        self.secret_key = os.getenv("JWT_SECRET_KEY", "dev_secret_key_change_in_production")
-        self.algorithm = "HS256"
-        self.access_token_expire_minutes = 15
-        self.refresh_token_expire_days = 7
+        """Initialize JWT manager with configuration settings."""
+        self.secret_key = settings.JWT_SECRET_KEY
+        self.algorithm = settings.JWT_ALGORITHM
+        self.access_token_expire_minutes = settings.ACCESS_TOKEN_EXPIRE_MINUTES
+        self.refresh_token_expire_days = settings.REFRESH_TOKEN_EXPIRE_DAYS
 
     def create_access_token(self, email: str) -> str:
         """

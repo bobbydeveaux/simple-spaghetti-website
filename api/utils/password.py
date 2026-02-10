@@ -1,11 +1,12 @@
 """Password hashing and verification utilities using bcrypt."""
 
 import bcrypt
+from api.config import settings
 
 
 def hash_password(password: str) -> str:
     """
-    Hash a password using bcrypt with 12 rounds.
+    Hash a password using bcrypt with configurable rounds.
 
     Args:
         password: Plain text password
@@ -13,8 +14,8 @@ def hash_password(password: str) -> str:
     Returns:
         Bcrypt hash string
     """
-    # Generate salt with 12 rounds (secure default)
-    salt = bcrypt.gensalt(rounds=12)
+    # Generate salt with configured rounds
+    salt = bcrypt.gensalt(rounds=settings.BCRYPT_ROUNDS)
     # Hash the password with the salt
     hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
     # Return as string for storage

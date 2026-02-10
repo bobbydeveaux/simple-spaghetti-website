@@ -20,4 +20,4 @@ class RefreshRequest(BaseModel):
 class ProtectedResponse(BaseModel):
     """Schema for protected endpoint response"""
     message: str = Field(..., description="Success message")
-    user: str = Field(..., description="Authenticated user email")
+    user: dict = Field(..., description="Authenticated user information")
