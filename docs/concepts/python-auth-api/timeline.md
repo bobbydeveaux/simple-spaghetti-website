@@ -2,34 +2,41 @@
 
 **Generated:** 2026-02-10
 
-**Total Sprints:** 2
+**Total Sprints:** 3
 
-**Total Duration:** 15 days
+**Total Duration:** 23 days
 
 **Start Date:** 2026-02-10
 
-**Estimated Completion:** 2026-02-25
+**Estimated Completion:** 2026-03-05
 
 ---
 
 ## Sprint Schedule
 
-### Sprint 1
+### Sprint 2
 
 **Duration:** 2026-02-10 to 2026-02-17 (7 days)
 
 **Features:**
 
-- **python-auth-api-feat-core-auth** (enabler): Core Authentication System
-- **python-auth-api-feat-auth-endpoints** (feature): Authentication Endpoints
+- **python-auth-api-feat-authentication** (feature): Authentication Endpoints
 
-### Sprint 2
+### Sprint 3
 
 **Duration:** 2026-02-18 to 2026-02-25 (7 days)
 
 **Features:**
 
-- **python-auth-api-feat-protected-resources** (feature): Protected Resource Access
+- **python-auth-api-feat-protected-endpoint** (feature): Protected Endpoint
+
+### Sprint 1
+
+**Duration:** 2026-02-26 to 2026-03-05 (7 days)
+
+**Features:**
+
+- **python-auth-api-feat-core-infrastructure** (enabler): Core Infrastructure Setup
 
 ---
 
@@ -37,5 +44,6 @@
 
 The longest dependency chain:
 
-1. python-auth-api-feat-core-auth
-2. python-auth-api-feat-auth-endpoints
+1. python-auth-api-feat-core-infrastructure
+2. python-auth-api-feat-authentication
+3. python-auth-api-feat-protected-endpoint
