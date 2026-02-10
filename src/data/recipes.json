@@ -1,0 +1,450 @@
+[
+  {
+    "id": "1",
+    "title": "Spaghetti Carbonara",
+    "description": "Classic Roman pasta dish with eggs, cheese, and pancetta",
+    "image": "/images/carbonara.jpg",
+    "pastaType": "spaghetti",
+    "region": "Central",
+    "difficulty": "easy",
+    "prepTime": 10,
+    "cookTime": 15,
+    "servings": 4,
+    "ingredients": [
+      "400g spaghetti",
+      "200g pancetta or guanciale",
+      "4 large eggs",
+      "100g Pecorino Romano cheese",
+      "Black pepper",
+      "Salt"
+    ],
+    "instructions": [
+      "Boil water and cook spaghetti according to package directions",
+      "Crisp the pancetta in a large pan",
+      "Whisk eggs with grated cheese and black pepper",
+      "Drain pasta and mix with pancetta",
+      "Remove from heat and quickly stir in egg mixture",
+      "Serve immediately with extra cheese"
+    ]
+  },
+  {
+    "id": "2",
+    "title": "Penne Arrabbiata",
+    "description": "Spicy pasta dish from Rome with tomatoes and chilies",
+    "image": "/images/arrabbiata.jpg",
+    "pastaType": "penne",
+    "region": "Central",
+    "difficulty": "easy",
+    "prepTime": 15,
+    "cookTime": 20,
+    "servings": 4,
+    "ingredients": [
+      "400g penne pasta",
+      "400g canned tomatoes",
+      "4 cloves garlic",
+      "2-3 dried red chilies",
+      "60ml olive oil",
+      "Fresh parsley",
+      "Pecorino Romano cheese"
+    ],
+    "instructions": [
+      "Heat olive oil in a pan with garlic and chilies",
+      "Add crushed tomatoes and simmer for 15 minutes",
+      "Cook penne according to package directions",
+      "Drain pasta and toss with sauce",
+      "Garnish with parsley and cheese",
+      "Serve hot"
+    ]
+  },
+  {
+    "id": "3",
+    "title": "Lasagna Bolognese",
+    "description": "Traditional layered pasta with meat sauce and béchamel",
+    "image": "/images/lasagna.jpg",
+    "pastaType": "lasagna",
+    "region": "Northern",
+    "difficulty": "hard",
+    "prepTime": 45,
+    "cookTime": 60,
+    "servings": 8,
+    "ingredients": [
+      "12 lasagna sheets",
+      "500g ground beef",
+      "300g ground pork",
+      "400g canned tomatoes",
+      "200ml white wine",
+      "500ml milk",
+      "50g butter",
+      "50g flour",
+      "200g Parmesan cheese",
+      "Onion, carrot, celery"
+    ],
+    "instructions": [
+      "Prepare Bolognese sauce by browning meat and vegetables",
+      "Add tomatoes and wine, simmer for 2 hours",
+      "Make béchamel sauce with butter, flour, and milk",
+      "Cook lasagna sheets until al dente",
+      "Layer pasta, Bolognese, and béchamel in baking dish",
+      "Top with Parmesan and bake at 180°C for 45 minutes",
+      "Rest for 10 minutes before serving"
+    ]
+  },
+  {
+    "id": "4",
+    "title": "Fettuccine Alfredo",
+    "description": "Creamy pasta dish with butter and Parmesan cheese",
+    "image": "/images/alfredo.jpg",
+    "pastaType": "fettuccine",
+    "region": "Central",
+    "difficulty": "easy",
+    "prepTime": 10,
+    "cookTime": 12,
+    "servings": 4,
+    "ingredients": [
+      "400g fettuccine",
+      "100g butter",
+      "150g Parmesan cheese",
+      "200ml heavy cream",
+      "2 cloves garlic",
+      "Salt and pepper",
+      "Fresh parsley"
+    ],
+    "instructions": [
+      "Cook fettuccine in salted water until al dente",
+      "Melt butter in large pan with minced garlic",
+      "Add heavy cream and bring to gentle simmer",
+      "Drain pasta and add to cream sauce",
+      "Toss with Parmesan cheese until creamy",
+      "Season with salt, pepper, and parsley",
+      "Serve immediately"
+    ]
+  },
+  {
+    "id": "5",
+    "title": "Pesto Genovese with Linguine",
+    "description": "Traditional basil pesto from Liguria with pine nuts",
+    "image": "/images/pesto.jpg",
+    "pastaType": "linguine",
+    "region": "Northern",
+    "difficulty": "medium",
+    "prepTime": 20,
+    "cookTime": 10,
+    "servings": 4,
+    "ingredients": [
+      "400g linguine",
+      "100g fresh basil leaves",
+      "50g pine nuts",
+      "100g Parmesan cheese",
+      "50g Pecorino Romano",
+      "3 cloves garlic",
+      "120ml extra virgin olive oil",
+      "Salt"
+    ],
+    "instructions": [
+      "Toast pine nuts until golden",
+      "Blend basil, garlic, pine nuts, and salt in food processor",
+      "Slowly add olive oil while blending",
+      "Stir in grated cheeses",
+      "Cook linguine until al dente",
+      "Reserve pasta water and drain linguine",
+      "Toss pasta with pesto, adding pasta water if needed"
+    ]
+  },
+  {
+    "id": "6",
+    "title": "Spaghetti alle Vongole",
+    "description": "Neapolitan pasta with clams in white wine sauce",
+    "image": "/images/vongole.jpg",
+    "pastaType": "spaghetti",
+    "region": "Southern",
+    "difficulty": "medium",
+    "prepTime": 25,
+    "cookTime": 20,
+    "servings": 4,
+    "ingredients": [
+      "400g spaghetti",
+      "1kg fresh clams",
+      "4 cloves garlic",
+      "200ml white wine",
+      "60ml olive oil",
+      "Fresh parsley",
+      "Red pepper flakes",
+      "Salt"
+    ],
+    "instructions": [
+      "Soak clams in salted water to remove sand",
+      "Heat olive oil with garlic and pepper flakes",
+      "Add clams and white wine, cover until they open",
+      "Cook spaghetti until al dente",
+      "Reserve pasta water and drain",
+      "Toss pasta with clam sauce",
+      "Garnish with parsley and serve"
+    ]
+  },
+  {
+    "id": "7",
+    "title": "Rigatoni all'Amatriciana",
+    "description": "Spicy pasta from Amatrice with tomatoes and guanciale",
+    "image": "/images/amatriciana.jpg",
+    "pastaType": "rigatoni",
+    "region": "Central",
+    "difficulty": "easy",
+    "prepTime": 15,
+    "cookTime": 25,
+    "servings": 4,
+    "ingredients": [
+      "400g rigatoni",
+      "150g guanciale or pancetta",
+      "400g canned San Marzano tomatoes",
+      "100g Pecorino Romano",
+      "1 dried red chili",
+      "White wine",
+      "Black pepper"
+    ],
+    "instructions": [
+      "Cut guanciale into strips and cook until crispy",
+      "Add chili and deglaze with white wine",
+      "Add crushed tomatoes and simmer 15 minutes",
+      "Cook rigatoni until al dente",
+      "Drain and toss with sauce",
+      "Add Pecorino Romano and black pepper",
+      "Serve hot"
+    ]
+  },
+  {
+    "id": "8",
+    "title": "Orecchiette with Broccoli Rabe",
+    "description": "Pugliese pasta with bitter greens and sausage",
+    "image": "/images/orecchiette.jpg",
+    "pastaType": "orecchiette",
+    "region": "Southern",
+    "difficulty": "medium",
+    "prepTime": 20,
+    "cookTime": 25,
+    "servings": 4,
+    "ingredients": [
+      "400g orecchiette",
+      "500g broccoli rabe",
+      "300g Italian sausage",
+      "4 cloves garlic",
+      "60ml olive oil",
+      "Red pepper flakes",
+      "Pecorino Romano",
+      "Salt"
+    ],
+    "instructions": [
+      "Blanch broccoli rabe in salted water",
+      "Cook sausage and remove from pan",
+      "Sauté garlic and pepper flakes in oil",
+      "Add broccoli rabe and sausage",
+      "Cook orecchiette until al dente",
+      "Combine pasta with vegetables and sausage",
+      "Finish with Pecorino Romano"
+    ]
+  },
+  {
+    "id": "9",
+    "title": "Cacio e Pepe",
+    "description": "Simple Roman pasta with cheese and black pepper",
+    "image": "/images/cacioepepe.jpg",
+    "pastaType": "spaghetti",
+    "region": "Central",
+    "difficulty": "medium",
+    "prepTime": 5,
+    "cookTime": 12,
+    "servings": 4,
+    "ingredients": [
+      "400g spaghetti",
+      "200g Pecorino Romano",
+      "Black pepper",
+      "Salt"
+    ],
+    "instructions": [
+      "Cook spaghetti in salted water until al dente",
+      "Reserve 250ml pasta water before draining",
+      "Toast black pepper in large pan",
+      "Add small amount of pasta water to pan",
+      "Add drained pasta and toss vigorously",
+      "Add grated Pecorino and more pasta water",
+      "Toss until creamy and serve immediately"
+    ]
+  },
+  {
+    "id": "10",
+    "title": "Pasta Puttanesca",
+    "description": "Bold Neapolitan pasta with olives, capers, and anchovies",
+    "image": "/images/puttanesca.jpg",
+    "pastaType": "spaghetti",
+    "region": "Southern",
+    "difficulty": "easy",
+    "prepTime": 15,
+    "cookTime": 20,
+    "servings": 4,
+    "ingredients": [
+      "400g spaghetti",
+      "400g canned tomatoes",
+      "100g black olives",
+      "50g capers",
+      "6 anchovy fillets",
+      "3 cloves garlic",
+      "60ml olive oil",
+      "Fresh parsley",
+      "Red pepper flakes"
+    ],
+    "instructions": [
+      "Heat oil with garlic, anchovies, and pepper flakes",
+      "Add tomatoes, olives, and capers",
+      "Simmer sauce for 15 minutes",
+      "Cook spaghetti until al dente",
+      "Drain and toss with sauce",
+      "Garnish with parsley",
+      "Serve immediately"
+    ]
+  },
+  {
+    "id": "11",
+    "title": "Tortellini in Brodo",
+    "description": "Stuffed pasta in rich chicken broth from Emilia-Romagna",
+    "image": "/images/tortellini.jpg",
+    "pastaType": "tortellini",
+    "region": "Northern",
+    "difficulty": "hard",
+    "prepTime": 60,
+    "cookTime": 30,
+    "servings": 6,
+    "ingredients": [
+      "500g fresh tortellini",
+      "2L chicken broth",
+      "100g Parmesan cheese",
+      "Fresh parsley",
+      "Black pepper"
+    ],
+    "instructions": [
+      "Bring chicken broth to a gentle boil",
+      "Add fresh tortellini to broth",
+      "Cook for 3-4 minutes until they float",
+      "Ladle into bowls with broth",
+      "Garnish with Parmesan and parsley",
+      "Serve hot with black pepper"
+    ]
+  },
+  {
+    "id": "12",
+    "title": "Pasta alla Norma",
+    "description": "Sicilian pasta with eggplant, tomatoes, and ricotta salata",
+    "image": "/images/norma.jpg",
+    "pastaType": "rigatoni",
+    "region": "Southern",
+    "difficulty": "medium",
+    "prepTime": 30,
+    "cookTime": 35,
+    "servings": 4,
+    "ingredients": [
+      "400g rigatoni",
+      "2 medium eggplants",
+      "400g canned tomatoes",
+      "150g ricotta salata",
+      "Fresh basil",
+      "4 cloves garlic",
+      "Olive oil for frying",
+      "Salt"
+    ],
+    "instructions": [
+      "Slice eggplant, salt, and let drain 30 minutes",
+      "Fry eggplant slices until golden",
+      "Make tomato sauce with garlic and basil",
+      "Cook rigatoni until al dente",
+      "Combine pasta with tomato sauce",
+      "Add fried eggplant and ricotta salata",
+      "Serve with fresh basil"
+    ]
+  },
+  {
+    "id": "13",
+    "title": "Ravioli with Sage Butter",
+    "description": "Stuffed pasta with brown butter and crispy sage",
+    "image": "/images/ravioli.jpg",
+    "pastaType": "ravioli",
+    "region": "Northern",
+    "difficulty": "medium",
+    "prepTime": 20,
+    "cookTime": 15,
+    "servings": 4,
+    "ingredients": [
+      "500g fresh ravioli",
+      "100g butter",
+      "20 fresh sage leaves",
+      "100g Parmesan cheese",
+      "Salt and pepper"
+    ],
+    "instructions": [
+      "Cook ravioli in salted water until they float",
+      "Melt butter in large pan until golden brown",
+      "Add sage leaves and fry until crispy",
+      "Drain ravioli and add to brown butter",
+      "Toss gently to coat",
+      "Serve with Parmesan and pepper"
+    ]
+  },
+  {
+    "id": "14",
+    "title": "Bucatini all'Amatriciana",
+    "description": "Traditional Roman pasta with tomatoes and guanciale",
+    "image": "/images/bucatini.jpg",
+    "pastaType": "bucatini",
+    "region": "Central",
+    "difficulty": "easy",
+    "prepTime": 15,
+    "cookTime": 25,
+    "servings": 4,
+    "ingredients": [
+      "400g bucatini",
+      "150g guanciale",
+      "400g San Marzano tomatoes",
+      "100g Pecorino Romano",
+      "1 red chili pepper",
+      "White wine",
+      "Black pepper"
+    ],
+    "instructions": [
+      "Dice guanciale and cook until crispy",
+      "Add chili and deglaze with wine",
+      "Add tomatoes and simmer 20 minutes",
+      "Cook bucatini until al dente",
+      "Combine pasta with sauce",
+      "Add Pecorino and black pepper",
+      "Serve immediately"
+    ]
+  },
+  {
+    "id": "15",
+    "title": "Farfalle with Salmon and Cream",
+    "description": "Elegant pasta dish with smoked salmon and dill",
+    "image": "/images/farfalle.jpg",
+    "pastaType": "farfalle",
+    "region": "Northern",
+    "difficulty": "easy",
+    "prepTime": 15,
+    "cookTime": 15,
+    "servings": 4,
+    "ingredients": [
+      "400g farfalle",
+      "200g smoked salmon",
+      "200ml heavy cream",
+      "1 onion",
+      "Fresh dill",
+      "Lemon juice",
+      "White wine",
+      "Black pepper"
+    ],
+    "instructions": [
+      "Sauté diced onion until translucent",
+      "Add white wine and reduce",
+      "Add cream and bring to simmer",
+      "Cook farfalle until al dente",
+      "Add salmon pieces to cream sauce",
+      "Drain pasta and combine with sauce",
+      "Finish with dill and lemon juice"
+    ]
+  }
+]
