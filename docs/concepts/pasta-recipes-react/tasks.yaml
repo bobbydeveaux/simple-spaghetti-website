@@ -1,0 +1,194 @@
+GeneratedAt: "2026-02-10T14:48:36Z"
+Plan: pasta-recipes-react-plan
+Sprints:
+- Features:
+  - FeatureID: pasta-recipes-react-feat-project-setup
+    FeatureTitle: Project Setup and Data Layer
+    Tasks:
+    - AcceptanceCriteria:
+      - Vite development server starts without errors
+      - All dependencies (react-router-dom, tailwindcss) are installed and listed
+        in package.json
+      - Tailwind CSS is properly configured and functional
+      - index.html correctly references the Vite entry point
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Bootstrap a new Vite React project and install required dependencies
+        (react-router-dom, tailwindcss). Configure Vite and Tailwind with proper settings.
+        Set up the base HTML entry point and ensure the development server runs successfully.
+      EstimatedEffort: S
+      Files:
+      - package.json
+      - vite.config.js
+      - tailwind.config.js
+      - index.html
+      ID: task-pasta-recipes-react-feat-project-setup-1
+      Title: Initialize Vite React project with dependencies and configuration
+    - AcceptanceCriteria:
+      - All directories (components/, context/, data/, utils/) exist with correct
+        structure
+      - All component files from LLD are created with basic exports
+      - App.jsx includes Router setup that renders without errors
+      - main.jsx properly mounts the React application
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-pasta-recipes-react-feat-project-setup-1
+      Description: Set up the complete src/ directory structure with placeholder components,
+        context, utils, and data folders. Create skeleton files for all components
+        listed in the LLD. Implement basic App.jsx with Router setup and main.jsx
+        entry point.
+      EstimatedEffort: M
+      Files:
+      - src/App.jsx
+      - src/main.jsx
+      - src/components/RecipeList.jsx
+      - src/components/RecipeDetail.jsx
+      - src/components/RecipeCard.jsx
+      - src/components/SearchBar.jsx
+      - src/components/FilterPanel.jsx
+      - src/components/Navigation.jsx
+      - src/context/RecipeContext.jsx
+      - src/utils/filterHelpers.js
+      ID: task-pasta-recipes-react-feat-project-setup-2
+      Title: Create project file structure and entry components
+    - AcceptanceCriteria:
+      - recipes.json contains 15-20 recipe objects with complete data
+      - JSON is valid and can be imported without errors
+      - Recipes include variety in cuisine types, difficulty levels, and dietary tags
+      - Each recipe has all fields needed for search and filtering functionality
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-pasta-recipes-react-feat-project-setup-2
+      Description: Create recipes.json with 15-20 complete recipe objects containing
+        all required fields (id, name, description, ingredients, instructions, cookTime,
+        difficulty, cuisine, dietary tags, etc.). Ensure data is valid JSON and includes
+        diverse recipe types for testing filters.
+      EstimatedEffort: S
+      Files:
+      - src/data/recipes.json
+      ID: task-pasta-recipes-react-feat-project-setup-3
+      Title: Populate recipes.json with sample data
+  - FeatureID: pasta-recipes-react-feat-recipe-browsing
+    FeatureTitle: Recipe Browsing and Display
+    Tasks:
+    - AcceptanceCriteria:
+      - React Router configured with routes for list view
+      - Navigation component renders with functional links
+      - RecipeContext loads recipes.json and provides data to children
+      - Context exposes filters state and setFilters function
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Configure React Router in App.jsx and main.jsx. Create Navigation
+        component with header and route links. Set up RecipeContext provider to load
+        and provide recipe data from JSON with basic filtering state management.
+      EstimatedEffort: M
+      Files:
+      - src/App.jsx
+      - src/main.jsx
+      - src/components/Navigation.jsx
+      - src/context/RecipeContext.jsx
+      ID: task-pasta-recipes-react-feat-recipe-browsing-1
+      Title: Set up routing and app structure
+    - AcceptanceCriteria:
+      - RecipeCard renders all required fields with proper styling
+      - RecipeList displays recipes in responsive grid layout
+      - Empty state message shows when no recipes match filters
+      - Images lazy-load using native loading attribute
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-pasta-recipes-react-feat-recipe-browsing-1
+      Description: Create RecipeCard component displaying recipe image, title, difficulty,
+        and cook time with Tailwind styling. Build RecipeList component with grid
+        layout that maps filtered recipes to RecipeCard components. Handle empty state
+        with 'No recipes found' message.
+      EstimatedEffort: M
+      Files:
+      - src/components/RecipeCard.jsx
+      - src/components/RecipeList.jsx
+      ID: task-pasta-recipes-react-feat-recipe-browsing-2
+      Title: Implement recipe card and list components
+    - AcceptanceCriteria:
+      - SearchBar filters recipes by title in real-time
+      - FilterPanel allows filtering by difficulty and category
+      - Filtered results update immediately when filters change
+      - RecipeList displays only recipes matching all active filters
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-pasta-recipes-react-feat-recipe-browsing-2
+      Description: Implement SearchBar component with real-time search input. Create
+        FilterPanel with difficulty and category filters. Build filter logic in RecipeContext
+        using useMemo to compute filteredRecipes based on search term and active filters.
+      EstimatedEffort: M
+      Files:
+      - src/components/SearchBar.jsx
+      - src/components/FilterPanel.jsx
+      - src/context/RecipeContext.jsx
+      - src/utils/filterHelpers.js
+      ID: task-pasta-recipes-react-feat-recipe-browsing-3
+      Title: Add search and filter functionality
+  Sprint: 1
+- Features:
+  - FeatureID: pasta-recipes-react-feat-search-and-filtering
+    FeatureTitle: Search and Category Filtering
+    Tasks:
+    - AcceptanceCriteria:
+      - SearchBar renders text input with onChange handler
+      - FilterPanel renders checkbox/dropdown filters for pasta type, region, and
+        difficulty
+      - Components are responsive and styled with Tailwind CSS
+      - Components accept props for current filter values and onChange handlers
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create SearchBar and FilterPanel components with controlled inputs
+        for recipe name/ingredient search and category filters (pasta type, region,
+        difficulty). Components should accept onChange handlers and current filter
+        state as props. Style with Tailwind CSS for responsive layout.
+      EstimatedEffort: S
+      Files:
+      - src/components/SearchBar.jsx
+      - src/components/FilterPanel.jsx
+      ID: task-pasta-recipes-react-feat-search-and-filtering-1
+      Title: Implement search and filter UI components
+    - AcceptanceCriteria:
+      - filterHelpers.js exports searchRecipes and filterRecipes functions
+      - RecipeContext provides filters, setFilters, and filteredRecipes
+      - RecipeList displays SearchBar and FilterPanel above recipe grid
+      - Real-time filtering works for search text and all category filters
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-pasta-recipes-react-feat-search-and-filtering-1
+      Description: Create filterHelpers.js with searchRecipes and filterRecipes functions
+        supporting text search and multi-field filtering. Update RecipeContext to
+        manage filter state and compute filteredRecipes using useMemo. Integrate SearchBar
+        and FilterPanel into RecipeList component with proper state management.
+      EstimatedEffort: M
+      Files:
+      - src/utils/filterHelpers.js
+      - src/context/RecipeContext.jsx
+      - src/components/RecipeList.jsx
+      ID: task-pasta-recipes-react-feat-search-and-filtering-2
+      Title: Implement filter logic and RecipeContext integration
+  - FeatureID: pasta-recipes-react-feat-recipe-detail
+    FeatureTitle: Recipe Detail Page
+    Tasks:
+    - AcceptanceCriteria:
+      - RecipeDetail component renders all recipe fields (ingredients, instructions,
+        times, servings, region, description)
+      - Component correctly extracts recipe ID from URL params and displays matching
+        recipe
+      - Route /recipe/:id is configured and navigable from RecipeList
+      - Displays 404 or 'Recipe not found' message for invalid IDs
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create the RecipeDetail.jsx component that displays full recipe
+        information including ingredients, instructions, prep/cook time, servings,
+        region, and description. Use useParams hook to extract recipe ID from URL,
+        fetch recipe data from RecipeContext, and render with Tailwind CSS styling.
+        Add route configuration in App.jsx for /recipe/:id path.
+      EstimatedEffort: S
+      Files:
+      - src/components/RecipeDetail.jsx
+      - src/App.jsx
+      ID: task-pasta-recipes-react-feat-recipe-detail-1
+      Title: Implement RecipeDetail component with routing
+  Sprint: 2
