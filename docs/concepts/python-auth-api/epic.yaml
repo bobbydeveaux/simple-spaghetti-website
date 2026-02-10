@@ -1,44 +1,48 @@
 Epic: python-auth-api
 Features:
 - dependencies: []
-  description: Initialize FastAPI application with configuration, environment variables,
-    CORS middleware, password hashing utilities, JWT token creation/validation functions,
-    and in-memory user storage
-  estimatedComplexity: low
+  description: Implements password hashing, JWT token generation/validation, and in-memory
+    user storage. Includes bcrypt password hashing, HS256 JWT signing with access/refresh
+    token support, and UserStorage class for managing users in memory.
+  estimatedComplexity: medium
   files:
-  - api/main.py
+  - api/__init__.py
   - api/config.py
+  - api/models.py
+  - api/auth/__init__.py
   - api/auth/password.py
   - api/auth/tokens.py
   - api/auth/storage.py
   - api/dependencies.py
-  - api/models.py
   - requirements.txt
   - .env.example
-  id: python-auth-api-feat-core-setup
-  name: Core Application Setup
+  id: python-auth-api-feat-core-auth
+  name: Core Authentication System
   project: python-auth-api
   type: enabler
 - dependencies:
-  - python-auth-api-feat-core-setup
-  description: Implement user registration, login, and token refresh endpoints with
-    input validation, password hashing, and JWT token generation
+  - python-auth-api-feat-core-auth
+  description: REST API endpoints for user registration, login, and token refresh.
+    Handles user creation with validation, credential verification, and refresh token
+    exchange for new access tokens.
   estimatedComplexity: medium
   files:
+  - api/main.py
+  - api/routes/__init__.py
   - api/routes/auth.py
   id: python-auth-api-feat-auth-endpoints
   name: Authentication Endpoints
   project: python-auth-api
   type: feature
 - dependencies:
-  - python-auth-api-feat-core-setup
-  description: Implement JWT-protected endpoints that validate access tokens and return
-    user-specific data
+  - python-auth-api-feat-core-auth
+  description: JWT-protected endpoint demonstrating token validation with Bearer authentication.
+    Validates access tokens via dependency injection and returns user-specific data.
   estimatedComplexity: low
   files:
   - api/routes/protected.py
-  id: python-auth-api-feat-protected-endpoints
-  name: Protected Endpoints
+  id: python-auth-api-feat-protected-resources
+  name: Protected Resource Access
   project: python-auth-api
   type: feature
 Version: v1alpha1
