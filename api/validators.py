@@ -1,17 +1,15 @@
 """
-Input validation functions for the Library API
-
-Contains validation functions for book, member, and loan data.
-Returns tuples of (is_valid, error_message).
+Input validation functions for library API data.
+Validates book, member, and loan data according to business rules.
 """
+
 import re
-from typing import Dict, Tuple, Optional
-from .data_store import AUTHORS, BOOKS, MEMBERS
+from typing import Dict, Tuple, Any, Optional
+from api.data_store import BOOKS, AUTHORS, MEMBERS
 
-
-def validate_book(data: Dict) -> Tuple[bool, Optional[str]]:
+def validate_book(data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
     """
-    Validate book data for creation/update.
+    Validate book data for creation or update.
 
     Args:
         data: Dictionary containing book data
@@ -22,7 +20,7 @@ def validate_book(data: Dict) -> Tuple[bool, Optional[str]]:
         - error_message: None if valid, error string if invalid
     """
     if not isinstance(data, dict):
-        return False, "Data must be a dictionary"
+        return False, "Invalid data format"
 
     # Check required fields
     required_fields = ["title", "author_id", "isbn"]
@@ -31,42 +29,47 @@ def validate_book(data: Dict) -> Tuple[bool, Optional[str]]:
             return False, f"Missing required field: {field}"
 
     # Validate title
-    title = data["title"]
-    if not isinstance(title, str) or len(title.strip()) == 0:
-        return False, "Title must be a non-empty string"
-    if len(title) > 200:
-        return False, "Title must be 200 characters or less"
+    title = data["title"].strip()
+    if len(title) < 1 or len(title) > 200:
+        return False, "Title must be between 1 and 200 characters"
 
     # Validate author_id
-    author_id = data["author_id"]
-    if not isinstance(author_id, int) or author_id <= 0:
-        return False, "Author ID must be a positive integer"
-    if author_id not in AUTHORS:
-        return False, "Author with this ID does not exist"
+    try:
+        author_id = int(data["author_id"])
+        if author_id not in AUTHORS:
+            return False, "Invalid author_id: author does not exist"
+    except (ValueError, TypeError):
+        return False, "author_id must be a valid integer"
 
-    # Validate ISBN
-    isbn = data["isbn"]
-    if not isinstance(isbn, str):
-        return False, "ISBN must be a string"
+    # Validate ISBN format (comprehensive check)
+    isbn = str(data["isbn"]).strip().replace("-", "")
+    if not re.match(r"^(978|979)?[\d]{9}[\dX]$", isbn):
+        return False, "Invalid ISBN format"
 
-    # ISBN format validation (simple check for ISBN-10 or ISBN-13)
-    isbn_clean = re.sub(r'[-\s]', '', isbn)
-    if not (len(isbn_clean) == 10 or len(isbn_clean) == 13):
-        return False, "ISBN must be 10 or 13 digits"
-    if not isbn_clean.replace('X', '').isdigit():
-        return False, "ISBN must contain only digits and optionally 'X'"
+    # Validate optional fields
+    if "available_copies" in data:
+        try:
+            available_copies = int(data["available_copies"])
+            if available_copies < 0:
+                return False, "available_copies must be non-negative"
+        except (ValueError, TypeError):
+            return False, "available_copies must be a valid integer"
 
-    # Validate available flag if provided
-    if "available" in data:
-        if not isinstance(data["available"], bool):
-            return False, "Available must be a boolean value"
+    if "total_copies" in data:
+        try:
+            total_copies = int(data["total_copies"])
+            if total_copies < 0:
+                return False, "total_copies must be non-negative"
+            if "available_copies" in data and total_copies < int(data["available_copies"]):
+                return False, "total_copies cannot be less than available_copies"
+        except (ValueError, TypeError):
+            return False, "total_copies must be a valid integer"
 
     return True, None
 
-
-def validate_member(data: Dict) -> Tuple[bool, Optional[str]]:
+def validate_member(data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
     """
-    Validate member data for registration/update.
+    Validate member data for registration or update.
 
     Args:
         data: Dictionary containing member data
@@ -77,54 +80,39 @@ def validate_member(data: Dict) -> Tuple[bool, Optional[str]]:
         - error_message: None if valid, error string if invalid
     """
     if not isinstance(data, dict):
-        return False, "Data must be a dictionary"
+        return False, "Invalid data format"
 
     # Check required fields
-    required_fields = ["name", "email"]
+    required_fields = ["name", "email", "password"]
     for field in required_fields:
         if field not in data or not data[field]:
             return False, f"Missing required field: {field}"
 
     # Validate name
-    name = data["name"]
-    if not isinstance(name, str) or len(name.strip()) == 0:
-        return False, "Name must be a non-empty string"
-    if len(name) > 100:
-        return False, "Name must be 100 characters or less"
+    name = data["name"].strip()
+    if len(name) < 2 or len(name) > 100:
+        return False, "Name must be between 2 and 100 characters"
 
-    # Validate email
-    email = data["email"]
-    if not isinstance(email, str):
-        return False, "Email must be a string"
-
-    # Basic email format validation
+    # Validate email format
+    email = data["email"].strip().lower()
     email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     if not re.match(email_pattern, email):
         return False, "Invalid email format"
 
-    if len(email) > 255:
-        return False, "Email must be 255 characters or less"
-
-    # Check for duplicate email (excluding the member being updated)
-    member_id = data.get("id")
-    for existing_id, member in MEMBERS.items():
-        if member["email"].lower() == email.lower() and existing_id != member_id:
+    # Check for duplicate email (exclude current member for updates)
+    exclude_id = data.get("id")
+    for member_id, member in MEMBERS.items():
+        if member["email"].lower() == email and member_id != exclude_id:
             return False, "Email already exists"
 
-    # Validate password if provided (for registration)
-    if "password" in data:
-        password = data["password"]
-        if not isinstance(password, str):
-            return False, "Password must be a string"
-        if len(password) < 8:
-            return False, "Password must be at least 8 characters long"
-        if len(password) > 128:
-            return False, "Password must be 128 characters or less"
+    # Validate password
+    password = data["password"]
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long"
 
     return True, None
 
-
-def validate_loan(data: Dict) -> Tuple[bool, Optional[str]]:
+def validate_loan(data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
     """
     Validate loan data for creation.
 
@@ -137,7 +125,7 @@ def validate_loan(data: Dict) -> Tuple[bool, Optional[str]]:
         - error_message: None if valid, error string if invalid
     """
     if not isinstance(data, dict):
-        return False, "Data must be a dictionary"
+        return False, "Invalid data format"
 
     # Check required fields
     required_fields = ["book_id", "member_id"]
@@ -146,26 +134,88 @@ def validate_loan(data: Dict) -> Tuple[bool, Optional[str]]:
             return False, f"Missing required field: {field}"
 
     # Validate book_id
-    book_id = data["book_id"]
-    if not isinstance(book_id, int) or book_id <= 0:
-        return False, "Book ID must be a positive integer"
-    if book_id not in BOOKS:
-        return False, "Book with this ID does not exist"
-
-    # Check if book is available
-    book = BOOKS[book_id]
-    if not book.get("available", False):
-        return False, "Book is not available for borrowing"
+    try:
+        book_id = int(data["book_id"])
+        if book_id not in BOOKS:
+            return False, "Invalid book_id: book does not exist"
+    except (ValueError, TypeError):
+        return False, "book_id must be a valid integer"
 
     # Validate member_id
-    member_id = data["member_id"]
-    if not isinstance(member_id, int) or member_id <= 0:
-        return False, "Member ID must be a positive integer"
-    if member_id not in MEMBERS:
-        return False, "Member with this ID does not exist"
+    try:
+        member_id = int(data["member_id"])
+        if member_id not in MEMBERS:
+            return False, "Invalid member_id: member does not exist"
+    except (ValueError, TypeError):
+        return False, "member_id must be a valid integer"
+
+    # Check book availability
+    book = BOOKS[book_id]
+    if book.get("available_copies", 0) <= 0:
+        return False, "Book is not available for loan"
 
     return True, None
 
+def validate_book_update(book_id: int, data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+    """
+    Validate book data for update operations.
+
+    Args:
+        book_id: ID of the book being updated
+        data: Dictionary containing update data
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if book_id not in BOOKS:
+        return False, "Book not found"
+
+    # For updates, we allow partial data
+    if not isinstance(data, dict) or len(data) == 0:
+        return False, "No update data provided"
+
+    # Validate only provided fields
+    if "title" in data:
+        title = str(data["title"]).strip()
+        if len(title) < 1 or len(title) > 200:
+            return False, "Title must be between 1 and 200 characters"
+
+    if "author_id" in data:
+        try:
+            author_id = int(data["author_id"])
+            if author_id not in AUTHORS:
+                return False, "Invalid author_id: author does not exist"
+        except (ValueError, TypeError):
+            return False, "author_id must be a valid integer"
+
+    if "isbn" in data:
+        isbn = str(data["isbn"]).strip().replace("-", "")
+        if not re.match(r"^(978|979)?[\d]{9}[\dX]$", isbn):
+            return False, "Invalid ISBN format"
+
+    if "available_copies" in data:
+        try:
+            available_copies = int(data["available_copies"])
+            if available_copies < 0:
+                return False, "available_copies must be non-negative"
+        except (ValueError, TypeError):
+            return False, "available_copies must be a valid integer"
+
+    if "total_copies" in data:
+        try:
+            total_copies = int(data["total_copies"])
+            if total_copies < 0:
+                return False, "total_copies must be non-negative"
+
+            # Check against current available_copies if not being updated
+            current_book = BOOKS[book_id]
+            check_available = data.get("available_copies", current_book.get("available_copies", 0))
+            if total_copies < check_available:
+                return False, "total_copies cannot be less than available_copies"
+        except (ValueError, TypeError):
+            return False, "total_copies must be a valid integer"
+
+    return True, None
 
 def validate_loan_return(loan_id: int) -> Tuple[bool, Optional[str]]:
     """
@@ -185,7 +235,7 @@ def validate_loan_return(loan_id: int) -> Tuple[bool, Optional[str]]:
     if loan_id not in LOANS:
         return False, "Loan with this ID does not exist"
 
-    from .data_store import LOANS
+    from api.data_store import LOANS
     loan = LOANS[loan_id]
     if loan.get("status") == "returned":
         return False, "Loan has already been returned"

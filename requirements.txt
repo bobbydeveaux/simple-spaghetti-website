@@ -1,18 +1,23 @@
-# FastAPI and core dependencies
-fastapi>=0.104.0
-uvicorn[standard]>=0.24.0
-pydantic[email]>=2.5.0
-python-multipart>=0.0.6
-
-# Flask web framework and utilities (for library API)
+# Flask and core dependencies for Library API
 flask>=2.3.0
+pyjwt>=2.8.0
 werkzeug>=2.3.0
 
-# JWT and authentication
-PyJWT>=2.8.0
+# CORS support for development
+flask-cors>=4.0.0
+
+# Authentication and security
 bcrypt>=4.1.0
 
 # Development and testing
 pytest>=7.4.0
-pytest-asyncio>=0.21.0
-httpx>=0.25.0
+requests>=2.31.0
+
+# FastAPI dependencies (legacy - keeping for compatibility)
+# fastapi>=0.104.0
+# uvicorn[standard]>=0.24.0
+# pydantic[email]>=2.5.0
+# python-multipart>=0.0.6
+# bcrypt>=4.1.0
+# pytest-asyncio>=0.21.0
+# httpx>=0.25.0
