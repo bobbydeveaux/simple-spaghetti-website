@@ -1,23 +1,21 @@
 Epic: library-api
 Features:
 - dependencies: []
-  description: In-memory data store with pre-populated books, authors, members, and
-    loans. JWT token generation and validation middleware. Password hashing utilities.
+  description: Mock data store with in-memory dictionaries for books, authors, members,
+    loans. JWT token generation/validation and password hashing utilities.
   estimatedComplexity: medium
   files:
   - api/data_store.py
   - api/auth.py
   - api/validators.py
-  - requirements.txt
   id: library-api-feat-data-and-auth
-  name: Mock Data Store and JWT Authentication
+  name: Data Store and Authentication
   project: library-api
   type: enabler
 - dependencies:
   - library-api-feat-data-and-auth
-  description: REST endpoints for listing, creating, updating, and deleting books.
-    Search functionality by title and author. Public read access, protected write
-    operations.
+  description: REST endpoints for listing, creating, updating, deleting books. Search
+    functionality by title/author with query parameters.
   estimatedComplexity: medium
   files:
   - api/app.py
@@ -27,8 +25,8 @@ Features:
   type: feature
 - dependencies:
   - library-api-feat-data-and-auth
-  description: Member registration endpoint, loan creation (borrow book), and loan
-    return endpoints. Book availability tracking. Protected loan operations.
+  description: Member registration endpoint, borrow book endpoint, and return book
+    endpoint with availability tracking.
   estimatedComplexity: medium
   files:
   - api/app.py
