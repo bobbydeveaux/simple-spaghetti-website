@@ -1,25 +1,25 @@
 # ROAM Analysis: python-auth-api
 
 **Feature Count:** 3
-**Created:** 2026-02-10T19:20:59Z
+**Created:** 2026-02-10T19:23:32Z
 
 ## Risks
 
 <!-- AI: Identify 5-10 project risks with severity (High/Medium/Low) -->
 
-1. **JWT Secret Key Management** (High): The JWT secret key must be securely managed via environment variables. If hardcoded or committed to version control, all tokens can be forged, compromising the entire authentication system.
+1. **JWT Secret Key Exposure** (High): Secret key stored in environment variable could be committed to version control or exposed in logs, compromising all issued tokens. Single symmetric key means rotation invalidates all active tokens.
 
-2. **In-Memory Data Loss** (Medium): All user data stored in Python dictionary is lost on process restart or crash. No persistence mechanism exists, requiring users to re-register after every deployment or server restart.
+2. **In-Memory Data Loss** (Medium): All user data lost on process restart/crash. No persistence mechanism means users must re-register after any deployment or server failure, poor experience even for development/testing use.
 
-3. **Bcrypt Performance Bottleneck** (Medium): Bcrypt hashing with 12 rounds takes ~100ms per operation. Under concurrent load (registration/login spikes), this could cause request queuing and timeout issues, failing the 100 concurrent request requirement.
+3. **bcrypt Performance Bottleneck** (Medium): 12-round bcrypt hashing takes ~100ms per operation. Under concurrent registration/login load (100+ requests), could exceed performance target and cause request queuing.
 
-4. **Token Expiry Edge Cases** (Medium): Clock skew between token generation and validation, or tokens generated right before expiry threshold, may cause intermittent 401 errors and poor user experience.
+4. **Token Type Confusion** (Medium): Access and refresh tokens use identical structure except for "type" field. Missing or incorrect validation in endpoints could allow refresh tokens to access protected resources or vice versa.
 
-5. **Missing Input Validation** (Low): Email format validation relies solely on Pydantic's EmailStr. Malformed emails that pass validation could cause issues. Password validation (min 8 chars) may be insufficient for security requirements.
+5. **Email Validation Gaps** (Low): Pydantic EmailStr validates format but not deliverability. Could allow invalid emails (typos, non-existent domains) that would break password reset if later added.
 
-6. **Concurrent Access Race Conditions** (Low): In-memory dictionary modifications (user registration) are not thread-safe. Concurrent registrations with same email could result in data corruption or duplicate entries bypassing validation.
+6. **Concurrent Registration Race Condition** (Low): In-memory dict check-then-add pattern in UserRepository not atomic. Two simultaneous registrations with same email could both pass duplicate check, creating inconsistent state.
 
-7. **Refresh Token Abuse** (Medium): 7-day refresh token expiry without revocation mechanism means compromised refresh tokens remain valid indefinitely within that window. No way to force logout or invalidate sessions.
+7. **Missing Password Complexity Requirements** (Low): Only 8-character minimum enforced. No checks for common passwords, character diversity, or breached password lists. Weak passwords reduce security benefit of bcrypt hashing.
 
 ---
 
@@ -27,13 +27,13 @@
 
 <!-- AI: Current blockers or challenges (technical, resource, dependency) -->
 
-- **No existing Python API structure**: Repository contains React/Vite frontend code. New `api/` directory tree must be created from scratch with proper module structure and `__init__.py` files.
+- **No existing Python API codebase**: Starting from scratch in repository currently containing React/Vite frontend. Need to establish separate directory structure and ensure no conflicts with existing build tooling.
 
-- **Environment configuration setup**: No existing `.env` file or configuration management. Must establish environment variable loading pattern and document required variables (JWT_SECRET, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS).
+- **Dependency version compatibility**: FastAPI, PyJWT, and passlib versions must be compatible. No existing requirements.txt to reference. Need to identify working version combinations for Python 3.9+.
 
-- **Testing infrastructure gap**: No Python testing framework (pytest) configured. Need to set up test directory structure, fixtures for user data, and integration test client for FastAPI endpoints.
+- **Testing infrastructure absent**: No pytest setup, no test fixtures, no mocking utilities. Must bootstrap entire test infrastructure alongside feature implementation to meet integration/E2E test requirements.
 
-- **Dependency version conflicts**: FastAPI, PyJWT, and passlib versions must be carefully selected to avoid compatibility issues. Python 3.9+ requirement may conflict with existing system Python version.
+- **Environment configuration uncertainty**: No existing .env handling or secrets management pattern in repository. Need to establish configuration approach that works locally and provides deployment guidance.
 
 ---
 
@@ -41,15 +41,15 @@
 
 <!-- AI: Key assumptions the plan depends on -->
 
-1. **Single-process deployment**: Assumes API runs as single uvicorn process. Multi-process or multi-instance deployment would break in-memory storage without Redis/database migration. *Validation: Document in README as development-only limitation.*
+1. **Python 3.9+ available in deployment environment** - Validation: Verify with `python --version` in target environment. Document minimum version in README. If unavailable, may need to downgrade type hints or use compatibility layer.
 
-2. **Python 3.9+ availability**: Assumes target environment has Python 3.9 or higher installed. Type hints and dict union syntax (`dict[str, str]`) require 3.9+. *Validation: Add Python version check in main.py startup.*
+2. **Single-process deployment sufficient** - Validation: Load testing with 100 concurrent requests confirms single uvicorn worker handles target load. If multi-process needed, in-memory storage breaks; requires Redis migration.
 
-3. **Email uniqueness as primary key**: Assumes email addresses are unique identifiers and users cannot change emails. No username or user ID system. *Validation: Explicitly document in API documentation and user model.*
+3. **No HTTPS termination required at API level** - Validation: Confirm reverse proxy or load balancer handles TLS. If API must serve HTTPS directly, need SSL certificate configuration and uvicorn HTTPS setup.
 
-4. **No CORS restrictions**: Assumes API will be consumed from same origin or CORS middleware will allow all origins for development. *Validation: Configure CORS in main.py with explicit allowed origins.*
+4. **JWT secret can be 32+ character random string** - Validation: Test token signing/verification with generated secret. Ensure sufficient entropy for HS256 security. Document generation method (e.g., `openssl rand -hex 32`).
 
-5. **Synchronous operation sufficient**: Assumes bcrypt hashing blocking time acceptable for expected load (100 concurrent requests). No async database calls needed with in-memory storage. *Validation: Load testing with 100 concurrent users to verify sub-100ms token operations.*
+5. **Email uniqueness sufficient for user identity** - Validation: Confirm no requirement for username, phone, or other identifiers. If multiple identity methods needed later, requires User model refactor.
 
 ---
 
@@ -57,47 +57,48 @@
 
 <!-- AI: For each risk, propose mitigation strategies -->
 
-**JWT Secret Key Management (High)**
-- Action 1: Create `.env.example` template with placeholder JWT_SECRET, add `.env` to `.gitignore`
-- Action 2: Add startup validation in `config.py` that fails fast if JWT_SECRET not set or using default/weak value
-- Action 3: Document secret key generation command in README: `python -c "import secrets; print(secrets.token_urlsafe(32))"`
-- Action 4: Add pre-commit hook check to prevent committing files containing JWT_SECRET pattern
+**JWT Secret Key Exposure:**
+- Add `.env` to `.gitignore` before any commits
+- Document secret generation in README with `openssl rand -hex 32` example
+- Use python-dotenv to load from `.env` file, fail fast on startup if SECRET_KEY missing
+- Add validation in config.py to reject weak secrets (min 32 chars, not default/example values)
+- Include secret rotation procedure in README (invalidates all tokens, requires user re-login)
 
-**In-Memory Data Loss (Medium)**
-- Action 1: Prominently document data persistence limitation in README with "Development Only" warning
-- Action 2: Add startup banner log message: "WARNING: Using in-memory storage. All data will be lost on restart."
-- Action 3: Implement optional JSON file persistence mode via config flag for local development convenience
-- Action 4: Document migration path to Redis or database in README for production use
+**In-Memory Data Loss:**
+- Clearly document in README that data is ephemeral and lost on restart
+- Add optional JSON file persistence layer in UserRepository with flag to enable (disabled by default per requirements)
+- Provide example seed data script to quickly repopulate test users after restart
+- Log warning on startup about in-memory storage mode
 
-**Bcrypt Performance Bottleneck (Medium)**
-- Action 1: Configure bcrypt rounds via environment variable (default 12) to allow tuning based on hardware
-- Action 2: Add performance logging for registration/login endpoints to identify slowdowns
-- Action 3: Consider implementing async bcrypt hashing using `asyncio.to_thread()` if FastAPI async endpoints added later
-- Action 4: Load test with 100 concurrent requests and document results in performance section
+**bcrypt Performance Bottleneck:**
+- Profile registration/login endpoints under simulated 100 concurrent request load
+- Consider reducing bcrypt rounds to 10 if performance target missed (document security tradeoff)
+- Implement password hashing in background thread pool if needed (use ThreadPoolExecutor)
+- Add request timeout configuration to fail fast rather than queue indefinitely
 
-**Token Expiry Edge Cases (Medium)**
-- Action 1: Add 30-second clock skew tolerance in JWT decode validation (`leeway=30` parameter)
-- Action 2: Return token expiration timestamps in login/refresh responses so clients can proactively refresh
-- Action 3: Log token validation failures with timestamps for debugging
-- Action 4: Document refresh token flow best practices in API documentation (refresh 5min before expiry)
+**Token Type Confusion:**
+- Implement strict token type validation in JWTManager.verify_token_type(), raise specific exception on mismatch
+- Add unit tests verifying refresh token rejected by protected endpoint middleware
+- Add unit tests verifying access token rejected by refresh endpoint
+- Include "token_type": "Bearer" in all responses per OAuth2 spec
 
-**Missing Input Validation (Low)**
-- Action 1: Add password strength validation: minimum 8 chars, require uppercase, lowercase, digit, special char
-- Action 2: Add custom Pydantic validator for email to reject disposable email domains if needed
-- Action 3: Add max length constraints to email (254 chars) and password (128 chars) fields
-- Action 4: Return detailed validation error messages in 422 responses
+**Email Validation Gaps:**
+- Document email validation limitations in README
+- Add regex pattern to reject obviously invalid emails (consecutive dots, missing TLD)
+- Consider adding optional email-validator library for enhanced checking
+- Accept limitation as acceptable for development/testing scope
 
-**Concurrent Access Race Conditions (Low)**
-- Action 1: Add threading.Lock around UserRepository dictionary modifications (add_user method)
-- Action 2: Use dict.setdefault() or check-then-set atomic pattern for duplicate detection
-- Action 3: Add unit tests with concurrent registration attempts to same email
-- Action 4: Document thread-safety considerations in UserRepository docstring
+**Concurrent Registration Race Condition:**
+- Use threading.Lock around UserRepository.add_user() check-and-insert operation
+- Add integration test attempting simultaneous duplicate registration
+- Document that production use requires database with unique constraint
+- Accept risk as negligible for single-process development use case
 
-**Refresh Token Abuse (Medium)**
-- Action 1: Implement optional refresh token rotation: issue new refresh token on each refresh, invalidate old one
-- Action 2: Add token revocation list (in-memory set of blacklisted JTIs) with background cleanup task
-- Action 3: Include JTI (JWT ID) claim in refresh tokens for revocation tracking
-- Action 4: Document logout endpoint implementation pattern that blacklists refresh token
+**Missing Password Complexity Requirements:**
+- Add password strength validation: min 8 chars, at least one uppercase, lowercase, digit
+- Validate against top 100 common passwords list (hardcoded or small bundled file)
+- Return 400 Bad Request with specific password requirements on validation failure
+- Document password policy in README and API documentation
 
 ---
 
