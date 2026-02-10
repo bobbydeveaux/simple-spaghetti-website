@@ -1,6 +1,6 @@
 {
   "method": "ai-assisted",
-  "filesResolved": 5,
-  "summary": "Successfully resolved merge conflicts by combining comprehensive implementation from HEAD with beneficial aspects from main. Preserved complete CRUD API functionality while integrating foundation components and ensuring compatibility.",
-  "strategyUsed": "Combined both implementations strategically - kept comprehensive data from HEAD (complete book CRUD API with authentication) while preserving structure and incorporating beneficial validation aspects from main. Merged dependency sets from both branches to include all required packages (Flask, JWT, CORS, bcrypt). Resolution prioritized functionality preservation while ensuring no features were lost from either branch."
+  "filesResolved": 2,
+  "summary": "Resolved merge conflicts in .claude-output.json and .pr-number by keeping the appropriate content for PR #106 (JWT authentication implementation)",
+  "strategyUsed": "For .pr-number, kept the current PR number 106. For .claude-output.json, kept the HEAD version (JWT authentication implementation) as it matches the feature branch feature/97-library-api-sprint-1-issue-97 and PR #106 context."
 }
