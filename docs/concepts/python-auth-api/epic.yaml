@@ -1,6 +1,7 @@
 Epic: python-auth-api
 Features:
-- dependencies: []
+- Sprint: 1
+  dependencies: []
   description: Implements password hashing, JWT token generation/validation, and in-memory
     user storage. Includes bcrypt password hashing, HS256 JWT signing with access/refresh
     token support, and UserStorage class for managing users in memory.
@@ -20,7 +21,8 @@ Features:
   name: Core Authentication System
   project: python-auth-api
   type: enabler
-- dependencies:
+- Sprint: 1
+  dependencies:
   - python-auth-api-feat-core-auth
   description: REST API endpoints for user registration, login, and token refresh.
     Handles user creation with validation, credential verification, and refresh token
@@ -34,7 +36,8 @@ Features:
   name: Authentication Endpoints
   project: python-auth-api
   type: feature
-- dependencies:
+- Sprint: 2
+  dependencies:
   - python-auth-api-feat-core-auth
   description: JWT-protected endpoint demonstrating token validation with Bearer authentication.
     Validates access tokens via dependency injection and returns user-specific data.
