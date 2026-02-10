@@ -1,6 +1,7 @@
 Epic: simple-donkey-website
 Features:
-- dependencies: []
+- Sprint: 1
+  dependencies: []
   description: Create index.html with valid HTML5 markup displaying 'I love donkeys'
     text
   estimatedComplexity: low
