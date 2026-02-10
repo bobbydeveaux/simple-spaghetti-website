@@ -1,11 +1,22 @@
 {
-  "prNumber": 82,
+  "prNumber": 77,
   "baseBranch": "main",
-  "headBranch": "feature/72-pasta-recipes-react-sprint-1-issue-72",
+  "headBranch": "feature/68-pasta-recipes-react-sprint-1-issue-68",
   "conflictedFiles": [
     ".claude-output.json",
     ".pr-number",
-    "src/data/recipes.json"
+    "dist/index.html",
+    "package-lock.json",
+    "package.json",
+    "src/App.jsx",
+    "src/components/FilterPanel.jsx",
+    "src/components/Navigation.jsx",
+    "src/components/RecipeCard.jsx",
+    "src/components/RecipeDetail.jsx",
+    "src/components/RecipeList.jsx",
+    "src/components/SearchBar.jsx",
+    "src/context/RecipeContext.jsx",
+    "src/utils/filterHelpers.js"
   ],
-  "conflictCount": 3
+  "conflictCount": 14
 }
