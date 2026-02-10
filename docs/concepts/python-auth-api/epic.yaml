@@ -1,6 +1,7 @@
 Epic: python-auth-api
 Features:
-- dependencies: []
+- Sprint: 1
+  dependencies: []
   description: FastAPI application setup, configuration management, JWT utilities,
     password hashing, in-memory user repository, and data models
   estimatedComplexity: medium
@@ -21,7 +22,8 @@ Features:
   name: Core Infrastructure Setup
   project: python-auth-api
   type: enabler
-- dependencies:
+- Sprint: 2
+  dependencies:
   - python-auth-api-feat-core-infrastructure
   description: User registration, login, and token refresh endpoints with JWT token
     generation and validation
@@ -36,7 +38,8 @@ Features:
   name: Authentication Endpoints
   project: python-auth-api
   type: feature
-- dependencies:
+- Sprint: 3
+  dependencies:
   - python-auth-api-feat-authentication
   description: JWT-protected endpoint demonstrating authentication middleware and
     secure resource access
