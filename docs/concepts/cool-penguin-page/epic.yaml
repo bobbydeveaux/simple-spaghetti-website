@@ -1,6 +1,7 @@
 Epic: cool-penguin-page
 Features:
-- dependencies: []
+- Sprint: 1
+  dependencies: []
   description: "Create or verify index.html displays 'Penguins are cool!' with penguin
     emoji (\U0001F427) using valid HTML5 structure"
   estimatedComplexity: low
