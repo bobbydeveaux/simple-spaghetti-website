@@ -1,0 +1,9 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: cool-penguin-page-feat-static-html-page
+        name: Static HTML Page with Penguin Content
+        type: feature
+        files: [index.html]
