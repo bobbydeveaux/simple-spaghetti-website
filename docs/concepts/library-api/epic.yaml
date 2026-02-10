@@ -1,6 +1,7 @@
 Epic: library-api
 Features:
-- dependencies: []
+- Sprint: 1
+  dependencies: []
   description: Mock data store with in-memory dictionaries for books, authors, members,
     loans. JWT token generation/validation and password hashing utilities.
   estimatedComplexity: medium
@@ -12,7 +13,8 @@ Features:
   name: Data Store and Authentication
   project: library-api
   type: enabler
-- dependencies:
+- Sprint: 1
+  dependencies:
   - library-api-feat-data-and-auth
   description: REST endpoints for listing, creating, updating, deleting books. Search
     functionality by title/author with query parameters.
@@ -23,7 +25,8 @@ Features:
   name: Book CRUD and Search
   project: library-api
   type: feature
-- dependencies:
+- Sprint: 2
+  dependencies:
   - library-api-feat-data-and-auth
   description: Member registration endpoint, borrow book endpoint, and return book
     endpoint with availability tracking.
