@@ -1,0 +1,29 @@
+{
+  "prNumber": 78,
+  "baseBranch": "main",
+  "headBranch": "feature/67-pasta-recipes-react-sprint-1-issue-67",
+  "conflictedFiles": [
+    ".claude-output.json",
+    ".pr-number",
+    "dist/index.html",
+    "index.html",
+    "node_modules/.package-lock.json",
+    "package-lock.json",
+    "package.json",
+    "postcss.config.js",
+    "src/App.jsx",
+    "src/components/FilterPanel.jsx",
+    "src/components/Navigation.jsx",
+    "src/components/RecipeCard.jsx",
+    "src/components/RecipeDetail.jsx",
+    "src/components/RecipeList.jsx",
+    "src/components/SearchBar.jsx",
+    "src/context/RecipeContext.jsx",
+    "src/data/recipes.json",
+    "src/index.css",
+    "src/utils/filterHelpers.js",
+    "tailwind.config.js",
+    "vite.config.js"
+  ],
+  "conflictCount": 21
+}
