@@ -1,14 +1,14 @@
 # Project Timeline
 
 metadata:
-  generated: 2026-02-09T21:13:46Z
+  generated: 2026-02-10T09:52:39Z
   totalSprints: 1
   totalDuration: 7 days
 
 sprints:
   - number: 1
-    startDate: 2026-02-09
-    endDate: 2026-02-16
+    startDate: 2026-02-10
+    endDate: 2026-02-17
     duration: 7 days
     features:
       - id: simple-donkey-website-feat-html-page
