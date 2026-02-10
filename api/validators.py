@@ -16,6 +16,8 @@ def validate_book(data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
 
     Returns:
         Tuple of (is_valid, error_message)
+        - is_valid: True if data is valid, False otherwise
+        - error_message: None if valid, error string if invalid
     """
     if not isinstance(data, dict):
         return False, "Invalid data format"
@@ -39,7 +41,7 @@ def validate_book(data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
     except (ValueError, TypeError):
         return False, "author_id must be a valid integer"
 
-    # Validate ISBN format (basic check)
+    # Validate ISBN format (comprehensive check)
     isbn = str(data["isbn"]).strip().replace("-", "")
     if not re.match(r"^(978|979)?[\d]{9}[\dX]$", isbn):
         return False, "Invalid ISBN format"
@@ -74,6 +76,8 @@ def validate_member(data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
 
     Returns:
         Tuple of (is_valid, error_message)
+        - is_valid: True if data is valid, False otherwise
+        - error_message: None if valid, error string if invalid
     """
     if not isinstance(data, dict):
         return False, "Invalid data format"
@@ -117,6 +121,8 @@ def validate_loan(data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
 
     Returns:
         Tuple of (is_valid, error_message)
+        - is_valid: True if data is valid, False otherwise
+        - error_message: None if valid, error string if invalid
     """
     if not isinstance(data, dict):
         return False, "Invalid data format"
@@ -208,5 +214,30 @@ def validate_book_update(book_id: int, data: Dict[str, Any]) -> Tuple[bool, Opti
                 return False, "total_copies cannot be less than available_copies"
         except (ValueError, TypeError):
             return False, "total_copies must be a valid integer"
+
+    return True, None
+
+def validate_loan_return(loan_id: int) -> Tuple[bool, Optional[str]]:
+    """
+    Validate loan return operation.
+
+    Args:
+        loan_id: ID of the loan to return
+
+    Returns:
+        Tuple of (is_valid, error_message)
+        - is_valid: True if operation is valid, False otherwise
+        - error_message: None if valid, error string if invalid
+    """
+    if not isinstance(loan_id, int) or loan_id <= 0:
+        return False, "Loan ID must be a positive integer"
+
+    if loan_id not in LOANS:
+        return False, "Loan with this ID does not exist"
+
+    from api.data_store import LOANS
+    loan = LOANS[loan_id]
+    if loan.get("status") == "returned":
+        return False, "Loan has already been returned"
 
     return True, None

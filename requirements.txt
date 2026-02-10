@@ -6,6 +6,9 @@ werkzeug>=2.3.0
 # CORS support for development
 flask-cors>=4.0.0
 
+# Authentication and security
+bcrypt>=4.1.0
+
 # Development and testing
 pytest>=7.4.0
 requests>=2.31.0
