@@ -1,95 +1,95 @@
 # ROAM Analysis: python-auth-api
 
 **Feature Count:** 3
-**Created:** 2026-02-10T18:53:37Z
+**Created:** 2026-02-10T18:55:56Z
 
 ## Risks
 
-1. **JWT Secret Key Management** (High): The JWT_SECRET_KEY must be stored securely in environment variables. Hardcoded secrets or weak keys could allow token forgery and complete authentication bypass. If the secret is compromised, all issued tokens become invalid and attackers can generate valid tokens for any user.
+1. **JWT Secret Key Management** (High): JWT_SECRET_KEY stored in environment variable could be exposed through config leaks, container inspection, or process dumps. Compromise allows attackers to forge valid tokens and impersonate any user.
 
-2. **In-Memory Data Loss** (Medium): All user data is stored in memory without persistence. Server restarts, crashes, or deployments will wipe all registered users and force re-registration. This limits production viability and creates poor user experience during development iterations.
+2. **In-Memory Data Loss** (Medium): UserStorage dictionary lost on process restart or crash. No persistence means all registered users disappear, forcing re-registration and breaking active sessions.
 
-3. **Bcrypt Performance Bottleneck** (Medium): Bcrypt cost factor 12 is intentionally slow for security, but may cause registration/login endpoints to exceed 100ms performance target under concurrent load. High traffic could degrade response times and violate NFR specifications.
+3. **Bcrypt Performance Bottleneck** (Medium): Bcrypt cost factor 12 takes ~100ms per hash. Under load, registration and login endpoints could queue requests, causing timeouts. Single-threaded FastAPI worker exacerbates this.
 
-4. **Token Refresh Security Gap** (Medium): Refresh tokens with 7-day expiration lack revocation mechanism. Compromised refresh tokens remain valid until expiration, allowing attackers extended access even after user changes password or detects breach.
+4. **Refresh Token Revocation Gap** (High): No revocation mechanism for refresh tokens. Compromised refresh token valid for 7 days with no way to invalidate. Logout endpoint cannot truly end sessions.
 
-5. **CORS Misconfiguration** (Low): Improper CORS_ORIGINS configuration could either block legitimate clients or expose API to cross-origin attacks. Wildcard (*) configurations in production would violate security requirements.
+5. **Email Validation Bypass** (Low): Pydantic email validation may allow edge cases (disposable emails, non-RFC compliant formats). Could enable spam registrations or enumeration attacks.
 
-6. **Concurrent User Storage Race Conditions** (Medium): In-memory UserStorage dictionary operations (add_user, get_user) lack thread-safety mechanisms. Concurrent registration requests for same email could result in race conditions, data corruption, or duplicate user creation.
+6. **Token Timing Attack** (Medium): Token validation uses standard equality checks. Attackers could exploit timing differences to brute-force token signatures or expirations.
 
-7. **PyJWT Dependency Vulnerabilities** (Low): PyJWT library vulnerabilities (like CVE-2022-29217 algorithm confusion) could compromise token validation. Outdated dependencies may contain known security flaws requiring version pinning and monitoring.
+7. **CORS Misconfiguration** (Medium): CORS_ORIGINS from environment could be set to wildcard (*) or overly permissive domains, allowing unauthorized cross-origin requests from malicious sites.
 
 ---
 
 ## Obstacles
 
-- **Missing Low-Level Design**: LLD document exists but is not in the provided epic.yaml features list, creating potential gaps between design documentation and implementation tracking.
+- **No LLD File**: Missing `docs/concepts/python-auth-api/LLD.md` - implementation details not documented in repository. Epic references LLD but file doesn't exist in docs structure.
 
-- **Environment Configuration Complexity**: .env.example template requires manual setup for JWT_SECRET_KEY and CORS_ORIGINS. Missing or incorrect configuration will cause runtime failures with unclear error messages.
+- **Repository Mismatch**: Current repo contains React/Vite frontend (pasta recipes app). Adding Python FastAPI to same repo creates mixed technology stack, complicating deployment and CI/CD pipelines.
 
-- **Lack of Test Infrastructure**: Test plan specifies unit, integration, and E2E tests but no test framework (pytest, unittest), fixtures, or CI/CD integration defined. Testing setup must be bootstrapped alongside implementation.
+- **Dependency Version Conflicts**: requirements.txt needs specific versions (PyJWT 2.x, passlib 1.7.x, bcrypt 4.x) but no lockfile. Transitive dependency conflicts between cryptography versions could break installations.
 
-- **Python Version Compatibility**: PRD specifies Python 3.8+ while HLD targets 3.10+. Version mismatch could cause deployment issues or require backporting type hints (union operator | syntax requires 3.10).
+- **Test Framework Setup**: Test plan requires pytest, pytest-asyncio, httpx for async FastAPI testing. No existing Python test infrastructure in repository to build on.
 
 ---
 
 ## Assumptions
 
-1. **Single-Process Deployment**: Assumes API runs as single process/instance. Multi-instance deployments would require external session store (Redis) for shared user data, invalidating in-memory storage approach.
+1. **Single-Instance Deployment**: Assumes single process deployment. In-memory UserStorage breaks with multiple instances/workers unless migrated to shared Redis/database. Needs validation if horizontal scaling required.
 
-2. **Development/Demo Environment**: In-memory storage and lack of persistence assumes this is demo/testing system not intended for production use. Real deployment would require database migration.
+2. **Development/Demo Use Case**: Assumes non-production environment given in-memory storage and no audit logging. Production use requires significant hardening (token revocation, rate limiting, audit trails).
 
-3. **Trusted Network Environment**: 15-minute access token expiration and 7-day refresh token validity assume network traffic is monitored and users operate in reasonably secure environments. Higher security contexts may require shorter expirations.
+3. **Python 3.10+ Environment**: LLD specifies Python 3.10+ for modern type hints (dict | None syntax). Deployment environment must support this version - containers/systems with only 3.8 will fail.
 
-4. **Standard Email Format**: Email validation assumes standard RFC 5322 format via Pydantic. Custom enterprise email systems or international domain names may require additional validation logic.
+4. **Environment Variable Configuration**: Assumes deployment platform supports .env files or environment injection (Docker, systemd, cloud platform). Manual configuration required for each environment.
 
-5. **Synchronous Request Processing**: FastAPI async capabilities not required for bcrypt operations. Assumes blocking password hashing won't impact overall throughput for target 1000 user scale.
+5. **Reverse Proxy TLS Termination**: Assumes nginx or similar proxy handles HTTPS. API runs HTTP-only. Direct internet exposure without proxy would transmit tokens in cleartext.
 
 ---
 
 ## Mitigations
 
 ### JWT Secret Key Management (High)
-- Generate cryptographically secure random secret (32+ bytes) using secrets module in deployment script
-- Document secret rotation procedure and implement version-based signing to support key rollover
-- Use environment variable validation at startup to fail fast if JWT_SECRET_KEY is missing or weak
-- Add warning logs if secret appears to be default/example value from .env.example
+- Generate cryptographically random 256-bit secret on deployment using secrets.token_urlsafe(32)
+- Store in platform secret manager (AWS Secrets Manager, Kubernetes Secrets, HashiCorp Vault)
+- Add startup validation: fail fast if JWT_SECRET_KEY missing or using default/weak value
+- Implement secret rotation strategy with dual-key grace period for zero-downtime rotation
 
 ### In-Memory Data Loss (Medium)
-- Document data loss behavior clearly in README with warning about non-production use
-- Implement optional JSON file persistence layer as configuration flag for development convenience
-- Create seed data script to quickly repopulate test users after restart
-- Add startup logging showing in-memory storage mode and expected behavior
+- Add optional Redis backend toggle via environment variable for persistent storage
+- Implement UserStorage interface with InMemoryStorage and RedisStorage implementations
+- Document data loss behavior clearly in README with restart warnings
+- Add health check endpoint that reports storage type and uptime
 
 ### Bcrypt Performance Bottleneck (Medium)
-- Profile bcrypt hashing time with cost factor 12 and adjust to 10 if exceeding 100ms target
-- Implement async password hashing using asyncio.to_thread() to prevent blocking event loop
-- Add performance monitoring/logging for registration and login endpoint response times
-- Document load testing results and concurrency limits in deployment notes
+- Use FastAPI BackgroundTasks for password hashing on registration to unblock response
+- Add uvicorn workers configuration (--workers 4) for CPU-bound bcrypt operations
+- Implement request timeout (30s) and return 503 with Retry-After header under load
+- Consider bcrypt cost factor 10 (instead of 12) if performance testing shows 100ms target missed
 
-### Token Refresh Security Gap (Medium)
-- Implement optional in-memory token blacklist/revocation list (limited to refresh tokens)
-- Add token family/chain tracking to detect token reuse attacks
-- Document refresh token handling in security architecture and user guidelines
-- Consider reducing refresh token expiration to 24-48 hours if security context requires
+### Refresh Token Revocation Gap (High)
+- Implement in-memory token blacklist (set of revoked token JTIs) in UserStorage
+- Add /logout endpoint that adds refresh token JTI to blacklist with TTL matching expiration
+- Validate token JTI not in blacklist during decode_token() check
+- Migrate blacklist to Redis if moving to multi-instance deployment
 
-### CORS Misconfiguration (Low)
-- Provide sensible defaults in config.py (localhost:3000, localhost:8000 for development)
-- Add explicit validation for wildcard CORS origins with error/warning in production mode
-- Document CORS configuration requirements in deployment guide
-- Implement environment-based CORS presets (development vs production)
+### Email Validation Bypass (Low)
+- Use pydantic.EmailStr for strict RFC 5322 validation
+- Add custom validator to reject disposable email domains (maintain blocklist or use API)
+- Implement case normalization (lowercase) before storage to prevent duplicate registrations
+- Add email existence verification in integration tests
 
-### Concurrent User Storage Race Conditions (Medium)
-- Add threading.Lock to UserStorage class wrapping all dict operations
-- Implement atomic check-and-set pattern for user_exists + add_user operations
-- Add integration tests specifically for concurrent registration scenarios
-- Document thread-safety guarantees and single-process limitation
+### Token Timing Attack (Medium)
+- Use hmac.compare_digest() for token signature comparison in decode_token()
+- Add constant-time string comparison for refresh token type validation
+- Implement rate limiting on auth endpoints (10 req/min per IP) using slowapi middleware
+- Add exponential backoff on failed login attempts per email
 
-### PyJWT Dependency Vulnerabilities (Low)
-- Pin PyJWT version in requirements.txt to known-secure version (>=2.8.0)
-- Configure Dependabot or similar tool for automated security updates
-- Add "none" algorithm to JWT decode denied algorithms list explicitly
-- Document security update process and testing requirements
+### CORS Misconfiguration (Medium)
+- Set default CORS_ORIGINS to empty list in config.py (deny all by default)
+- Require explicit comma-separated list of allowed origins in environment variable
+- Add startup validation to reject wildcard (*) in production mode
+- Document CORS configuration in .env.example with security notes
 
 ---
 
