@@ -1,0 +1,175 @@
+GeneratedAt: "2026-02-10T19:27:54Z"
+Plan: python-auth-api-plan
+Sprints:
+- Features:
+  - FeatureID: python-auth-api-feat-core-infrastructure
+    FeatureTitle: Core Infrastructure Setup
+    Tasks:
+    - AcceptanceCriteria:
+      - FastAPI app starts successfully with CORS enabled
+      - Configuration loads from environment variables
+      - Basic health check endpoint responds
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Initialize FastAPI application with CORS middleware and exception
+        handlers. Implement environment-based configuration management for JWT secrets,
+        token expiry, and app settings. Create package structure with __init__.py
+        files.
+      EstimatedEffort: S
+      Files:
+      - api/__init__.py
+      - api/main.py
+      - api/config.py
+      - requirements.txt
+      ID: task-python-auth-api-feat-core-infrastructure-1
+      Title: Setup FastAPI application and configuration
+    - AcceptanceCriteria:
+      - User model includes id, username, email, hashed_password fields
+      - Token models support access and refresh token structures
+      - Pydantic validation works for all request/response schemas
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Create User and Token dataclasses with Pydantic models for request/response
+        validation. Include models for registration, login, token refresh, and protected
+        resource responses.
+      EstimatedEffort: S
+      Files:
+      - api/models/__init__.py
+      - api/models/user.py
+      - api/models/token.py
+      ID: task-python-auth-api-feat-core-infrastructure-2
+      Title: Implement data models and schemas
+    - AcceptanceCriteria:
+      - JWT tokens can be created with configurable expiry
+      - Token validation correctly identifies expired/invalid tokens
+      - Password hashing and verification work securely
+      AgentType: backend-engineer
+      Dependencies:
+      - task-python-auth-api-feat-core-infrastructure-1
+      Description: Create JWT manager for token creation, validation, and decoding
+        with access/refresh token support. Implement password hashing and verification
+        using bcrypt. Include error handling for expired and invalid tokens.
+      EstimatedEffort: M
+      Files:
+      - api/utils/__init__.py
+      - api/utils/jwt_manager.py
+      - api/utils/password.py
+      ID: task-python-auth-api-feat-core-infrastructure-3
+      Title: Implement security utilities
+    - AcceptanceCriteria:
+      - Users can be stored and retrieved by username and email
+      - Duplicate username/email prevention works correctly
+      - Repository supports basic CRUD operations
+      AgentType: backend-engineer
+      Dependencies:
+      - task-python-auth-api-feat-core-infrastructure-2
+      Description: Create in-memory user repository using dictionary-based storage.
+        Implement methods for user creation, retrieval by username/email, and existence
+        checks. Ensure thread-safe operations for concurrent access.
+      EstimatedEffort: S
+      Files:
+      - api/services/__init__.py
+      - api/services/user_repository.py
+      ID: task-python-auth-api-feat-core-infrastructure-4
+      Title: Implement user repository
+  Sprint: 1
+- Features:
+  - FeatureID: python-auth-api-feat-authentication
+    FeatureTitle: Authentication Endpoints
+    Tasks:
+    - AcceptanceCriteria:
+      - JWT tokens can be created with user claims and expiry
+      - JWT tokens can be validated and decoded correctly
+      - Passwords are hashed with bcrypt and can be verified
+      - Configuration loads JWT secret and expiry from environment
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Create the JWT manager for token creation, validation, and decoding.
+        Implement bcrypt-based password hashing and verification utilities. Set up
+        configuration management for JWT secrets and token expiry settings.
+      EstimatedEffort: S
+      Files:
+      - api/utils/__init__.py
+      - api/utils/jwt_manager.py
+      - api/utils/password.py
+      - api/config.py
+      ID: task-python-auth-api-feat-authentication-1
+      Title: Implement JWT utilities and password management
+    - AcceptanceCriteria:
+      - User model includes id, email, hashed_password fields
+      - Pydantic models validate registration and login requests
+      - UserRepository supports create, find by email, and find by id operations
+      - Token models structure access and refresh token responses
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Create User dataclass and Pydantic request/response models for
+        authentication flows. Implement in-memory user repository with dict-based
+        storage for user CRUD operations. Create Token Pydantic models for API responses.
+      EstimatedEffort: S
+      Files:
+      - api/models/__init__.py
+      - api/models/user.py
+      - api/models/token.py
+      - api/services/__init__.py
+      - api/services/user_repository.py
+      ID: task-python-auth-api-feat-authentication-2
+      Title: Implement user models and in-memory repository
+    - AcceptanceCriteria:
+      - register_user validates email, checks duplicates, hashes password
+      - login authenticates user and returns JWT tokens
+      - refresh_token validates refresh token and issues new access token
+      - Auth middleware extracts and validates JWT from Authorization header
+      AgentType: backend-engineer
+      Dependencies:
+      - task-python-auth-api-feat-authentication-1
+      - task-python-auth-api-feat-authentication-2
+      Description: Create AuthService with business logic for user registration, login,
+        and token refresh. Implement JWT validation middleware as FastAPI dependency
+        for protecting routes. Handle duplicate user checks, password validation,
+        and token generation.
+      EstimatedEffort: M
+      Files:
+      - api/services/auth_service.py
+      - api/middleware/__init__.py
+      - api/middleware/auth_middleware.py
+      ID: task-python-auth-api-feat-authentication-3
+      Title: Implement authentication service and middleware
+    - AcceptanceCriteria:
+      - POST /register creates new users and returns tokens
+      - POST /login authenticates and returns access/refresh tokens
+      - POST /refresh validates refresh token and returns new access token
+      - Protected routes use auth middleware dependency
+      - Proper error responses for validation failures and auth errors
+      AgentType: backend-engineer
+      Dependencies:
+      - task-python-auth-api-feat-authentication-3
+      Description: Create auth endpoints for /register, /login, and /refresh. Wire
+        up AuthService to route handlers with proper request/response models. Integrate
+        auth middleware with FastAPI app and configure CORS and exception handlers.
+      EstimatedEffort: M
+      Files:
+      - api/routes/__init__.py
+      - api/routes/auth.py
+      - api/main.py
+      ID: task-python-auth-api-feat-authentication-4
+      Title: Implement authentication routes and integrate with FastAPI
+  Sprint: 2
+- Features:
+  - FeatureID: python-auth-api-feat-protected-endpoint
+    FeatureTitle: Protected Endpoint
+    Tasks:
+    - AcceptanceCriteria:
+      - GET /protected endpoint returns 200 with user data when valid JWT is provided
+      - Endpoint returns 401 when no token or invalid token is provided
+      - Response includes authenticated user's email from JWT claims
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Create the /protected endpoint in api/routes/protected.py that
+        requires JWT authentication. The endpoint should use the auth_middleware dependency
+        to validate tokens and return user information from the decoded JWT claims.
+      EstimatedEffort: S
+      Files:
+      - api/routes/protected.py
+      ID: task-python-auth-api-feat-protected-endpoint-1
+      Title: Implement protected endpoint with JWT middleware
+  Sprint: 3
