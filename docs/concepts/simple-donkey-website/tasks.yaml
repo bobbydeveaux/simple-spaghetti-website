@@ -1,4 +1,4 @@
-GeneratedAt: "2026-02-09T21:13:58Z"
+GeneratedAt: "2026-02-10T09:52:53Z"
 Plan: simple-donkey-website-plan
 Sprints:
 - Features:
@@ -6,19 +6,18 @@ Sprints:
     FeatureTitle: HTML Page Implementation
     Tasks:
     - AcceptanceCriteria:
-      - index.html exists in repository root with valid HTML5 structure
-      - Page displays 'I love donkeys' text when opened in browser
-      - HTML includes proper DOCTYPE, meta tags (charset UTF-8, viewport), and title
-      - File validates as proper HTML5
+      - index.html exists in repository root with valid HTML5 DOCTYPE
+      - Page displays 'I love donkeys' in an h1 heading
+      - HTML includes proper head section with charset and title
+      - File can be opened in a browser and renders correctly
       AgentType: frontend-engineer
       Dependencies: []
-      Description: Create index.html with valid HTML5 structure including DOCTYPE
-        declaration, meta charset UTF-8, viewport meta tag, title, and body containing
-        the text 'I love donkeys'. This is a complete single-file implementation with
-        no dependencies or build process.
+      Description: Create index.html in the repository root with valid HTML5 structure
+        including DOCTYPE declaration, UTF-8 charset meta tag, descriptive page title,
+        and an h1 heading containing 'I love donkeys'.
       EstimatedEffort: S
       Files:
       - index.html
       ID: task-simple-donkey-website-feat-html-page-1
-      Title: Create HTML5 page with 'I love donkeys' text
+      Title: Create HTML page with donkey text
   Sprint: 1
