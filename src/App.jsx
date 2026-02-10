@@ -4,37 +4,43 @@ import { RecipeProvider } from './context/RecipeContext';
 import Navigation from './components/Navigation';
 import RecipeList from './components/RecipeList';
 import RecipeDetail from './components/RecipeDetail';
-import './index.css';
+import './App.css';
+
+// Simple About component
+const About = () => (
+  <div className="min-h-screen bg-gray-50 py-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="bg-white rounded-lg shadow-lg p-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-4">About Pasta Recipes</h1>
+        <p className="text-gray-700 mb-4">
+          Welcome to our collection of authentic Italian pasta recipes! This site features traditional
+          recipes from all regions of Italy, from the creamy risottos of Northern Italy to the
+          spicy pasta dishes of the South.
+        </p>
+        <p className="text-gray-700 mb-4">
+          Each recipe includes detailed ingredients, step-by-step instructions, and helpful information
+          about cooking times, difficulty levels, and serving sizes. Use our search and filter tools
+          to find the perfect pasta dish for your skill level and taste preferences.
+        </p>
+        <p className="text-gray-700">
+          Buon appetito! 🍝
+        </p>
+      </div>
+    </div>
+  </div>
+);
 
 function App() {
   return (
     <RecipeProvider>
       <Router>
-        <div className="min-h-screen bg-gray-50">
+        <div className="App">
           <Navigation />
-          <main>
-            <Routes>
-              <Route path="/" element={<RecipeList />} />
-              <Route path="/recipe/:id" element={<RecipeDetail />} />
-              <Route path="/about" element={
-                <div className="container mx-auto px-4 py-8 text-center">
-                  <h1 className="text-3xl font-bold mb-4">About</h1>
-                  <p className="text-gray-600">
-                    Welcome to our pasta recipe collection!
-                    Discover delicious pasta dishes from around Italy.
-                  </p>
-                </div>
-              } />
-              <Route path="*" element={
-                <div className="container mx-auto px-4 py-8 text-center">
-                  <h1 className="text-3xl font-bold mb-4">404 - Page Not Found</h1>
-                  <p className="text-gray-600">
-                    The page you&apos;re looking for doesn&apos;t exist.
-                  </p>
-                </div>
-              } />
-            </Routes>
-          </main>
+          <Routes>
+            <Route path="/" element={<RecipeList />} />
+            <Route path="/recipe/:id" element={<RecipeDetail />} />
+            <Route path="/about" element={<About />} />
+          </Routes>
         </div>
       </Router>
     </RecipeProvider>
