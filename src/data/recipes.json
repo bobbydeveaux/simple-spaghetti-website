@@ -1,0 +1,379 @@
+[
+  {
+    "id": 1,
+    "title": "Classic Spaghetti Carbonara",
+    "image": "/images/carbonara.jpg",
+    "description": "A traditional Roman pasta dish with eggs, cheese, pancetta, and black pepper.",
+    "cookTime": 20,
+    "prepTime": 15,
+    "servings": 4,
+    "difficulty": "Medium",
+    "region": "Italian",
+    "pastaType": "Spaghetti",
+    "ingredients": [
+      "400g spaghetti",
+      "200g pancetta or guanciale",
+      "4 large eggs",
+      "100g Pecorino Romano cheese",
+      "Black pepper",
+      "Salt"
+    ],
+    "instructions": [
+      "Cook pasta in salted boiling water until al dente",
+      "Fry pancetta until crispy",
+      "Beat eggs with cheese and pepper",
+      "Combine hot pasta with pancetta",
+      "Add egg mixture off heat, tossing quickly",
+      "Serve immediately with extra cheese"
+    ]
+  },
+  {
+    "id": 2,
+    "title": "Creamy Mushroom Fettuccine",
+    "image": "/images/mushroom-fettuccine.jpg",
+    "description": "Rich and creamy pasta with mixed mushrooms and herbs.",
+    "cookTime": 25,
+    "prepTime": 10,
+    "servings": 4,
+    "difficulty": "Easy",
+    "region": "Italian",
+    "pastaType": "Fettuccine",
+    "ingredients": [
+      "400g fettuccine",
+      "300g mixed mushrooms",
+      "200ml heavy cream",
+      "3 garlic cloves",
+      "1 onion",
+      "Fresh thyme",
+      "Parmesan cheese",
+      "White wine"
+    ],
+    "instructions": [
+      "Sauté onion and garlic until fragrant",
+      "Add mushrooms and cook until golden",
+      "Deglaze with white wine",
+      "Add cream and thyme",
+      "Cook pasta until al dente",
+      "Combine pasta with sauce",
+      "Serve with Parmesan"
+    ]
+  },
+  {
+    "id": 3,
+    "title": "Spicy Arrabbiata Penne",
+    "image": "/images/arrabbiata.jpg",
+    "description": "Fiery tomato sauce with garlic, red chilies, and fresh herbs.",
+    "cookTime": 20,
+    "prepTime": 10,
+    "servings": 4,
+    "difficulty": "Easy",
+    "region": "Italian",
+    "pastaType": "Penne",
+    "ingredients": [
+      "400g penne pasta",
+      "400g canned tomatoes",
+      "4 garlic cloves",
+      "2 red chilies",
+      "Fresh parsley",
+      "Olive oil",
+      "Salt",
+      "Pecorino Romano"
+    ],
+    "instructions": [
+      "Heat oil in a large pan",
+      "Sauté garlic and chilies",
+      "Add crushed tomatoes",
+      "Simmer for 10 minutes",
+      "Cook pasta until al dente",
+      "Toss pasta with sauce",
+      "Garnish with parsley and cheese"
+    ]
+  },
+  {
+    "id": 4,
+    "title": "Seafood Linguine",
+    "image": "/images/seafood-linguine.jpg",
+    "description": "Fresh seafood in a light white wine and garlic sauce.",
+    "cookTime": 30,
+    "prepTime": 20,
+    "servings": 4,
+    "difficulty": "Hard",
+    "region": "Italian",
+    "pastaType": "Linguine",
+    "ingredients": [
+      "400g linguine",
+      "200g prawns",
+      "200g mussels",
+      "200g clams",
+      "4 garlic cloves",
+      "White wine",
+      "Cherry tomatoes",
+      "Fresh parsley",
+      "Olive oil"
+    ],
+    "instructions": [
+      "Clean and prepare seafood",
+      "Sauté garlic in olive oil",
+      "Add seafood and wine",
+      "Add tomatoes and simmer",
+      "Cook pasta until al dente",
+      "Combine pasta with seafood sauce",
+      "Garnish with fresh parsley"
+    ]
+  },
+  {
+    "id": 5,
+    "title": "Pesto Gnocchi",
+    "image": "/images/pesto-gnocchi.jpg",
+    "description": "Homemade basil pesto with soft potato gnocchi.",
+    "cookTime": 15,
+    "prepTime": 25,
+    "servings": 4,
+    "difficulty": "Medium",
+    "region": "Italian",
+    "pastaType": "Gnocchi",
+    "ingredients": [
+      "500g potato gnocchi",
+      "2 cups fresh basil",
+      "3 garlic cloves",
+      "100g pine nuts",
+      "150g Parmesan cheese",
+      "150ml olive oil",
+      "Salt",
+      "Cherry tomatoes"
+    ],
+    "instructions": [
+      "Make pesto by blending basil, garlic, pine nuts",
+      "Gradually add oil and cheese",
+      "Cook gnocchi in boiling water",
+      "Drain when gnocchi float",
+      "Toss with pesto sauce",
+      "Add halved cherry tomatoes",
+      "Serve with extra Parmesan"
+    ]
+  },
+  {
+    "id": 6,
+    "title": "Lasagna Bolognese",
+    "image": "/images/lasagna.jpg",
+    "description": "Classic layered pasta with meat sauce and bechamel.",
+    "cookTime": 90,
+    "prepTime": 45,
+    "servings": 8,
+    "difficulty": "Hard",
+    "region": "Italian",
+    "pastaType": "Lasagna",
+    "ingredients": [
+      "12 lasagna sheets",
+      "500g ground beef",
+      "400g canned tomatoes",
+      "1 onion",
+      "2 carrots",
+      "2 celery stalks",
+      "Red wine",
+      "Bechamel sauce",
+      "Mozzarella cheese",
+      "Parmesan cheese"
+    ],
+    "instructions": [
+      "Make Bolognese sauce with vegetables and meat",
+      "Simmer with tomatoes and wine for 1 hour",
+      "Prepare bechamel sauce",
+      "Cook lasagna sheets",
+      "Layer sauce, pasta, and cheese",
+      "Repeat layers",
+      "Bake for 45 minutes at 180°C"
+    ]
+  },
+  {
+    "id": 7,
+    "title": "Cacio e Pepe",
+    "image": "/images/cacio-e-pepe.jpg",
+    "description": "Simple Roman pasta with cheese and black pepper.",
+    "cookTime": 15,
+    "prepTime": 5,
+    "servings": 4,
+    "difficulty": "Medium",
+    "region": "Italian",
+    "pastaType": "Spaghetti",
+    "ingredients": [
+      "400g spaghetti",
+      "200g Pecorino Romano cheese",
+      "Black pepper",
+      "Salt",
+      "Pasta water"
+    ],
+    "instructions": [
+      "Cook spaghetti in salted water",
+      "Reserve pasta cooking water",
+      "Mix cheese with black pepper",
+      "Drain pasta, reserve some water",
+      "Add pasta to cheese mixture",
+      "Add pasta water gradually",
+      "Toss until creamy"
+    ]
+  },
+  {
+    "id": 8,
+    "title": "Chicken Alfredo",
+    "image": "/images/chicken-alfredo.jpg",
+    "description": "Creamy Alfredo sauce with grilled chicken over fettuccine.",
+    "cookTime": 25,
+    "prepTime": 15,
+    "servings": 4,
+    "difficulty": "Easy",
+    "region": "American",
+    "pastaType": "Fettuccine",
+    "ingredients": [
+      "400g fettuccine",
+      "2 chicken breasts",
+      "200ml heavy cream",
+      "100g butter",
+      "150g Parmesan cheese",
+      "3 garlic cloves",
+      "Salt",
+      "Black pepper",
+      "Fresh parsley"
+    ],
+    "instructions": [
+      "Season and grill chicken breasts",
+      "Cook fettuccine until al dente",
+      "Melt butter, add garlic",
+      "Add cream and simmer",
+      "Stir in Parmesan cheese",
+      "Slice chicken",
+      "Serve pasta topped with chicken"
+    ]
+  },
+  {
+    "id": 9,
+    "title": "Vegetarian Primavera",
+    "image": "/images/primavera.jpg",
+    "description": "Fresh seasonal vegetables in a light olive oil sauce.",
+    "cookTime": 20,
+    "prepTime": 15,
+    "servings": 4,
+    "difficulty": "Easy",
+    "region": "Italian",
+    "pastaType": "Penne",
+    "ingredients": [
+      "400g penne pasta",
+      "1 zucchini",
+      "1 bell pepper",
+      "200g cherry tomatoes",
+      "100g broccoli",
+      "3 garlic cloves",
+      "Olive oil",
+      "Fresh basil",
+      "Parmesan cheese"
+    ],
+    "instructions": [
+      "Cut vegetables into bite-sized pieces",
+      "Cook pasta until al dente",
+      "Sauté garlic in olive oil",
+      "Add vegetables in order of cooking time",
+      "Season with salt and pepper",
+      "Toss with cooked pasta",
+      "Garnish with basil and Parmesan"
+    ]
+  },
+  {
+    "id": 10,
+    "title": "Beef Ragu Rigatoni",
+    "image": "/images/beef-ragu.jpg",
+    "description": "Slow-cooked beef ragu with herbs and tomatoes.",
+    "cookTime": 120,
+    "prepTime": 30,
+    "servings": 6,
+    "difficulty": "Hard",
+    "region": "Italian",
+    "pastaType": "Rigatoni",
+    "ingredients": [
+      "400g rigatoni",
+      "800g beef chuck",
+      "400g canned tomatoes",
+      "1 onion",
+      "2 carrots",
+      "2 celery stalks",
+      "Red wine",
+      "Fresh herbs",
+      "Beef stock",
+      "Parmesan cheese"
+    ],
+    "instructions": [
+      "Brown beef in chunks",
+      "Sauté vegetables until soft",
+      "Add wine and reduce",
+      "Add tomatoes and stock",
+      "Simmer for 2 hours",
+      "Shred beef when tender",
+      "Serve over rigatoni with cheese"
+    ]
+  },
+  {
+    "id": 11,
+    "title": "Lemon Garlic Shrimp Pasta",
+    "image": "/images/lemon-shrimp.jpg",
+    "description": "Light and zesty pasta with succulent shrimp.",
+    "cookTime": 15,
+    "prepTime": 10,
+    "servings": 4,
+    "difficulty": "Easy",
+    "region": "Mediterranean",
+    "pastaType": "Linguine",
+    "ingredients": [
+      "400g linguine",
+      "500g large shrimp",
+      "4 garlic cloves",
+      "2 lemons",
+      "Olive oil",
+      "White wine",
+      "Fresh parsley",
+      "Red pepper flakes",
+      "Parmesan cheese"
+    ],
+    "instructions": [
+      "Cook pasta until al dente",
+      "Sauté garlic in olive oil",
+      "Add shrimp and cook until pink",
+      "Add wine and lemon juice",
+      "Toss with cooked pasta",
+      "Add parsley and pepper flakes",
+      "Serve with lemon wedges"
+    ]
+  },
+  {
+    "id": 12,
+    "title": "Spinach and Ricotta Ravioli",
+    "image": "/images/spinach-ravioli.jpg",
+    "description": "Homemade ravioli filled with spinach and ricotta cheese.",
+    "cookTime": 30,
+    "prepTime": 60,
+    "servings": 4,
+    "difficulty": "Hard",
+    "region": "Italian",
+    "pastaType": "Ravioli",
+    "ingredients": [
+      "Fresh pasta dough",
+      "300g ricotta cheese",
+      "200g fresh spinach",
+      "1 egg",
+      "Nutmeg",
+      "Parmesan cheese",
+      "Butter",
+      "Sage leaves",
+      "Salt",
+      "Black pepper"
+    ],
+    "instructions": [
+      "Make pasta dough and rest",
+      "Wilt spinach and squeeze dry",
+      "Mix spinach with ricotta and egg",
+      "Season with nutmeg and cheese",
+      "Roll out pasta thin",
+      "Fill and seal ravioli",
+      "Cook in salted water until they float",
+      "Serve with sage butter"
+    ]
+  }
+]

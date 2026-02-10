@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState } from 'react'
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react'
+import recipesData from '../data/recipes.json'
+import { filterRecipes } from '../utils/filterHelpers'
 
 const RecipeContext = createContext()
 
@@ -11,7 +13,7 @@ export function useRecipes() {
 }
 
 export function RecipeProvider({ children }) {
-  const [recipes] = useState([])
+  const [recipes, setRecipes] = useState([])
   const [filters, setFilters] = useState({
     search: '',
     pastaType: '',
@@ -19,7 +21,13 @@ export function RecipeProvider({ children }) {
     difficulty: ''
   })
 
-  const filteredRecipes = recipes
+  useEffect(() => {
+    setRecipes(recipesData)
+  }, [])
+
+  const filteredRecipes = useMemo(() => {
+    return filterRecipes(recipes, filters)
+  }, [recipes, filters])
 
   const value = {
     recipes,
