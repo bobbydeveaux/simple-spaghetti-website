@@ -1,0 +1,16 @@
+# FastAPI and ASGI server
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# Authentication and security
+PyJWT==2.8.0
+passlib[bcrypt]==1.7.4
+
+# Email validation
+email-validator==2.1.0
+
+# Request/response validation
+pydantic==2.5.0
+
+# CORS middleware
+python-multipart==0.0.6
