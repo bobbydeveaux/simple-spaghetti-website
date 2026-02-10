@@ -1,6 +1,7 @@
 Epic: happy-llama-page
 Features:
-- dependencies: []
+- Sprint: 1
+  dependencies: []
   description: Create HTML page displaying 'Llamas are awesome!' with llama emoji
   estimatedComplexity: low
   files:
