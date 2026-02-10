@@ -1,0 +1,58 @@
+Epic: pasta-recipes-react
+Features:
+- dependencies: []
+  description: Initialize Vite React project with dependencies (react-router-dom,
+    tailwindcss), create file structure, and populate recipes.json with 15-20 recipe
+    objects
+  estimatedComplexity: low
+  files:
+  - package.json
+  - vite.config.js
+  - tailwind.config.js
+  - src/data/recipes.json
+  - index.html
+  id: pasta-recipes-react-feat-project-setup
+  name: Project Setup and Data Layer
+  project: pasta-recipes-react
+  type: enabler
+- dependencies:
+  - pasta-recipes-react-feat-project-setup
+  description: Implement recipe list view with grid layout, recipe cards showing image/title/difficulty/cook
+    time, and navigation component with routing
+  estimatedComplexity: medium
+  files:
+  - src/App.jsx
+  - src/main.jsx
+  - src/components/RecipeList.jsx
+  - src/components/RecipeCard.jsx
+  - src/components/Navigation.jsx
+  - src/context/RecipeContext.jsx
+  id: pasta-recipes-react-feat-recipe-browsing
+  name: Recipe Browsing and Display
+  project: pasta-recipes-react
+  type: feature
+- dependencies:
+  - pasta-recipes-react-feat-recipe-browsing
+  description: Implement real-time search by recipe name/ingredients and category
+    filters (pasta type, region, difficulty) with filter helper functions
+  estimatedComplexity: medium
+  files:
+  - src/components/SearchBar.jsx
+  - src/components/FilterPanel.jsx
+  - src/utils/filterHelpers.js
+  id: pasta-recipes-react-feat-search-and-filtering
+  name: Search and Category Filtering
+  project: pasta-recipes-react
+  type: feature
+- dependencies:
+  - pasta-recipes-react-feat-recipe-browsing
+  description: 'Implement recipe detail view showing full recipe information: ingredients
+    list, step-by-step instructions, prep/cook time, servings, region, and description'
+  estimatedComplexity: low
+  files:
+  - src/components/RecipeDetail.jsx
+  id: pasta-recipes-react-feat-recipe-detail
+  name: Recipe Detail Page
+  project: pasta-recipes-react
+  type: feature
+Version: v1alpha1
