@@ -1,6 +1,7 @@
 Epic: pasta-recipes-react
 Features:
-- dependencies: []
+- Sprint: 1
+  dependencies: []
   description: Initialize Vite React project with dependencies (react-router-dom,
     tailwindcss), create file structure, and populate recipes.json with 15-20 recipe
     objects
@@ -15,7 +16,8 @@ Features:
   name: Project Setup and Data Layer
   project: pasta-recipes-react
   type: enabler
-- dependencies:
+- Sprint: 1
+  dependencies:
   - pasta-recipes-react-feat-project-setup
   description: Implement recipe list view with grid layout, recipe cards showing image/title/difficulty/cook
     time, and navigation component with routing
@@ -31,7 +33,8 @@ Features:
   name: Recipe Browsing and Display
   project: pasta-recipes-react
   type: feature
-- dependencies:
+- Sprint: 2
+  dependencies:
   - pasta-recipes-react-feat-recipe-browsing
   description: Implement real-time search by recipe name/ingredients and category
     filters (pasta type, region, difficulty) with filter helper functions
@@ -44,7 +47,8 @@ Features:
   name: Search and Category Filtering
   project: pasta-recipes-react
   type: feature
-- dependencies:
+- Sprint: 2
+  dependencies:
   - pasta-recipes-react-feat-recipe-browsing
   description: 'Implement recipe detail view showing full recipe information: ingredients
     list, step-by-step instructions, prep/cook time, servings, region, and description'

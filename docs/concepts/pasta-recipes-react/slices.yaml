@@ -1,0 +1,23 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: pasta-recipes-react-feat-project-setup
+        name: Project Setup and Data Layer
+        type: enabler
+        files: [package.json vite.config.js tailwind.config.js src/data/recipes.json index.html]
+      - id: pasta-recipes-react-feat-recipe-browsing
+        name: Recipe Browsing and Display
+        type: feature
+        files: [src/App.jsx src/main.jsx src/components/RecipeList.jsx src/components/RecipeCard.jsx src/components/Navigation.jsx src/context/RecipeContext.jsx]
+  - number: 2
+    features:
+      - id: pasta-recipes-react-feat-search-and-filtering
+        name: Search and Category Filtering
+        type: feature
+        files: [src/components/SearchBar.jsx src/components/FilterPanel.jsx src/utils/filterHelpers.js]
+      - id: pasta-recipes-react-feat-recipe-detail
+        name: Recipe Detail Page
+        type: feature
+        files: [src/components/RecipeDetail.jsx]
