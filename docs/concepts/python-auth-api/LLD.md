@@ -1,162 +1,217 @@
 # Low-Level Design: simple-spaghetti-repo
 
-**Created:** 2026-02-10T18:52:00Z
+**Created:** 2026-02-10T19:19:36Z
 **Status:** Draft
 
 ## 1. Implementation Overview
 
-FastAPI application with modular structure separating auth logic, token management, and route handlers. Password hashing via passlib with bcrypt. JWT tokens generated/validated using PyJWT. In-memory dictionary for user storage. Pydantic models for request/response validation. CORS middleware for cross-origin support.
+<!-- AI: Brief summary of implementation approach -->
+
+FastAPI-based REST API with in-memory user storage. Project structure follows standard Python package layout with separation of concerns: routes, services, models, and utilities. JWT middleware implemented as FastAPI dependency. Password hashing encapsulated in utility module. All components are synchronous with no async/await complexity.
 
 ---
 
 ## 2. File Structure
 
+<!-- AI: List all new and modified files with descriptions -->
+
 ```
 api/
-  __init__.py
-  main.py                    # FastAPI app initialization, CORS, routes registration
-  config.py                  # Environment variables, JWT settings, constants
-  models.py                  # Pydantic request/response models
-  auth/
-    __init__.py
-    password.py              # Password hashing/verification functions
-    tokens.py                # JWT creation/validation functions
-    storage.py               # In-memory user storage
+  __init__.py                 # Package initializer
+  main.py                     # FastAPI app initialization, CORS, exception handlers
   routes/
     __init__.py
-    auth.py                  # Registration, login, refresh endpoints
-    protected.py             # Protected resource endpoints
-  dependencies.py            # FastAPI dependency for token validation
-requirements.txt             # PyJWT, fastapi, uvicorn, passlib, bcrypt
-.env.example                 # Template for environment variables
+    auth.py                   # Auth endpoints: /register, /login, /refresh
+    protected.py              # Protected endpoint: /protected
+  services/
+    __init__.py
+    auth_service.py           # Business logic for registration, login, token refresh
+    user_repository.py        # In-memory user storage (dict-based)
+  models/
+    __init__.py
+    user.py                   # User dataclass and Pydantic request/response models
+    token.py                  # Token Pydantic models
+  utils/
+    __init__.py
+    jwt_manager.py            # JWT creation, validation, decoding
+    password.py               # bcrypt hashing and verification
+  middleware/
+    __init__.py
+    auth_middleware.py        # JWT validation dependency for FastAPI
+  config.py                   # Environment variables, JWT secret, token expiry
+requirements.txt              # Python dependencies
+README.md                     # Setup and usage instructions
 ```
 
 ---
 
 ## 3. Detailed Component Designs
 
-**Authentication Service (api/auth/)**
-- password.py: hash_password() uses bcrypt cost 12, verify_password() compares hashes
-- tokens.py: create_access_token() generates JWT with 15min expiry, create_refresh_token() with 7d expiry, decode_token() validates signature and expiration
-- storage.py: UserStorage class with dict, add_user(), get_user(), user_exists() methods
+<!-- AI: For each major component from HLD, provide detailed design -->
 
-**Route Handlers (api/routes/)**
-- auth.py: register(), login(), refresh() endpoints with business logic
-- protected.py: get_profile() endpoint using dependency injection for auth
+**AuthService** (`services/auth_service.py`):
+- `register_user(email, password)`: Validates email format, checks duplicates in UserRepository, hashes password, creates User, returns User object
+- `authenticate_user(email, password)`: Retrieves user from repository, verifies password hash, returns User or None
+- `generate_tokens(email)`: Creates access and refresh JWTs via JWTManager, returns dict with both tokens
 
-**Configuration (api/config.py)**
-- Settings class with JWT_SECRET_KEY, ACCESS_TOKEN_EXPIRE_MINUTES (15), REFRESH_TOKEN_EXPIRE_DAYS (7), CORS_ORIGINS
+**UserRepository** (`services/user_repository.py`):
+- `_users`: Class-level dict mapping email -> User
+- `add_user(user)`: Stores user, raises ValueError if duplicate
+- `get_user_by_email(email)`: Returns User or None
+- `user_exists(email)`: Boolean check
+
+**JWTManager** (`utils/jwt_manager.py`):
+- `create_access_token(email)`: Generates JWT with 15min expiry, type="access"
+- `create_refresh_token(email)`: Generates JWT with 7day expiry, type="refresh"
+- `decode_token(token)`: Validates signature and expiration, returns payload dict or raises JWTError
+- `verify_token_type(payload, expected_type)`: Checks token type field
+
+**PasswordHasher** (`utils/password.py`):
+- `hash_password(password)`: Returns bcrypt hash string
+- `verify_password(plain, hashed)`: Returns boolean
 
 ---
 
 ## 4. Database Schema Changes
 
-N/A - No database required. In-memory storage only.
+<!-- AI: SQL/migration scripts for schema changes -->
+
+N/A - No database used. In-memory storage only.
 
 ---
 
 ## 5. API Implementation Details
 
-**POST /api/v1/auth/register**
-- Validate email format and password length (min 8 chars)
-- Check if user exists, return 400 if duplicate
-- Hash password with bcrypt, store in UserStorage
-- Return 201 with user email
+<!-- AI: For each API endpoint, specify handler logic, validation, error handling -->
 
-**POST /api/v1/auth/login**
-- Retrieve user from storage, return 401 if not found
-- Verify password hash, return 401 if invalid
-- Generate access and refresh tokens
-- Return 200 with both tokens
+**POST /register**:
+- Input: Pydantic `RegisterRequest(email: EmailStr, password: str)`
+- Validation: Email format via EmailStr, password min 8 chars
+- Logic: Call `auth_service.register_user()`, catch ValueError for duplicates
+- Response: 201 with `RegisterResponse(message, email)` or 409 with error detail
 
-**POST /api/v1/auth/refresh**
-- Decode refresh token, validate type field is "refresh"
-- Return 401 if invalid or expired
-- Generate new access token with same subject
-- Return 200 with new access token
+**POST /login**:
+- Input: Pydantic `LoginRequest(email: EmailStr, password: str)`
+- Logic: Call `auth_service.authenticate_user()`, if None return 401
+- On success: Call `auth_service.generate_tokens()`, return 200 with `TokenResponse`
+- Response: 200 with tokens or 401 "Invalid credentials"
 
-**GET /api/v1/protected/profile**
-- Dependency validates Authorization header Bearer token
-- Extract email from token subject
-- Return 200 with user email and message
+**POST /refresh**:
+- Input: Pydantic `RefreshRequest(refresh_token: str)`
+- Logic: Decode token via JWTManager, verify type="refresh", extract email, generate new access token
+- Response: 200 with new access token or 401 "Invalid or expired refresh token"
+
+**GET /protected**:
+- Dependency: `Depends(verify_access_token)` extracts email from JWT
+- Logic: Return success message with user email
+- Response: 200 with `ProtectedResponse(message, user)` or 401 if middleware fails
 
 ---
 
 ## 6. Function Signatures
 
+<!-- AI: Key function/method signatures with parameters and return types -->
+
 ```python
-# api/auth/password.py
+# services/auth_service.py
+def register_user(email: str, password: str) -> User
+def authenticate_user(email: str, password: str) -> Optional[User]
+def generate_tokens(email: str) -> dict[str, str]  # {"access_token": ..., "refresh_token": ...}
+
+# services/user_repository.py
+def add_user(user: User) -> None
+def get_user_by_email(email: str) -> Optional[User]
+def user_exists(email: str) -> bool
+
+# utils/jwt_manager.py
+def create_access_token(email: str) -> str
+def create_refresh_token(email: str) -> str
+def decode_token(token: str) -> dict
+def verify_token_type(payload: dict, expected_type: str) -> bool
+
+# utils/password.py
 def hash_password(password: str) -> str
 def verify_password(plain_password: str, hashed_password: str) -> bool
 
-# api/auth/tokens.py
-def create_access_token(data: dict) -> str
-def create_refresh_token(data: dict) -> str
-def decode_token(token: str) -> dict
-
-# api/auth/storage.py
-class UserStorage:
-    def add_user(self, email: str, password_hash: str) -> None
-    def get_user(self, email: str) -> dict | None
-    def user_exists(self, email: str) -> bool
-
-# api/dependencies.py
-async def get_current_user(authorization: str = Header(...)) -> str
+# middleware/auth_middleware.py
+def verify_access_token(authorization: str = Header(...)) -> str  # Returns email
 ```
 
 ---
 
 ## 7. State Management
 
-In-memory Python dictionary in UserStorage singleton. Structure: `{"email": {"email": str, "password_hash": str}}`. No persistence between restarts. Thread-safe for single-process deployment.
+<!-- AI: How application state is managed (Redux, Context, database) -->
+
+In-memory dictionary in `UserRepository._users` (class-level variable). State persists only during process lifetime. No state synchronization needed (single-process). On restart, all user data lost.
 
 ---
 
 ## 8. Error Handling Strategy
 
-- 400: Invalid input (email format, password length, duplicate user)
-- 401: Authentication failed (invalid credentials, expired/invalid token)
-- 422: Pydantic validation errors (missing fields, wrong types)
-- 500: Unexpected server errors (logged with traceback)
+<!-- AI: Error codes, exception handling, user-facing messages -->
 
-Custom HTTPException raised with status_code and detail. FastAPI handles automatic JSON error responses.
+**HTTP Status Codes**:
+- 201: User created
+- 200: Success (login, refresh, protected access)
+- 400: Invalid request format (Pydantic validation)
+- 401: Unauthorized (invalid credentials, expired/invalid token)
+- 409: Conflict (duplicate email)
+- 500: Internal server error
+
+**Exception Handlers**:
+- `HTTPException` with status_code and detail message
+- Global exception handler logs traceback and returns 500
+- JWT decode errors caught and re-raised as 401 HTTPException
 
 ---
 
 ## 9. Test Plan
 
 ### Unit Tests
-- test_password.py: hash_password produces bcrypt hash, verify_password validates correct/incorrect passwords
-- test_tokens.py: create tokens have correct expiration, decode_token validates signature and expiration
-- test_storage.py: add/get/exists operations on UserStorage
+- Password hashing and verification correctness
+- JWT creation with correct expiry and payload structure
+- JWT decoding and signature validation
+- UserRepository add/get/exists operations
+- AuthService registration duplicate detection
 
 ### Integration Tests
-- test_auth_routes.py: register creates user, login returns tokens, refresh issues new token, duplicate registration fails
-- test_protected_routes.py: valid token accesses profile, expired token rejected, missing token rejected
+- POST /register with valid data returns 201
+- POST /register with duplicate email returns 409
+- POST /login with valid credentials returns tokens
+- POST /login with invalid credentials returns 401
+- POST /refresh with valid refresh token returns new access token
+- GET /protected with valid access token returns 200
+- GET /protected without token returns 401
 
 ### E2E Tests
-- Full flow: register -> login -> access protected endpoint -> refresh -> access again
+- Full registration → login → access protected endpoint flow
+- Token refresh flow maintaining session continuity
+- Expired token rejection on protected endpoint
 
 ---
 
 ## 10. Migration Strategy
 
-N/A - Greenfield implementation. Deploy as new service. No existing system to migrate from.
+<!-- AI: How to migrate from current state to new implementation -->
+
+New API implementation, no existing state to migrate. Deploy as standalone service. Users must register fresh accounts.
 
 ---
 
 ## 11. Rollback Plan
 
-Remove container/process. No data persistence means no cleanup required. Restore previous service if replacing existing auth.
+<!-- AI: How to rollback if deployment fails -->
+
+Stop uvicorn process. No database rollback needed. No persistent state to clean up.
 
 ---
 
 ## 12. Performance Considerations
 
-- Bcrypt hashing is intentionally slow (100ms target met)
-- In-memory lookup O(1) for user retrieval
-- JWT validation is stateless, no database lookup
-- For 1000+ users, consider dict -> LRU cache for password hashes
+<!-- AI: Performance optimizations, caching, indexing -->
+
+In-memory dict provides O(1) user lookup by email. Bcrypt hashing (12 rounds) adds ~100ms per registration/login. No caching needed for stateless JWT validation. Process can handle 100+ concurrent requests on single core.
 
 ---
 
@@ -226,7 +281,13 @@ docs/
       timeline.yaml
     python-auth-api/
       HLD.md
+      LLD.md
       PRD.md
+      ROAM.md
+      epic.yaml
+      slices.yaml
+      timeline.md
+      timeline.yaml
   plans/
     simple-spaghetti-website/
       HLD.md
