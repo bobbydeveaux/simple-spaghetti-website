@@ -4,6 +4,10 @@ uvicorn[standard]>=0.24.0
 pydantic[email]>=2.5.0
 python-multipart>=0.0.6
 
+# Flask web framework and utilities (for library API)
+flask>=2.3.0
+werkzeug>=2.3.0
+
 # JWT and authentication
 PyJWT>=2.8.0
 bcrypt>=4.1.0
