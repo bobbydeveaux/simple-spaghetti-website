@@ -1,0 +1,11 @@
+{
+  "prNumber": 82,
+  "baseBranch": "main",
+  "headBranch": "feature/72-pasta-recipes-react-sprint-1-issue-72",
+  "conflictedFiles": [
+    ".claude-output.json",
+    ".pr-number",
+    "src/data/recipes.json"
+  ],
+  "conflictCount": 3
+}
