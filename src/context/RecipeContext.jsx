@@ -1,95 +1,106 @@
-import { createContext, useContext, useState, useEffect, useMemo } from 'react'
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { filterRecipes, getFilterOptions } from '../utils/filterHelpers';
+import recipesData from '../data/recipes.json';
 
-const RecipeContext = createContext()
+// Create the context
+const RecipeContext = createContext();
 
-export function useRecipes() {
-  const context = useContext(RecipeContext)
-  if (context === undefined) {
-    throw new Error('useRecipes must be used within a RecipeProvider')
+// Custom hook to use the Recipe context
+export const useRecipes = () => {
+  const context = useContext(RecipeContext);
+  if (!context) {
+    throw new Error('useRecipes must be used within a RecipeProvider');
   }
-  return context
-}
+  return context;
+};
 
-export function RecipeProvider({ children }) {
-  const [recipes, setRecipes] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+// Recipe Provider component
+export const RecipeProvider = ({ children }) => {
+  // State for recipes and filters
+  const [recipes, setRecipes] = useState([]);
   const [filters, setFilters] = useState({
     search: '',
     pastaType: '',
     region: '',
     difficulty: ''
-  })
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Load recipes data on mount
+  // Load recipes on component mount
   useEffect(() => {
     const loadRecipes = async () => {
       try {
-        setLoading(true)
-        // For now, we'll use empty array until recipes.json is created in next task
-        // In the future: const response = await fetch('/src/data/recipes.json')
-        // const data = await response.json()
-        const data = []
-        setRecipes(data)
+        setLoading(true);
+        // In a real app, this might be an API call
+        // For now, we're using imported JSON data
+        setRecipes(recipesData);
+        setError(null);
       } catch (err) {
-        setError('Failed to load recipes')
-        console.error('Error loading recipes:', err)
+        setError('Failed to load recipes');
+        console.error('Error loading recipes:', err);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    loadRecipes()
-  }, [])
+    loadRecipes();
+  }, []);
 
-  // Compute filtered recipes based on current filters
+  // Compute filtered recipes using useMemo for performance
   const filteredRecipes = useMemo(() => {
-    if (!recipes.length) return []
+    return filterRecipes(recipes, filters);
+  }, [recipes, filters]);
 
-    return recipes.filter(recipe => {
-      // Search filter - check title and ingredients
-      if (filters.search) {
-        const searchTerm = filters.search.toLowerCase()
-        const titleMatch = recipe.title?.toLowerCase().includes(searchTerm)
-        const ingredientMatch = recipe.ingredients?.some(ing =>
-          ing.toLowerCase().includes(searchTerm)
-        )
-        if (!titleMatch && !ingredientMatch) {
-          return false
-        }
-      }
+  // Get filter options for dropdowns
+  const filterOptions = useMemo(() => {
+    return getFilterOptions(recipes);
+  }, [recipes]);
 
-      // Pasta type filter
-      if (filters.pastaType && recipe.pastaType !== filters.pastaType) {
-        return false
-      }
+  // Function to update filters
+  const updateFilters = (newFilters) => {
+    setFilters(prevFilters => ({
+      ...prevFilters,
+      ...newFilters
+    }));
+  };
 
-      // Region filter
-      if (filters.region && recipe.region !== filters.region) {
-        return false
-      }
+  // Function to reset all filters
+  const resetFilters = () => {
+    setFilters({
+      search: '',
+      pastaType: '',
+      region: '',
+      difficulty: ''
+    });
+  };
 
-      // Difficulty filter
-      if (filters.difficulty && recipe.difficulty !== filters.difficulty) {
-        return false
-      }
-
-      return true
-    })
-  }, [recipes, filters])
-
+  // Context value
   const value = {
+    // Data
     recipes,
     filteredRecipes,
+
+    // Filter state
     filters,
-    setFilters,
+    setFilters: updateFilters,
+    resetFilters,
+
+    // Filter options
+    filterOptions,
+
+    // Loading states
     loading,
-    error
-  }
+    error,
+
+    // Computed values
+    totalRecipes: recipes.length,
+    filteredCount: filteredRecipes.length
+  };
 
   return (
     <RecipeContext.Provider value={value}>
       {children}
     </RecipeContext.Provider>
-  )
-}
+  );
+};
