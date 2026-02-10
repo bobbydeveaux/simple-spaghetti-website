@@ -1,0 +1,622 @@
+[
+  {
+    "id": 1,
+    "title": "Classic Spaghetti Carbonara",
+    "description": "A traditional Roman pasta dish made with eggs, cheese, pancetta, and black pepper. Simple yet elegant, this dish is the epitome of Italian cooking.",
+    "image": "/api/placeholder/400/250",
+    "pastaType": "Spaghetti",
+    "region": "Central Italy",
+    "difficulty": "Easy",
+    "prepTime": "10 mins",
+    "cookTime": "15 mins",
+    "servings": "4 people",
+    "ingredients": [
+      "400g spaghetti",
+      "200g pancetta or guanciale, diced",
+      "4 large eggs",
+      "100g Pecorino Romano cheese, grated",
+      "50g Parmigiano-Reggiano cheese, grated",
+      "Black pepper to taste",
+      "Salt for pasta water"
+    ],
+    "instructions": [
+      "Bring a large pot of salted water to boil and cook spaghetti according to package directions.",
+      "In a large pan, cook pancetta over medium heat until crispy, about 5-7 minutes.",
+      "In a bowl, whisk together eggs, both cheeses, and a generous amount of black pepper.",
+      "Reserve 1 cup of pasta cooking water, then drain the pasta.",
+      "Add hot pasta to the pan with pancetta, toss to combine.",
+      "Remove from heat and quickly add the egg mixture, tossing constantly to create a creamy sauce.",
+      "Add pasta water as needed to achieve desired consistency. Serve immediately."
+    ]
+  },
+  {
+    "id": 2,
+    "title": "Penne Arrabbiata",
+    "description": "A fiery pasta dish from Rome featuring spicy tomato sauce with garlic and red chili peppers. Perfect for those who love a kick in their meal.",
+    "image": "/api/placeholder/400/250",
+    "pastaType": "Penne",
+    "region": "Central Italy",
+    "difficulty": "Easy",
+    "prepTime": "5 mins",
+    "cookTime": "20 mins",
+    "servings": "4 people",
+    "ingredients": [
+      "400g penne pasta",
+      "400g canned San Marzano tomatoes, crushed",
+      "4 cloves garlic, minced",
+      "2-3 dried red chili peppers, crushed",
+      "60ml extra virgin olive oil",
+      "Fresh parsley, chopped",
+      "Salt to taste",
+      "Parmigiano-Reggiano for serving"
+    ],
+    "instructions": [
+      "Cook penne in salted boiling water according to package directions.",
+      "Heat olive oil in a large pan over medium heat.",
+      "Add garlic and chili peppers, sauté until fragrant, about 1 minute.",
+      "Add crushed tomatoes and simmer for 15 minutes until sauce thickens.",
+      "Season with salt and add more chili if desired.",
+      "Toss cooked pasta with the spicy tomato sauce.",
+      "Serve hot, garnished with fresh parsley and grated Parmigiano-Reggiano."
+    ]
+  },
+  {
+    "id": 3,
+    "title": "Lasagna Bolognese",
+    "description": "A rich and hearty layered pasta dish from Bologna with meat sauce, béchamel, and three cheeses. A Sunday dinner favorite that feeds the whole family.",
+    "image": "/api/placeholder/400/250",
+    "pastaType": "Lasagna",
+    "region": "Northern Italy",
+    "difficulty": "Hard",
+    "prepTime": "45 mins",
+    "cookTime": "2 hours",
+    "servings": "8 people",
+    "ingredients": [
+      "500g lasagna sheets",
+      "500g ground beef",
+      "200g ground pork",
+      "2 carrots, diced",
+      "2 celery stalks, diced",
+      "1 onion, diced",
+      "800g canned tomatoes",
+      "500ml whole milk",
+      "60g butter",
+      "60g all-purpose flour",
+      "200g mozzarella, grated",
+      "100g Parmigiano-Reggiano",
+      "Red wine, nutmeg, bay leaves"
+    ],
+    "instructions": [
+      "Make Bolognese sauce: sauté vegetables, add meat, wine, tomatoes. Simmer 1.5 hours.",
+      "Prepare béchamel: melt butter, whisk in flour, gradually add milk. Cook until thick.",
+      "Cook lasagna sheets until al dente, lay flat on towels.",
+      "Preheat oven to 180°C (350°F).",
+      "Layer sauce, pasta, béchamel, and cheeses in a baking dish. Repeat 3-4 times.",
+      "Top with remaining cheese and bake for 45 minutes until golden.",
+      "Rest for 15 minutes before serving to allow layers to set."
+    ]
+  },
+  {
+    "id": 4,
+    "title": "Fettuccine Alfredo",
+    "description": "Creamy Roman pasta dish with butter, cream, and Parmigiano-Reggiano. Originally created for pregnant women, now beloved worldwide.",
+    "image": "/api/placeholder/400/250",
+    "pastaType": "Fettuccine",
+    "region": "Central Italy",
+    "difficulty": "Easy",
+    "prepTime": "5 mins",
+    "cookTime": "12 mins",
+    "servings": "4 people",
+    "ingredients": [
+      "400g fresh fettuccine",
+      "200g unsalted butter",
+      "200ml heavy cream",
+      "150g Parmigiano-Reggiano, finely grated",
+      "White pepper to taste",
+      "Salt for pasta water",
+      "Fresh parsley for garnish"
+    ],
+    "instructions": [
+      "Cook fettuccine in salted boiling water until al dente, about 2-3 minutes for fresh pasta.",
+      "Meanwhile, melt butter in a large pan over low heat.",
+      "Add cream to melted butter and simmer gently for 2 minutes.",
+      "Reserve 1/2 cup pasta water, then drain fettuccine.",
+      "Add pasta to the cream sauce and toss gently.",
+      "Remove from heat and add half the Parmigiano-Reggiano, tossing constantly.",
+      "Add pasta water as needed for silky consistency. Serve with remaining cheese."
+    ]
+  },
+  {
+    "id": 5,
+    "title": "Rigatoni alla Norma",
+    "description": "A Sicilian masterpiece with fried eggplant, tomato sauce, and ricotta salata. Named after Bellini's opera, it's a celebration of Sicilian flavors.",
+    "image": "/api/placeholder/400/250",
+    "pastaType": "Rigatoni",
+    "region": "Southern Italy",
+    "difficulty": "Medium",
+    "prepTime": "30 mins",
+    "cookTime": "25 mins",
+    "servings": "4 people",
+    "ingredients": [
+      "400g rigatoni pasta",
+      "2 large eggplants, cubed",
+      "400g canned tomatoes, crushed",
+      "4 cloves garlic, minced",
+      "150g ricotta salata, grated",
+      "Fresh basil leaves",
+      "Extra virgin olive oil for frying",
+      "Salt and pepper to taste"
+    ],
+    "instructions": [
+      "Salt eggplant cubes and let drain for 30 minutes to remove bitterness.",
+      "Pat eggplant dry and fry in olive oil until golden brown. Set aside.",
+      "In the same oil, sauté garlic until fragrant, add tomatoes and simmer 15 minutes.",
+      "Season sauce with salt, pepper, and fresh basil.",
+      "Cook rigatoni until al dente, reserve pasta water.",
+      "Combine pasta with tomato sauce and fried eggplant.",
+      "Serve hot topped with ricotta salata and fresh basil leaves."
+    ]
+  },
+  {
+    "id": 6,
+    "title": "Tagliatelle ai Porcini",
+    "description": "Elegant egg pasta ribbons with porcini mushrooms from Emilia-Romagna. A luxurious dish that captures the essence of Italian forest flavors.",
+    "image": "/api/placeholder/400/250",
+    "pastaType": "Tagliatelle",
+    "region": "Northern Italy",
+    "difficulty": "Medium",
+    "prepTime": "20 mins",
+    "cookTime": "15 mins",
+    "servings": "4 people",
+    "ingredients": [
+      "400g fresh tagliatelle",
+      "300g fresh porcini mushrooms, sliced",
+      "2 cloves garlic, minced",
+      "100ml white wine",
+      "200ml heavy cream",
+      "60g butter",
+      "100g Parmigiano-Reggiano, grated",
+      "Fresh parsley, chopped",
+      "Extra virgin olive oil"
+    ],
+    "instructions": [
+      "Clean porcini mushrooms with a damp cloth and slice them.",
+      "Heat olive oil and butter in a large pan over medium-high heat.",
+      "Add mushrooms and cook until golden brown, about 5 minutes.",
+      "Add garlic and sauté for 1 minute until fragrant.",
+      "Deglaze with white wine and let it reduce by half.",
+      "Add cream and simmer until slightly thickened.",
+      "Toss cooked tagliatelle with the mushroom sauce and Parmigiano-Reggiano."
+    ]
+  },
+  {
+    "id": 7,
+    "title": "Spaghetti Aglio e Olio",
+    "description": "The ultimate midnight pasta - simple spaghetti with garlic, olive oil, and chili flakes. A Neapolitan classic that proves less is more.",
+    "image": "/api/placeholder/400/250",
+    "pastaType": "Spaghetti",
+    "region": "Southern Italy",
+    "difficulty": "Easy",
+    "prepTime": "5 mins",
+    "cookTime": "10 mins",
+    "servings": "4 people",
+    "ingredients": [
+      "400g spaghetti",
+      "6 cloves garlic, thinly sliced",
+      "100ml extra virgin olive oil",
+      "1-2 red chili peppers, sliced",
+      "Fresh parsley, chopped",
+      "Salt for pasta water",
+      "Parmigiano-Reggiano (optional)"
+    ],
+    "instructions": [
+      "Cook spaghetti in salted boiling water until al dente.",
+      "Meanwhile, heat olive oil in a large pan over low heat.",
+      "Add sliced garlic and chili, cook until garlic is golden but not brown.",
+      "Reserve 1/2 cup pasta water, then drain spaghetti.",
+      "Add pasta to the garlic oil and toss to combine.",
+      "Add pasta water if needed to create a silky coating.",
+      "Serve immediately garnished with parsley and optional cheese."
+    ]
+  },
+  {
+    "id": 8,
+    "title": "Penne alla Puttanesca",
+    "description": "A bold Neapolitan sauce with tomatoes, olives, capers, and anchovies. Legend says it was created by working women for its quick preparation.",
+    "image": "/api/placeholder/400/250",
+    "pastaType": "Penne",
+    "region": "Southern Italy",
+    "difficulty": "Easy",
+    "prepTime": "10 mins",
+    "cookTime": "20 mins",
+    "servings": "4 people",
+    "ingredients": [
+      "400g penne pasta",
+      "400g canned tomatoes, crushed",
+      "100g black olives, pitted and halved",
+      "50g capers, rinsed",
+      "6 anchovy fillets in oil",
+      "4 cloves garlic, minced",
+      "60ml extra virgin olive oil",
+      "Red pepper flakes",
+      "Fresh parsley and oregano"
+    ],
+    "instructions": [
+      "Cook penne in salted boiling water until al dente.",
+      "Heat olive oil in a large pan, add garlic and anchovies.",
+      "Mash anchovies with a fork until they dissolve in the oil.",
+      "Add tomatoes, olives, capers, and red pepper flakes.",
+      "Simmer for 15 minutes until sauce thickens.",
+      "Toss cooked pasta with the puttanesca sauce.",
+      "Garnish with fresh herbs and serve immediately."
+    ]
+  },
+  {
+    "id": 9,
+    "title": "Tortellini in Brodo",
+    "description": "Delicate hand-made pasta parcels served in rich chicken broth. A Christmas tradition from Bologna that warms the soul.",
+    "image": "/api/placeholder/400/250",
+    "pastaType": "Tortellini",
+    "region": "Northern Italy",
+    "difficulty": "Hard",
+    "prepTime": "2 hours",
+    "cookTime": "30 mins",
+    "servings": "6 people",
+    "ingredients": [
+      "500g fresh tortellini (prosciutto and Parmigiano filling)",
+      "2L rich chicken broth",
+      "1 whole chicken",
+      "2 carrots, halved",
+      "2 celery stalks, halved",
+      "1 onion, quartered",
+      "Bay leaves, parsley stems",
+      "Parmigiano-Reggiano for serving",
+      "Salt and pepper"
+    ],
+    "instructions": [
+      "Make broth: simmer chicken with vegetables and herbs for 2 hours.",
+      "Strain broth and season with salt and pepper.",
+      "Bring strained broth to a gentle boil.",
+      "Add fresh tortellini and cook for 3-4 minutes until they float.",
+      "Taste broth and adjust seasoning.",
+      "Serve hot in warm bowls with grated Parmigiano-Reggiano.",
+      "Traditionally served as the first course of Christmas dinner."
+    ]
+  },
+  {
+    "id": 10,
+    "title": "Linguine alle Vongole",
+    "description": "Classic seafood pasta from Naples with fresh clams, white wine, and parsley. The sea meets the pasta in perfect harmony.",
+    "image": "/api/placeholder/400/250",
+    "pastaType": "Linguine",
+    "region": "Southern Italy",
+    "difficulty": "Medium",
+    "prepTime": "15 mins",
+    "cookTime": "20 mins",
+    "servings": "4 people",
+    "ingredients": [
+      "400g linguine pasta",
+      "1kg fresh clams, cleaned",
+      "4 cloves garlic, minced",
+      "200ml dry white wine",
+      "100ml extra virgin olive oil",
+      "Fresh parsley, chopped",
+      "Red pepper flakes",
+      "Salt for pasta water"
+    ],
+    "instructions": [
+      "Soak clams in salt water for 30 minutes to purge sand.",
+      "Heat olive oil in a large pan, add garlic and red pepper flakes.",
+      "Add clams and white wine, cover and cook until clams open.",
+      "Remove clams that haven't opened after 5 minutes.",
+      "Meanwhile, cook linguine until al dente.",
+      "Add pasta to the clam pan with some pasta water.",
+      "Toss everything together and serve garnished with parsley."
+    ]
+  },
+  {
+    "id": 11,
+    "title": "Cacio e Pepe",
+    "description": "Roman minimalism at its finest - pasta with just Pecorino Romano and black pepper. Deceptively simple, surprisingly difficult to master.",
+    "image": "/api/placeholder/400/250",
+    "pastaType": "Spaghetti",
+    "region": "Central Italy",
+    "difficulty": "Medium",
+    "prepTime": "2 mins",
+    "cookTime": "10 mins",
+    "servings": "4 people",
+    "ingredients": [
+      "400g spaghetti or tonnarelli",
+      "200g Pecorino Romano, finely grated",
+      "2 tablespoons freshly cracked black pepper",
+      "Salt for pasta water"
+    ],
+    "instructions": [
+      "Toast black pepper in a dry large pan for 1 minute.",
+      "Cook pasta in well-salted water until very al dente.",
+      "Reserve 2 cups pasta water before draining.",
+      "Add 1/2 cup hot pasta water to the pepper pan.",
+      "Add drained pasta and toss vigorously.",
+      "Remove from heat and gradually add cheese while tossing.",
+      "Add more pasta water as needed to create a creamy sauce without clumps."
+    ]
+  },
+  {
+    "id": 12,
+    "title": "Pasta alla Gricia",
+    "description": "The ancestor of Carbonara from the shepherds of Lazio. Simple combination of guanciale, Pecorino Romano, and black pepper.",
+    "image": "/api/placeholder/400/250",
+    "pastaType": "Rigatoni",
+    "region": "Central Italy",
+    "difficulty": "Easy",
+    "prepTime": "5 mins",
+    "cookTime": "15 mins",
+    "servings": "4 people",
+    "ingredients": [
+      "400g rigatoni or spaghetti",
+      "200g guanciale or pancetta, diced",
+      "150g Pecorino Romano, grated",
+      "Freshly ground black pepper",
+      "Salt for pasta water"
+    ],
+    "instructions": [
+      "Cook pasta in salted boiling water until al dente.",
+      "Meanwhile, cook guanciale in a large pan until crispy.",
+      "Reserve pasta water, then drain pasta.",
+      "Add pasta to the pan with rendered guanciale fat.",
+      "Toss with Pecorino Romano and black pepper.",
+      "Add pasta water gradually to create a creamy consistency.",
+      "Serve immediately while hot."
+    ]
+  },
+  {
+    "id": 13,
+    "title": "Orecchiette con Cime di Rapa",
+    "description": "Traditional Puglian pasta shaped like little ears served with bitter greens, garlic, and anchovies. A taste of southern Italy's rustic cuisine.",
+    "image": "/api/placeholder/400/250",
+    "pastaType": "Orecchiette",
+    "region": "Southern Italy",
+    "difficulty": "Medium",
+    "prepTime": "15 mins",
+    "cookTime": "20 mins",
+    "servings": "4 people",
+    "ingredients": [
+      "400g orecchiette pasta",
+      "500g cime di rapa (broccoli rabe), trimmed",
+      "6 anchovy fillets in oil",
+      "4 cloves garlic, sliced",
+      "100ml extra virgin olive oil",
+      "Red pepper flakes",
+      "Pecorino Romano for serving"
+    ],
+    "instructions": [
+      "Blanch cime di rapa in salted boiling water for 2 minutes, remove and reserve.",
+      "Cook orecchiette in the same water until al dente.",
+      "Heat olive oil in a large pan, add garlic and anchovies.",
+      "Mash anchovies with a fork until dissolved.",
+      "Add blanched greens and sauté for 3-4 minutes.",
+      "Add cooked pasta with some pasta water to the pan.",
+      "Toss everything together and serve with grated cheese."
+    ]
+  },
+  {
+    "id": 14,
+    "title": "Pasta e Fagioli",
+    "description": "Hearty Venetian soup with pasta and beans. A peasant dish that has become a beloved comfort food throughout Italy.",
+    "image": "/api/placeholder/400/250",
+    "pastaType": "Mixed Small Pasta",
+    "region": "Northern Italy",
+    "difficulty": "Easy",
+    "prepTime": "10 mins",
+    "cookTime": "45 mins",
+    "servings": "6 people",
+    "ingredients": [
+      "300g mixed small pasta (ditalini, tubettini)",
+      "400g canned borlotti beans",
+      "200g pancetta, diced",
+      "2 carrots, diced",
+      "2 celery stalks, diced",
+      "1 onion, diced",
+      "2 bay leaves",
+      "1.5L vegetable broth",
+      "Extra virgin olive oil",
+      "Parmigiano-Reggiano rind"
+    ],
+    "instructions": [
+      "Sauté pancetta until crispy, remove and set aside.",
+      "In the same pan, sauté vegetables until softened.",
+      "Add beans, bay leaves, and broth. Simmer 30 minutes.",
+      "Puree half the soup for texture, return to pot.",
+      "Add pasta and cook until al dente.",
+      "Stir in cooked pancetta and finish with olive oil.",
+      "Serve hot with grated Parmigiano-Reggiano."
+    ]
+  },
+  {
+    "id": 15,
+    "title": "Bucatini all'Amatriciana",
+    "description": "Spicy tomato and guanciale sauce from the mountain town of Amatrice. A rustic dish that embodies the soul of central Italian cooking.",
+    "image": "/api/placeholder/400/250",
+    "pastaType": "Bucatini",
+    "region": "Central Italy",
+    "difficulty": "Easy",
+    "prepTime": "10 mins",
+    "cookTime": "25 mins",
+    "servings": "4 people",
+    "ingredients": [
+      "400g bucatini or spaghetti",
+      "400g canned San Marzano tomatoes",
+      "150g guanciale, cut into strips",
+      "1 dried red chili pepper",
+      "100g Pecorino Romano, grated",
+      "Extra virgin olive oil",
+      "Salt for pasta water"
+    ],
+    "instructions": [
+      "Cook guanciale in a large pan until golden and crispy.",
+      "Add chili pepper and cook for 30 seconds.",
+      "Add tomatoes, crushing them by hand, and simmer 15 minutes.",
+      "Meanwhile, cook bucatini in salted water until al dente.",
+      "Reserve pasta water, then drain pasta.",
+      "Toss pasta with sauce and half the Pecorino Romano.",
+      "Serve immediately with remaining cheese on the side."
+    ]
+  },
+  {
+    "id": 16,
+    "title": "Ravioli di Ricotta e Spinaci",
+    "description": "Classic filled pasta from northern Italy with creamy ricotta and spinach filling, served with butter and sage sauce.",
+    "image": "/api/placeholder/400/250",
+    "pastaType": "Ravioli",
+    "region": "Northern Italy",
+    "difficulty": "Hard",
+    "prepTime": "90 mins",
+    "cookTime": "15 mins",
+    "servings": "4 people",
+    "ingredients": [
+      "500g fresh pasta sheets",
+      "400g ricotta cheese",
+      "200g cooked spinach, squeezed dry",
+      "100g Parmigiano-Reggiano, grated",
+      "1 egg yolk",
+      "100g butter",
+      "12 fresh sage leaves",
+      "Nutmeg, salt, and pepper"
+    ],
+    "instructions": [
+      "Mix ricotta, spinach, cheese, egg yolk, and seasonings for filling.",
+      "Place filling spoonfuls on pasta sheets, cover with another sheet.",
+      "Cut into squares and seal edges with a fork.",
+      "Cook ravioli in salted boiling water until they float, about 3-4 minutes.",
+      "Meanwhile, melt butter with sage leaves until butter is golden.",
+      "Gently toss cooked ravioli with sage butter.",
+      "Serve immediately with extra Parmigiano-Reggiano."
+    ]
+  },
+  {
+    "id": 17,
+    "title": "Spaghetti alla Nerano",
+    "description": "Delicate Amalfi Coast specialty with fried zucchini, basil, and aged cheese. A summer dish that captures the essence of coastal Italian cooking.",
+    "image": "/api/placeholder/400/250",
+    "pastaType": "Spaghetti",
+    "region": "Southern Italy",
+    "difficulty": "Medium",
+    "prepTime": "20 mins",
+    "cookTime": "15 mins",
+    "servings": "4 people",
+    "ingredients": [
+      "400g spaghetti",
+      "800g zucchini, sliced into rounds",
+      "150g aged Provolone del Monaco, grated",
+      "Fresh basil leaves",
+      "Extra virgin olive oil for frying",
+      "2 cloves garlic, minced",
+      "Salt and pepper"
+    ],
+    "instructions": [
+      "Slice zucchini and let drain with salt for 30 minutes.",
+      "Fry zucchini rounds in olive oil until golden, set aside.",
+      "Cook spaghetti in salted water until al dente.",
+      "In a large pan, sauté garlic in a little olive oil.",
+      "Add fried zucchini and mash some pieces to create a sauce.",
+      "Toss cooked pasta with zucchini, cheese, and fresh basil.",
+      "Serve immediately while the cheese is still melting."
+    ]
+  },
+  {
+    "id": 18,
+    "title": "Pappardelle al Cinghiale",
+    "description": "Wide ribbon pasta with rich wild boar ragu from Tuscany. A hunter's feast that showcases the robust flavors of the Italian countryside.",
+    "image": "/api/placeholder/400/250",
+    "pastaType": "Pappardelle",
+    "region": "Central Italy",
+    "difficulty": "Hard",
+    "prepTime": "30 mins",
+    "cookTime": "3 hours",
+    "servings": "6 people",
+    "ingredients": [
+      "500g fresh pappardelle",
+      "800g wild boar shoulder, cubed",
+      "1 bottle red wine",
+      "400g canned tomatoes",
+      "2 carrots, diced",
+      "2 celery stalks, diced",
+      "1 onion, diced",
+      "Fresh rosemary and sage",
+      "Juniper berries",
+      "Extra virgin olive oil"
+    ],
+    "instructions": [
+      "Marinate boar in red wine overnight with herbs and juniper berries.",
+      "Remove meat, strain and reserve marinade.",
+      "Brown meat pieces in olive oil, then set aside.",
+      "Sauté vegetables until softened, add tomatoes.",
+      "Return meat to pot with reserved marinade.",
+      "Simmer covered for 2.5-3 hours until meat is tender.",
+      "Serve over fresh pappardelle with grated Parmigiano-Reggiano."
+    ]
+  },
+  {
+    "id": 19,
+    "title": "Pasta alla Norma Bianca",
+    "description": "A white version of the classic Sicilian dish, featuring eggplant, fresh mozzarella, and basil without tomatoes.",
+    "image": "/api/placeholder/400/250",
+    "pastaType": "Penne",
+    "region": "Southern Italy",
+    "difficulty": "Medium",
+    "prepTime": "25 mins",
+    "cookTime": "20 mins",
+    "servings": "4 people",
+    "ingredients": [
+      "400g penne rigate",
+      "2 large eggplants, cubed",
+      "250g fresh mozzarella, cubed",
+      "4 cloves garlic, minced",
+      "100ml extra virgin olive oil",
+      "Fresh basil leaves",
+      "100g ricotta salata, grated",
+      "Salt and pepper"
+    ],
+    "instructions": [
+      "Salt eggplant cubes and drain for 30 minutes.",
+      "Pat dry and fry in olive oil until golden brown.",
+      "Cook pasta in salted water until al dente.",
+      "Sauté garlic in a little oil until fragrant.",
+      "Combine pasta, fried eggplant, and fresh mozzarella.",
+      "Toss gently with fresh basil and ricotta salata.",
+      "Serve immediately while mozzarella is still warm and creamy."
+    ]
+  },
+  {
+    "id": 20,
+    "title": "Culurgiones Ogliastrini",
+    "description": "Traditional Sardinian stuffed pasta shaped like wheat ears, filled with potato, mint, and pecorino. A UNESCO-protected culinary heritage.",
+    "image": "/api/placeholder/400/250",
+    "pastaType": "Culurgiones",
+    "region": "Southern Italy",
+    "difficulty": "Hard",
+    "prepTime": "2 hours",
+    "cookTime": "20 mins",
+    "servings": "6 people",
+    "ingredients": [
+      "500g semolina flour",
+      "300ml warm water",
+      "800g potatoes, boiled and mashed",
+      "200g aged Pecorino Sardo, grated",
+      "Fresh mint leaves, chopped",
+      "2 cloves garlic, minced",
+      "Extra virgin olive oil",
+      "Fresh tomatoes for sauce",
+      "Fresh basil"
+    ],
+    "instructions": [
+      "Make pasta dough with semolina and water, rest 30 minutes.",
+      "Mix mashed potatoes with cheese, mint, and garlic for filling.",
+      "Roll dough thin and cut circles, add filling.",
+      "Shape into traditional wheat ear pattern by hand.",
+      "Cook culurgiones in salted boiling water until they float.",
+      "Serve with simple tomato sauce and fresh basil.",
+      "This ancient technique requires practice to master the intricate pleating."
+    ]
+  }
+]
