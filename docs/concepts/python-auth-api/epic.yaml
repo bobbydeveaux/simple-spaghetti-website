@@ -1,51 +1,50 @@
 Epic: python-auth-api
 Features:
-- Sprint: 1
-  dependencies: []
-  description: Implements password hashing, JWT token generation/validation, and in-memory
-    user storage. Includes bcrypt password hashing, HS256 JWT signing with access/refresh
-    token support, and UserStorage class for managing users in memory.
+- dependencies: []
+  description: FastAPI application setup, configuration management, JWT utilities,
+    password hashing, in-memory user repository, and data models
   estimatedComplexity: medium
   files:
   - api/__init__.py
+  - api/main.py
   - api/config.py
-  - api/models.py
-  - api/auth/__init__.py
-  - api/auth/password.py
-  - api/auth/tokens.py
-  - api/auth/storage.py
-  - api/dependencies.py
+  - api/models/__init__.py
+  - api/models/user.py
+  - api/models/token.py
+  - api/utils/__init__.py
+  - api/utils/jwt_manager.py
+  - api/utils/password.py
+  - api/services/__init__.py
+  - api/services/user_repository.py
   - requirements.txt
-  - .env.example
-  id: python-auth-api-feat-core-auth
-  name: Core Authentication System
+  id: python-auth-api-feat-core-infrastructure
+  name: Core Infrastructure Setup
   project: python-auth-api
   type: enabler
-- Sprint: 1
-  dependencies:
-  - python-auth-api-feat-core-auth
-  description: REST API endpoints for user registration, login, and token refresh.
-    Handles user creation with validation, credential verification, and refresh token
-    exchange for new access tokens.
+- dependencies:
+  - python-auth-api-feat-core-infrastructure
+  description: User registration, login, and token refresh endpoints with JWT token
+    generation and validation
   estimatedComplexity: medium
   files:
-  - api/main.py
   - api/routes/__init__.py
   - api/routes/auth.py
-  id: python-auth-api-feat-auth-endpoints
+  - api/services/auth_service.py
+  - api/middleware/__init__.py
+  - api/middleware/auth_middleware.py
+  id: python-auth-api-feat-authentication
   name: Authentication Endpoints
   project: python-auth-api
   type: feature
-- Sprint: 2
-  dependencies:
-  - python-auth-api-feat-core-auth
-  description: JWT-protected endpoint demonstrating token validation with Bearer authentication.
-    Validates access tokens via dependency injection and returns user-specific data.
+- dependencies:
+  - python-auth-api-feat-authentication
+  description: JWT-protected endpoint demonstrating authentication middleware and
+    secure resource access
   estimatedComplexity: low
   files:
   - api/routes/protected.py
-  id: python-auth-api-feat-protected-resources
-  name: Protected Resource Access
+  id: python-auth-api-feat-protected-endpoint
+  name: Protected Endpoint
   project: python-auth-api
   type: feature
 Version: v1alpha1
