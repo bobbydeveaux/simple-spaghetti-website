@@ -1,0 +1,21 @@
+GeneratedAt: "2026-02-10T21:21:14Z"
+Issues:
+- IssueNumber: 96
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/96
+  TaskID: task-library-api-feat-data-and-auth-1
+- IssueNumber: 97
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/97
+  TaskID: task-library-api-feat-data-and-auth-2
+- IssueNumber: 98
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/98
+  TaskID: task-library-api-feat-data-and-auth-3
+- IssueNumber: 99
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/99
+  TaskID: task-library-api-feat-book-management-1
+- IssueNumber: 100
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/100
+  TaskID: task-library-api-feat-member-and-loan-1
+- IssueNumber: 101
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/101
+  TaskID: task-library-api-feat-member-and-loan-2
+Plan: library-api-plan
