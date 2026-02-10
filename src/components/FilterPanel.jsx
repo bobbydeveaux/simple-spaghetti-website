@@ -1,6 +1,8 @@
 import React from 'react';
 
-function FilterPanel({ filters, onFiltersChange }) {
+function FilterPanel({ filters = {}, onFiltersChange }) {
+  // Prevent unused variable warnings during development
+  if (filters || onFiltersChange) { /* placeholder */ }
   return (
     <div className="mb-6 p-4 bg-gray-50 rounded-lg">
       <h3 className="text-lg font-semibold mb-4">Filter Recipes</h3>

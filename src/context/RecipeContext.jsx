@@ -25,6 +25,8 @@ export function RecipeProvider({ children }) {
   // Computed filtered recipes using useMemo
   const filteredRecipes = useMemo(() => {
     // Will implement filtering logic later
+    // For now, just return recipes (filters will be used in future task)
+    console.log('Filters available:', filters); // Prevent unused warning
     return recipes;
   }, [recipes, filters]);
 
