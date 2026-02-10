@@ -1,0 +1,6 @@
+{
+  "method": "ai-assisted",
+  "filesResolved": 3,
+  "summary": "Successfully resolved merge conflicts in 3 files: .claude-output.json (chose current PR #82 content), .pr-number (set to 82), and src/data/recipes.json (chose comprehensive recipe data from origin/main with 20 detailed recipes instead of 15 simpler ones). All conflicts preserved functionality and chose the most complete data structure.",
+  "strategyUsed": "Preserved current PR context for metadata files, chose origin/main for recipes.json due to superior data quality (detailed ingredients, instructions, dietary info, cooking times) that better supports the search and filter functionality being implemented in PR #82"
+}
