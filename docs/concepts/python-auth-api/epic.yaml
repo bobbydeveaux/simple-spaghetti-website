@@ -1,0 +1,44 @@
+Epic: python-auth-api
+Features:
+- dependencies: []
+  description: Initialize FastAPI application with configuration, environment variables,
+    CORS middleware, password hashing utilities, JWT token creation/validation functions,
+    and in-memory user storage
+  estimatedComplexity: low
+  files:
+  - api/main.py
+  - api/config.py
+  - api/auth/password.py
+  - api/auth/tokens.py
+  - api/auth/storage.py
+  - api/dependencies.py
+  - api/models.py
+  - requirements.txt
+  - .env.example
+  id: python-auth-api-feat-core-setup
+  name: Core Application Setup
+  project: python-auth-api
+  type: enabler
+- dependencies:
+  - python-auth-api-feat-core-setup
+  description: Implement user registration, login, and token refresh endpoints with
+    input validation, password hashing, and JWT token generation
+  estimatedComplexity: medium
+  files:
+  - api/routes/auth.py
+  id: python-auth-api-feat-auth-endpoints
+  name: Authentication Endpoints
+  project: python-auth-api
+  type: feature
+- dependencies:
+  - python-auth-api-feat-core-setup
+  description: Implement JWT-protected endpoints that validate access tokens and return
+    user-specific data
+  estimatedComplexity: low
+  files:
+  - api/routes/protected.py
+  id: python-auth-api-feat-protected-endpoints
+  name: Protected Endpoints
+  project: python-auth-api
+  type: feature
+Version: v1alpha1
