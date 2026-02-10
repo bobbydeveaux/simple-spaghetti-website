@@ -1,0 +1,31 @@
+# Project Timeline
+
+metadata:
+  generated: 2026-02-10T21:19:47Z
+  totalSprints: 2
+  totalDuration: 15 days
+
+sprints:
+  - number: 2
+    startDate: 2026-02-10
+    endDate: 2026-02-17
+    duration: 7 days
+    features:
+      - id: library-api-feat-member-and-loan
+        name: Member Registration and Loan Management
+        type: feature
+  - number: 1
+    startDate: 2026-02-18
+    endDate: 2026-02-25
+    duration: 7 days
+    features:
+      - id: library-api-feat-data-and-auth
+        name: Data Store and Authentication
+        type: enabler
+      - id: library-api-feat-book-management
+        name: Book CRUD and Search
+        type: feature
+
+criticalPath:
+  - library-api-feat-data-and-auth
+  - library-api-feat-member-and-loan
