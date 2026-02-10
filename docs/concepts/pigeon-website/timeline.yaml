@@ -1,0 +1,19 @@
+# Project Timeline
+
+metadata:
+  generated: 2026-02-10T14:09:43Z
+  totalSprints: 1
+  totalDuration: 7 days
+
+sprints:
+  - number: 1
+    startDate: 2026-02-10
+    endDate: 2026-02-17
+    duration: 7 days
+    features:
+      - id: pigeon-website-feat-main
+        name: Static HTML Page
+        type: feature
+
+criticalPath:
+  - pigeon-website-feat-main
