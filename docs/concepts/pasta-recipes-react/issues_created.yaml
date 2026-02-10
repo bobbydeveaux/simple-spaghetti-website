@@ -1,0 +1,30 @@
+GeneratedAt: "2026-02-10T14:49:04Z"
+Issues:
+- IssueNumber: 67
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/67
+  TaskID: task-pasta-recipes-react-feat-project-setup-1
+- IssueNumber: 68
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/68
+  TaskID: task-pasta-recipes-react-feat-project-setup-2
+- IssueNumber: 69
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/69
+  TaskID: task-pasta-recipes-react-feat-project-setup-3
+- IssueNumber: 70
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/70
+  TaskID: task-pasta-recipes-react-feat-recipe-browsing-1
+- IssueNumber: 71
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/71
+  TaskID: task-pasta-recipes-react-feat-recipe-browsing-2
+- IssueNumber: 72
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/72
+  TaskID: task-pasta-recipes-react-feat-recipe-browsing-3
+- IssueNumber: 73
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/73
+  TaskID: task-pasta-recipes-react-feat-search-and-filtering-1
+- IssueNumber: 74
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/74
+  TaskID: task-pasta-recipes-react-feat-search-and-filtering-2
+- IssueNumber: 75
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/75
+  TaskID: task-pasta-recipes-react-feat-recipe-detail-1
+Plan: pasta-recipes-react-plan
