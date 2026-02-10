@@ -4,7 +4,6 @@ import { RecipeProvider } from './context/RecipeContext';
 import Navigation from './components/Navigation';
 import RecipeList from './components/RecipeList';
 import RecipeDetail from './components/RecipeDetail';
-import './App.css';
 
 // Simple About component
 const About = () => (
@@ -23,7 +22,9 @@ const About = () => (
           to find the perfect pasta dish for your skill level and taste preferences.
         </p>
         <p className="text-gray-700">
-          Buon appetito! 🍝
+          Browse by region to explore the diverse culinary traditions of Northern, Central,
+          and Southern Italy, or filter by difficulty level to find recipes that match your
+          cooking experience. Buon appetito! 🍝
         </p>
       </div>
     </div>
@@ -34,13 +35,15 @@ function App() {
   return (
     <RecipeProvider>
       <Router>
-        <div className="App">
+        <div className="min-h-screen bg-gray-50">
           <Navigation />
-          <Routes>
-            <Route path="/" element={<RecipeList />} />
-            <Route path="/recipe/:id" element={<RecipeDetail />} />
-            <Route path="/about" element={<About />} />
-          </Routes>
+          <main className="py-8">
+            <Routes>
+              <Route path="/" element={<RecipeList />} />
+              <Route path="/recipe/:id" element={<RecipeDetail />} />
+              <Route path="/about" element={<About />} />
+            </Routes>
+          </main>
         </div>
       </Router>
     </RecipeProvider>

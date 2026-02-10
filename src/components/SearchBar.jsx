@@ -72,7 +72,7 @@ const SearchBar = () => {
       <div className="mt-2 text-sm text-gray-600 text-center">
         {filters.search ? (
           <span>
-            {filteredCount} of {totalRecipes} recipes match "{filters.search}"
+            {filteredCount} of {totalRecipes} recipes match &quot;{filters.search}&quot;
           </span>
         ) : (
           <span>

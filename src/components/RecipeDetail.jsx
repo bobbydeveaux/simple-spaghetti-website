@@ -31,7 +31,7 @@ const RecipeDetail = () => {
             <div className="text-6xl mb-4">🍝</div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Recipe not found</h2>
             <p className="text-gray-600 mb-6">
-              The recipe you're looking for doesn't exist.
+              The recipe you&apos;re looking for doesn&apos;t exist.
             </p>
             <Link
               to="/"
