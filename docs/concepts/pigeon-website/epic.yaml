@@ -1,0 +1,13 @@
+Epic: pigeon-website
+Features:
+- dependencies: []
+  description: Create index.html with 'Pigeons are awesome!' text and pigeon emoji
+    using HTML5 structure with UTF-8 encoding
+  estimatedComplexity: low
+  files:
+  - index.html
+  id: pigeon-website-feat-main
+  name: Static HTML Page
+  project: pigeon-website
+  type: feature
+Version: v1alpha1
