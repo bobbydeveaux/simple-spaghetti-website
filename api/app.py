@@ -13,18 +13,28 @@ from datetime import datetime
 
 # Import our modules
 from api.data_store import (
-    BOOKS, AUTHORS, MEMBERS, LOANS,
-    get_next_book_id, get_next_loan_id, get_next_member_id
+    BOOKS, AUTHORS, MEMBERS, LOANS, BALLOTS, PROPOSALS, VOTES,
+    get_next_book_id, get_next_loan_id, get_next_member_id, get_next_ballot_id, get_next_vote_id,
+    create_proposal, update_proposal, get_proposal, get_all_proposals,
+    create_vote, get_vote_by_member_and_proposal, get_votes_for_proposal, update_vote, delete_vote
 )
-from api.validators import validate_book, validate_book_update, validate_loan, validate_loan_return, validate_member, validate_role_update, validate_member_status_update, validate_admin_member_update
-from api.auth import token_required, authenticate_member, generate_token, admin_required
-from api.audit_service import AuditService
+from api.validators import (
+    validate_book, validate_book_update, validate_loan, validate_loan_return, validate_member,
+    validate_ballot_vote, validate_ballot, validate_proposal, validate_vote, validate_proposal_update, validate_vote_update
+)
+from api.auth import token_required, authenticate_member, generate_token
+
+# Import voting system
+from api.voting.routes import voting_bp
 
 # Create Flask application
 app = Flask(__name__)
 
 # Enable CORS for development
 CORS(app)
+
+# Register voting system blueprint
+app.register_blueprint(voting_bp)
 
 # Global error handler
 @app.errorhandler(Exception)
@@ -78,22 +88,7 @@ def login() -> Tuple[Dict[str, Any], int]:
 
         member_id = authenticate_member(email, password)
         if member_id is None:
-            # Log failed login attempt
-            AuditService.log_authentication(
-                user_email=email,
-                action="LOGIN",
-                status="failed",
-                details="Invalid credentials"
-            )
             return {"error": "Invalid credentials"}, 401
-
-        # Log successful login
-        AuditService.log_authentication(
-            user_email=email,
-            action="LOGIN",
-            status="success",
-            details="Successful login"
-        )
 
         token = generate_token(member_id)
         return {"token": token, "member_id": member_id}, 200
@@ -141,14 +136,6 @@ def register_member() -> Tuple[Dict[str, Any], int]:
         }
 
         MEMBERS[member_id] = new_member
-
-        # Log member registration
-        AuditService.log_member_action(
-            action="CREATE",
-            member_id=member_id,
-            new_member=new_member,
-            status="success"
-        )
 
         # Return member data without password_hash
         response_data = {
@@ -267,14 +254,6 @@ def create_book() -> Tuple[Dict[str, Any], int]:
 
         BOOKS[book_id] = new_book
 
-        # Log book creation
-        AuditService.log_book_action(
-            action="CREATE",
-            book_id=book_id,
-            new_book=new_book,
-            status="success"
-        )
-
         # Return book with author info
         author = AUTHORS.get(new_book["author_id"])
         response_data = new_book.copy()
@@ -354,8 +333,6 @@ def update_book(book_id: int) -> Tuple[Dict[str, Any], int]:
         if not is_valid:
             return {"error": error_msg}, 400
 
-        # Store old book data for audit log
-        old_book = BOOKS[book_id].copy()
         book = BOOKS[book_id]
 
         # Update provided fields
@@ -369,15 +346,6 @@ def update_book(book_id: int) -> Tuple[Dict[str, Any], int]:
             book["available_copies"] = int(data["available_copies"])
         if "total_copies" in data:
             book["total_copies"] = int(data["total_copies"])
-
-        # Log book update
-        AuditService.log_book_action(
-            action="UPDATE",
-            book_id=book_id,
-            old_book=old_book,
-            new_book=book,
-            status="success"
-        )
 
         # Return updated book with author info
         author = AUTHORS.get(book["author_id"])
@@ -413,19 +381,8 @@ def delete_book(book_id: int) -> Tuple[Dict[str, str], int]:
         if active_loans:
             return {"error": "Cannot delete book with active loans"}, 400
 
-        # Store book data for audit log before deletion
-        deleted_book = BOOKS[book_id].copy()
-
         # Delete the book
         del BOOKS[book_id]
-
-        # Log book deletion
-        AuditService.log_book_action(
-            action="DELETE",
-            book_id=book_id,
-            old_book=deleted_book,
-            status="success"
-        )
 
         return {"message": "Book deleted successfully"}, 200
 
@@ -491,14 +448,6 @@ def borrow_book() -> Tuple[Dict[str, Any], int]:
         # Decrease available copies of the book
         book["available_copies"] -= 1
 
-        # Log loan creation
-        AuditService.log_loan_action(
-            action="BORROW",
-            loan_id=loan_id,
-            new_loan=new_loan,
-            status="success"
-        )
-
         # Return loan details
         return {
             "loan_id": loan_id,
@@ -556,9 +505,6 @@ def return_book() -> Tuple[Dict[str, Any], int]:
         book = BOOKS[loan["book_id"]]
         member = MEMBERS[loan["member_id"]]
 
-        # Store old loan data for audit log
-        old_loan = loan.copy()
-
         # Update the loan
         return_date = datetime.now().strftime("%Y-%m-%d")
         loan["return_date"] = return_date
@@ -566,15 +512,6 @@ def return_book() -> Tuple[Dict[str, Any], int]:
 
         # Increase available copies of the book
         book["available_copies"] += 1
-
-        # Log loan return
-        AuditService.log_loan_action(
-            action="RETURN",
-            loan_id=loan_id,
-            old_loan=old_loan,
-            new_loan=loan,
-            status="success"
-        )
 
         return {
             "loan_id": loan_id,
@@ -635,419 +572,618 @@ def get_loan_details(loan_id: int) -> Tuple[Dict[str, Any], int]:
         return {"error": "Failed to retrieve loan details"}, 500
 
 
-# ADMIN ENDPOINTS
+# BALLOT VOTING SYSTEM (for elections with multiple candidates)
 
-@app.route("/admin/dashboard", methods=["GET"])
-@token_required
-@admin_required
-def admin_dashboard() -> Tuple[Dict[str, Any], int]:
+@app.route("/ballots", methods=["GET"])
+def list_ballots() -> Tuple[List[Dict[str, Any]], int]:
     """
-    Get admin dashboard statistics and system overview.
+    List all active ballots available for voting.
 
     Returns:
-        200: Dashboard data with system statistics
-        401: Unauthorized
-        403: Admin access required
+        200: List of active ballots with options
     """
     try:
-        # Get system statistics
-        total_books = len(BOOKS)
-        total_authors = len(AUTHORS)
-        total_members = len(MEMBERS)
-        total_loans = len(LOANS)
+        active_ballots = []
+        current_time = datetime.now().isoformat()
 
-        # Count active loans
-        active_loans = sum(1 for loan in LOANS.values() if loan["status"] == "borrowed")
+        for ballot in BALLOTS.values():
+            # Only include active ballots that are within voting period
+            if ballot["status"] == "active" and ballot["start_date"] <= current_time <= ballot["end_date"]:
+                active_ballots.append(ballot)
 
-        # Count users by role
-        admin_count = sum(1 for member in MEMBERS.values() if member.get("role") == "admin")
-        user_count = total_members - admin_count
+        # Sort by start date
+        active_ballots.sort(key=lambda x: x["start_date"])
 
-        # Count members by status
-        active_members = sum(1 for member in MEMBERS.values() if member.get("status") == "active")
-        suspended_members = total_members - active_members
-
-        # Get audit log statistics
-        audit_stats = AuditService.get_audit_log_stats()
-
-        dashboard_data = {
-            "system_overview": {
-                "total_books": total_books,
-                "total_authors": total_authors,
-                "total_members": total_members,
-                "total_loans": total_loans,
-                "active_loans": active_loans
-            },
-            "member_statistics": {
-                "admin_count": admin_count,
-                "user_count": user_count,
-                "active_members": active_members,
-                "suspended_members": suspended_members
-            },
-            "audit_statistics": audit_stats
-        }
-
-        # Log admin dashboard access
-        AuditService.log_action(
-            action="VIEW",
-            resource_type="admin_dashboard",
-            status="success"
-        )
-
-        return dashboard_data, 200
+        return active_ballots, 200
 
     except Exception as e:
-        print(f"Admin dashboard error: {str(e)}")
-        return {"error": "Failed to retrieve dashboard data"}, 500
+        print(f"List ballots error: {str(e)}")
+        return {"error": "Failed to retrieve ballots"}, 500
 
-@app.route("/admin/members", methods=["GET"])
-@token_required
-@admin_required
-def admin_list_members() -> Tuple[List[Dict[str, Any]], int]:
+
+@app.route("/ballots/<int:ballot_id>", methods=["GET"])
+def get_ballot(ballot_id: int) -> Tuple[Dict[str, Any], int]:
     """
-    Get all members for admin management.
-
-    Query parameters:
-        - role: Filter by role (user, admin)
-        - status: Filter by status (active, suspended)
-        - limit: Number of members to return (default: 50)
-        - offset: Number of members to skip (default: 0)
+    Get a specific ballot by ID.
 
     Returns:
-        200: List of members without password hashes
-        401: Unauthorized
-        403: Admin access required
+        200: Ballot details with options
+        404: Ballot not found
     """
     try:
-        # Get query parameters
-        role_filter = request.args.get("role", "").strip()
-        status_filter = request.args.get("status", "").strip()
-        limit = int(request.args.get("limit", 50))
-        offset = int(request.args.get("offset", 0))
+        ballot = BALLOTS.get(ballot_id)
+        if not ballot:
+            return {"error": "Ballot not found"}, 404
 
-        members_list = []
-
-        for member in MEMBERS.values():
-            # Apply filters
-            if role_filter and member.get("role") != role_filter:
-                continue
-            if status_filter and member.get("status") != status_filter:
-                continue
-
-            # Remove password_hash for security
-            safe_member = {
-                "id": member["id"],
-                "name": member["name"],
-                "email": member["email"],
-                "registration_date": member["registration_date"],
-                "role": member.get("role", "user"),
-                "status": member.get("status", "active")
-            }
-            members_list.append(safe_member)
-
-        # Sort by registration date (newest first)
-        members_list.sort(key=lambda x: x["registration_date"], reverse=True)
-
-        # Apply pagination
-        paginated_members = members_list[offset:offset + limit]
-
-        # Log admin action
-        AuditService.log_action(
-            action="VIEW",
-            resource_type="admin_members",
-            status="success",
-            details=f"Viewed members list with filters: role={role_filter}, status={status_filter}"
-        )
-
-        return paginated_members, 200
-
-    except ValueError:
-        return {"error": "Invalid limit or offset parameter"}, 400
-    except Exception as e:
-        print(f"Admin list members error: {str(e)}")
-        return {"error": "Failed to retrieve members"}, 500
-
-@app.route("/admin/members/<int:member_id>", methods=["GET"])
-@token_required
-@admin_required
-def admin_get_member(member_id: int) -> Tuple[Dict[str, Any], int]:
-    """
-    Get detailed information about a specific member.
-
-    Returns:
-        200: Member details without password hash
-        401: Unauthorized
-        403: Admin access required
-        404: Member not found
-    """
-    try:
-        if member_id not in MEMBERS:
-            return {"error": "Member not found"}, 404
-
-        member = MEMBERS[member_id]
-
-        # Get member's loan history
-        member_loans = []
-        for loan in LOANS.values():
-            if loan["member_id"] == member_id:
-                book = BOOKS.get(loan["book_id"], {})
-                loan_info = {
-                    "loan_id": loan["id"],
-                    "book_id": loan["book_id"],
-                    "book_title": book.get("title", "Unknown"),
-                    "borrow_date": loan["borrow_date"],
-                    "return_date": loan.get("return_date"),
-                    "status": loan["status"]
-                }
-                member_loans.append(loan_info)
-
-        member_loans.sort(key=lambda x: x["borrow_date"], reverse=True)
-
-        # Return member details without password
-        member_details = {
-            "id": member["id"],
-            "name": member["name"],
-            "email": member["email"],
-            "registration_date": member["registration_date"],
-            "role": member.get("role", "user"),
-            "status": member.get("status", "active"),
-            "loan_history": member_loans
-        }
-
-        # Log admin action
-        AuditService.log_action(
-            action="VIEW",
-            resource_type="member",
-            resource_id=member_id,
-            status="success"
-        )
-
-        return member_details, 200
+        return ballot, 200
 
     except Exception as e:
-        print(f"Admin get member error: {str(e)}")
-        return {"error": "Failed to retrieve member details"}, 500
+        print(f"Get ballot error: {str(e)}")
+        return {"error": "Failed to retrieve ballot"}, 500
 
-@app.route("/admin/members/<int:member_id>", methods=["PUT"])
+
+@app.route("/ballots/<int:ballot_id>/votes", methods=["POST"])
 @token_required
-@admin_required
-def admin_update_member(member_id: int) -> Tuple[Dict[str, Any], int]:
+def submit_ballot_vote(ballot_id: int) -> Tuple[Dict[str, Any], int]:
     """
-    Update a member's information (admin only).
+    Submit a vote for a ballot option.
 
-    Request body (all fields optional):
+    Request body:
         {
-            "name": "string",
-            "email": "string",
-            "role": "user|admin",
-            "status": "active|suspended"
+            "option_id": int
         }
 
     Returns:
-        200: Updated member details
+        201: Vote submitted successfully
         400: Validation error
-        401: Unauthorized
-        403: Admin access required
-        404: Member not found
+        401: Authentication required
+        404: Ballot or option not found
+        409: Already voted
     """
     try:
         data = request.get_json()
         if not data:
             return {"error": "Request body required"}, 400
 
-        # Validate the update data
-        is_valid, error_msg = validate_admin_member_update(member_id, data)
+        # Get current user ID from the token
+        member_id = getattr(request, 'current_member_id', None)
+        if not member_id:
+            return {"error": "Authentication required"}, 401
+
+        # Add ballot_id and member_id to the data
+        data["ballot_id"] = ballot_id
+        data["member_id"] = member_id
+
+        # Validate vote data
+        is_valid, error_msg = validate_ballot_vote(data, member_id)
         if not is_valid:
-            AuditService.log_action(
-                action="UPDATE",
-                resource_type="member",
-                resource_id=member_id,
-                status="failed",
-                details=f"Validation failed: {error_msg}"
-            )
             return {"error": error_msg}, 400
 
-        # Store old member data for audit log
-        old_member = MEMBERS[member_id].copy()
-        member = MEMBERS[member_id]
+        option_id = int(data["option_id"])
+        ballot = BALLOTS[ballot_id]  # We know it exists from validation
 
-        # Update provided fields
-        if "name" in data:
-            member["name"] = data["name"].strip()
-        if "email" in data:
-            member["email"] = data["email"].strip().lower()
-        if "role" in data:
-            member["role"] = data["role"].strip()
-        if "status" in data:
-            member["status"] = data["status"].strip()
-
-        # Return updated member without password
-        updated_member = {
-            "id": member["id"],
-            "name": member["name"],
-            "email": member["email"],
-            "registration_date": member["registration_date"],
-            "role": member.get("role", "user"),
-            "status": member.get("status", "active")
+        # Create the vote
+        vote_id = get_next_vote_id()
+        new_vote = {
+            "id": vote_id,
+            "ballot_id": ballot_id,
+            "member_id": member_id,
+            "option_id": option_id,
+            "timestamp": datetime.now().isoformat()
         }
 
-        # Log admin action
-        AuditService.log_member_action(
-            action="UPDATE",
-            member_id=member_id,
-            old_member=old_member,
-            new_member=member,
-            status="success"
-        )
+        VOTES[vote_id] = new_vote
 
-        return updated_member, 200
+        # Get option title for response
+        option_title = next((opt["title"] for opt in ballot["options"] if opt["id"] == option_id), "Unknown option")
 
-    except Exception as e:
-        print(f"Admin update member error: {str(e)}")
-        AuditService.log_action(
-            action="UPDATE",
-            resource_type="member",
-            resource_id=member_id,
-            status="failed",
-            details=f"Server error: {str(e)}"
-        )
-        return {"error": "Failed to update member"}, 500
-
-@app.route("/admin/members/<int:member_id>", methods=["DELETE"])
-@token_required
-@admin_required
-def admin_delete_member(member_id: int) -> Tuple[Dict[str, str], int]:
-    """
-    Delete a member (admin only).
-
-    Returns:
-        200: Success message
-        400: Cannot delete member with active loans
-        401: Unauthorized
-        403: Admin access required
-        404: Member not found
-    """
-    try:
-        if member_id not in MEMBERS:
-            return {"error": "Member not found"}, 404
-
-        member = MEMBERS[member_id]
-
-        # Prevent self-deletion
-        if hasattr(request, 'current_member_id') and request.current_member_id == member_id:
-            AuditService.log_action(
-                action="DELETE",
-                resource_type="member",
-                resource_id=member_id,
-                status="failed",
-                details="Admin attempted to delete their own account"
-            )
-            return {"error": "Cannot delete your own account"}, 400
-
-        # Check if member has active loans
-        active_loans = [loan for loan in LOANS.values()
-                       if loan["member_id"] == member_id and loan["status"] == "borrowed"]
-
-        if active_loans:
-            AuditService.log_action(
-                action="DELETE",
-                resource_type="member",
-                resource_id=member_id,
-                status="failed",
-                details="Member has active loans"
-            )
-            return {"error": "Cannot delete member with active loans"}, 400
-
-        # Store member data for audit log before deletion
-        deleted_member = member.copy()
-
-        # Delete the member
-        del MEMBERS[member_id]
-
-        # Log admin action
-        AuditService.log_member_action(
-            action="DELETE",
-            member_id=member_id,
-            old_member=deleted_member,
-            status="success"
-        )
-
-        return {"message": f"Member '{deleted_member['name']}' deleted successfully"}, 200
-
-    except Exception as e:
-        print(f"Admin delete member error: {str(e)}")
-        AuditService.log_action(
-            action="DELETE",
-            resource_type="member",
-            resource_id=member_id,
-            status="failed",
-            details=f"Server error: {str(e)}"
-        )
-        return {"error": "Failed to delete member"}, 500
-
-@app.route("/admin/audit-logs", methods=["GET"])
-@token_required
-@admin_required
-def admin_get_audit_logs() -> Tuple[List[Dict[str, Any]], int]:
-    """
-    Get audit logs for admin review.
-
-    Query parameters:
-        - limit: Number of logs to return (default: 100, max: 1000)
-        - offset: Number of logs to skip (default: 0)
-        - user_id: Filter by user ID
-        - action: Filter by action type
-        - resource_type: Filter by resource type
-        - status: Filter by status (success/failed)
-        - start_date: Filter by start date (YYYY-MM-DD)
-        - end_date: Filter by end date (YYYY-MM-DD)
-
-    Returns:
-        200: List of audit logs
-        400: Invalid parameters
-        401: Unauthorized
-        403: Admin access required
-    """
-    try:
-        # Get and validate query parameters
-        limit = min(int(request.args.get("limit", 100)), 1000)  # Max 1000
-        offset = int(request.args.get("offset", 0))
-        user_id = request.args.get("user_id")
-        action = request.args.get("action")
-        resource_type = request.args.get("resource_type")
-        status = request.args.get("status")
-        start_date = request.args.get("start_date")
-        end_date = request.args.get("end_date")
-
-        # Convert user_id to int if provided
-        if user_id:
-            try:
-                user_id = int(user_id)
-            except ValueError:
-                return {"error": "Invalid user_id parameter"}, 400
-
-        # Get filtered audit logs
-        audit_logs = AuditService.get_audit_logs(
-            limit=limit,
-            offset=offset,
-            user_id=user_id,
-            action=action,
-            resource_type=resource_type,
-            status=status,
-            start_date=start_date,
-            end_date=end_date
-        )
-
-        # Log admin action (but don't log viewing of audit logs to avoid infinite recursion)
-        # AuditService.log_action(action="VIEW", resource_type="audit_logs", status="success")
-
-        return audit_logs, 200
+        return {
+            "vote_id": vote_id,
+            "ballot_id": ballot_id,
+            "ballot_title": ballot["title"],
+            "option_id": option_id,
+            "option_title": option_title,
+            "timestamp": new_vote["timestamp"],
+            "message": f"Vote successfully submitted for '{option_title}'"
+        }, 201
 
     except ValueError as e:
-        return {"error": f"Invalid parameter: {str(e)}"}, 400
+        return {"error": f"Invalid data format: {str(e)}"}, 400
     except Exception as e:
-        print(f"Admin get audit logs error: {str(e)}")
-        return {"error": "Failed to retrieve audit logs"}, 500
+        print(f"Submit ballot vote error: {str(e)}")
+        return {"error": "Failed to submit vote"}, 500
+
+
+@app.route("/ballots/<int:ballot_id>/results", methods=["GET"])
+def get_ballot_results(ballot_id: int) -> Tuple[Dict[str, Any], int]:
+    """
+    Get voting results for a specific ballot.
+
+    Returns:
+        200: Ballot results with vote counts
+        404: Ballot not found
+    """
+    try:
+        ballot = BALLOTS.get(ballot_id)
+        if not ballot:
+            return {"error": "Ballot not found"}, 404
+
+        # Count votes for each option
+        vote_counts = {}
+        total_votes = 0
+
+        for vote in VOTES.values():
+            if vote.get("ballot_id") == ballot_id:
+                option_id = vote["option_id"]
+                vote_counts[option_id] = vote_counts.get(option_id, 0) + 1
+                total_votes += 1
+
+        # Build results with option details
+        results = []
+        for option in ballot["options"]:
+            option_id = option["id"]
+            vote_count = vote_counts.get(option_id, 0)
+            percentage = (vote_count / total_votes * 100) if total_votes > 0 else 0
+
+            results.append({
+                "option_id": option_id,
+                "option_title": option["title"],
+                "option_description": option["description"],
+                "vote_count": vote_count,
+                "percentage": round(percentage, 1)
+            })
+
+        # Sort by vote count (highest first)
+        results.sort(key=lambda x: x["vote_count"], reverse=True)
+
+        return {
+            "ballot_id": ballot_id,
+            "ballot_title": ballot["title"],
+            "ballot_description": ballot["description"],
+            "total_votes": total_votes,
+            "results": results,
+            "voting_period": {
+                "start_date": ballot["start_date"],
+                "end_date": ballot["end_date"]
+            }
+        }, 200
+
+    except Exception as e:
+        print(f"Get ballot results error: {str(e)}")
+        return {"error": "Failed to retrieve ballot results"}, 500
+
+
+# PROPOSAL VOTING SYSTEM (for yes/no decisions and simple choices)
+
+@app.route("/proposals", methods=["GET"])
+@token_required
+def get_proposals() -> Tuple[Dict[str, Any], int]:
+    """
+    Get all proposals.
+
+    Returns:
+        200: List of all proposals
+        401: Unauthorized
+        500: Internal server error
+    """
+    try:
+        proposals_dict = get_all_proposals()
+        proposals_list = list(proposals_dict.values())
+
+        # Add vote counts for each proposal
+        for proposal in proposals_list:
+            votes = get_votes_for_proposal(proposal["id"])
+            vote_counts = {}
+            for option in proposal.get("options", []):
+                vote_counts[option] = 0
+            if proposal.get("allow_abstain", False):
+                vote_counts["abstain"] = 0
+
+            for vote in votes:
+                choice = vote.get("vote_choice", "")
+                if choice in vote_counts:
+                    vote_counts[choice] += 1
+
+            proposal["vote_counts"] = vote_counts
+            proposal["total_votes"] = len(votes)
+
+        return {"proposals": proposals_list}, 200
+
+    except Exception as e:
+        print(f"Get proposals error: {str(e)}")
+        return {"error": "Failed to retrieve proposals"}, 500
+
+@app.route("/proposals", methods=["POST"])
+@token_required
+def create_new_proposal() -> Tuple[Dict[str, Any], int]:
+    """
+    Create a new proposal.
+
+    Request body:
+        {
+            "title": "string",
+            "description": "string",
+            "closing_date": "YYYY-MM-DD",
+            "options": ["option1", "option2"],
+            "allow_abstain": boolean (optional)
+        }
+
+    Returns:
+        201: Proposal created successfully
+        400: Invalid data
+        401: Unauthorized
+        500: Internal server error
+    """
+    try:
+        data = request.get_json()
+        if not data:
+            return {"error": "Request body required"}, 400
+
+        # Get current user ID from the token (this is set by the @token_required decorator)
+        member_id = getattr(request, 'current_member_id', None)
+        if not member_id:
+            return {"error": "Authentication required"}, 401
+
+        # Add created_by from authentication token
+        data["created_by"] = request.current_member_id
+        data["created_date"] = datetime.now().strftime("%Y-%m-%d")
+        data["status"] = "draft"  # Start as draft by default
+
+        # Validate proposal data
+        is_valid, error_msg = validate_proposal(data)
+        if not is_valid:
+            return {"error": error_msg}, 400
+
+        # Create the proposal
+        proposal_id = create_proposal(data)
+
+        # Get the created proposal for response
+        proposal = get_proposal(proposal_id)
+
+        return {
+            "id": proposal_id,
+            "title": proposal["title"],
+            "description": proposal["description"],
+            "created_by": proposal["created_by"],
+            "created_date": proposal["created_date"],
+            "closing_date": proposal["closing_date"],
+            "status": proposal["status"],
+            "options": proposal["options"],
+            "allow_abstain": proposal.get("allow_abstain", False),
+            "message": f"Proposal '{proposal['title']}' created successfully"
+        }, 201
+
+    except Exception as e:
+        print(f"Create proposal error: {str(e)}")
+        return {"error": "Failed to create proposal"}, 500
+
+@app.route("/proposals/<int:proposal_id>", methods=["GET"])
+@token_required
+def get_proposal_details(proposal_id: int) -> Tuple[Dict[str, Any], int]:
+    """
+    Get details of a specific proposal including vote counts.
+
+    Returns:
+        200: Proposal details with vote counts
+        401: Unauthorized
+        404: Proposal not found
+        500: Internal server error
+    """
+    try:
+        proposal = get_proposal(proposal_id)
+        if proposal is None:
+            return {"error": "Proposal not found"}, 404
+
+        # Get votes for this proposal
+        votes = get_votes_for_proposal(proposal_id)
+
+        # Calculate vote counts
+        vote_counts = {}
+        for option in proposal.get("options", []):
+            vote_counts[option] = 0
+        if proposal.get("allow_abstain", False):
+            vote_counts["abstain"] = 0
+
+        for vote in votes:
+            choice = vote.get("vote_choice", "")
+            if choice in vote_counts:
+                vote_counts[choice] += 1
+
+        # Add member name for created_by
+        creator = MEMBERS.get(proposal["created_by"], {})
+
+        return {
+            "id": proposal["id"],
+            "title": proposal["title"],
+            "description": proposal["description"],
+            "created_by": proposal["created_by"],
+            "created_by_name": creator.get("name", "Unknown"),
+            "created_date": proposal["created_date"],
+            "closing_date": proposal["closing_date"],
+            "status": proposal["status"],
+            "options": proposal["options"],
+            "allow_abstain": proposal.get("allow_abstain", False),
+            "vote_counts": vote_counts,
+            "total_votes": len(votes)
+        }, 200
+
+    except Exception as e:
+        print(f"Get proposal details error: {str(e)}")
+        return {"error": "Failed to retrieve proposal details"}, 500
+
+@app.route("/proposals/<int:proposal_id>", methods=["PUT"])
+@token_required
+def update_proposal_details(proposal_id: int) -> Tuple[Dict[str, Any], int]:
+    """
+    Update a proposal (only by creator or admin).
+
+    Request body: Partial proposal data to update
+
+    Returns:
+        200: Proposal updated successfully
+        400: Invalid data
+        401: Unauthorized
+        403: Permission denied
+        404: Proposal not found
+        500: Internal server error
+    """
+    try:
+        proposal = get_proposal(proposal_id)
+        if proposal is None:
+            return {"error": "Proposal not found"}, 404
+
+        # Check if current user is the creator (basic authorization)
+        current_member_id = request.current_member_id
+        if proposal["created_by"] != current_member_id:
+            return {"error": "Permission denied: only the proposal creator can update it"}, 403
+
+        data = request.get_json()
+        if not data:
+            return {"error": "Request body required"}, 400
+
+        # Validate update data
+        is_valid, error_msg = validate_proposal_update(proposal_id, data)
+        if not is_valid:
+            return {"error": error_msg}, 400
+
+        # Update the proposal
+        success = update_proposal(proposal_id, data)
+        if not success:
+            return {"error": "Failed to update proposal"}, 500
+
+        # Return updated proposal
+        updated_proposal = get_proposal(proposal_id)
+        return {
+            "id": updated_proposal["id"],
+            "title": updated_proposal["title"],
+            "description": updated_proposal["description"],
+            "created_by": updated_proposal["created_by"],
+            "created_date": updated_proposal["created_date"],
+            "closing_date": updated_proposal["closing_date"],
+            "status": updated_proposal["status"],
+            "options": updated_proposal["options"],
+            "allow_abstain": updated_proposal.get("allow_abstain", False),
+            "message": "Proposal updated successfully"
+        }, 200
+
+    except Exception as e:
+        print(f"Update proposal error: {str(e)}")
+        return {"error": "Failed to update proposal"}, 500
+
+@app.route("/proposals/<int:proposal_id>/votes", methods=["POST"])
+@token_required
+def cast_vote(proposal_id: int) -> Tuple[Dict[str, Any], int]:
+    """
+    Cast a vote on a proposal.
+
+    Request body:
+        {
+            "vote_choice": "string",
+            "is_anonymous": boolean (optional, default false)
+        }
+
+    Returns:
+        201: Vote cast successfully
+        400: Invalid data or duplicate vote
+        401: Unauthorized
+        404: Proposal not found
+        500: Internal server error
+    """
+    try:
+        proposal = get_proposal(proposal_id)
+        if proposal is None:
+            return {"error": "Proposal not found"}, 404
+
+        data = request.get_json()
+        if not data:
+            return {"error": "Request body required"}, 400
+
+        # Add member_id and proposal_id to vote data
+        current_member_id = request.current_member_id
+        data["member_id"] = current_member_id
+        data["proposal_id"] = proposal_id
+
+        # Check if member has already voted
+        existing_vote = get_vote_by_member_and_proposal(current_member_id, proposal_id)
+        if existing_vote:
+            return {"error": "You have already voted on this proposal. Use PUT to update your vote."}, 400
+
+        # Validate vote data
+        is_valid, error_msg = validate_vote(data)
+        if not is_valid:
+            return {"error": error_msg}, 400
+
+        # Create the vote
+        data["timestamp"] = datetime.now().isoformat()
+        data["is_anonymous"] = data.get("is_anonymous", False)
+
+        vote_id = create_vote(data)
+
+        return {
+            "vote_id": vote_id,
+            "proposal_id": proposal_id,
+            "vote_choice": data["vote_choice"],
+            "timestamp": data["timestamp"],
+            "is_anonymous": data["is_anonymous"],
+            "message": f"Vote '{data['vote_choice']}' cast successfully on proposal '{proposal['title']}'"
+        }, 201
+
+    except Exception as e:
+        print(f"Cast vote error: {str(e)}")
+        return {"error": "Failed to cast vote"}, 500
+
+@app.route("/proposals/<int:proposal_id>/votes", methods=["PUT"])
+@token_required
+def update_vote_choice(proposal_id: int) -> Tuple[Dict[str, Any], int]:
+    """
+    Update an existing vote on a proposal.
+
+    Request body:
+        {
+            "vote_choice": "string",
+            "is_anonymous": boolean (optional)
+        }
+
+    Returns:
+        200: Vote updated successfully
+        400: Invalid data
+        401: Unauthorized
+        404: Proposal or vote not found
+        500: Internal server error
+    """
+    try:
+        proposal = get_proposal(proposal_id)
+        if proposal is None:
+            return {"error": "Proposal not found"}, 404
+
+        current_member_id = request.current_member_id
+        existing_vote = get_vote_by_member_and_proposal(current_member_id, proposal_id)
+
+        if existing_vote is None:
+            return {"error": "No existing vote found. Use POST to cast a new vote."}, 404
+
+        data = request.get_json()
+        if not data:
+            return {"error": "Request body required"}, 400
+
+        # Validate vote update data
+        is_valid, error_msg = validate_vote_update(existing_vote["id"], data)
+        if not is_valid:
+            return {"error": error_msg}, 400
+
+        # Update timestamp and vote choice
+        data["timestamp"] = datetime.now().isoformat()
+
+        success = update_vote(existing_vote["id"], data)
+        if not success:
+            return {"error": "Failed to update vote"}, 500
+
+        return {
+            "vote_id": existing_vote["id"],
+            "proposal_id": proposal_id,
+            "vote_choice": data["vote_choice"],
+            "timestamp": data["timestamp"],
+            "is_anonymous": data.get("is_anonymous", existing_vote.get("is_anonymous", False)),
+            "message": f"Vote updated to '{data['vote_choice']}' on proposal '{proposal['title']}'"
+        }, 200
+
+    except Exception as e:
+        print(f"Update vote error: {str(e)}")
+        return {"error": "Failed to update vote"}, 500
+
+@app.route("/proposals/<int:proposal_id>/votes", methods=["DELETE"])
+@token_required
+def delete_vote_on_proposal(proposal_id: int) -> Tuple[Dict[str, Any], int]:
+    """
+    Delete a vote on a proposal.
+
+    Returns:
+        200: Vote deleted successfully
+        401: Unauthorized
+        404: Proposal or vote not found
+        500: Internal server error
+    """
+    try:
+        proposal = get_proposal(proposal_id)
+        if proposal is None:
+            return {"error": "Proposal not found"}, 404
+
+        current_member_id = request.current_member_id
+        existing_vote = get_vote_by_member_and_proposal(current_member_id, proposal_id)
+
+        if existing_vote is None:
+            return {"error": "No vote found to delete"}, 404
+
+        # Check if proposal is still active for vote changes
+        if proposal.get("status") != "active":
+            return {"error": "Cannot delete vote on inactive proposals"}, 400
+
+        success = delete_vote(existing_vote["id"])
+        if not success:
+            return {"error": "Failed to delete vote"}, 500
+
+        return {
+            "message": f"Vote deleted successfully from proposal '{proposal['title']}'",
+            "proposal_id": proposal_id
+        }, 200
+
+    except Exception as e:
+        print(f"Delete vote error: {str(e)}")
+        return {"error": "Failed to delete vote"}, 500
+
+@app.route("/votes/my-votes", methods=["GET"])
+@token_required
+def get_my_votes() -> Tuple[Dict[str, Any], int]:
+    """
+    Get all votes cast by the current user.
+
+    Returns:
+        200: List of user's votes with proposal details
+        401: Unauthorized
+        500: Internal server error
+    """
+    try:
+        current_member_id = request.current_member_id
+        my_votes = []
+
+        for vote in VOTES.values():
+            if vote["member_id"] == current_member_id:
+                # Check if it's a ballot vote or proposal vote
+                if "ballot_id" in vote:
+                    # Ballot vote
+                    ballot = BALLOTS.get(vote["ballot_id"])
+                    if ballot:
+                        option = next((opt for opt in ballot["options"] if opt["id"] == vote["option_id"]), None)
+                        my_votes.append({
+                            "vote_id": vote["id"],
+                            "type": "ballot",
+                            "ballot_id": vote["ballot_id"],
+                            "ballot_title": ballot["title"],
+                            "option_id": vote["option_id"],
+                            "option_title": option["title"] if option else "Unknown option",
+                            "timestamp": vote["timestamp"]
+                        })
+                elif "proposal_id" in vote:
+                    # Proposal vote
+                    proposal = get_proposal(vote["proposal_id"])
+                    if proposal:
+                        my_votes.append({
+                            "vote_id": vote["id"],
+                            "type": "proposal",
+                            "proposal_id": vote["proposal_id"],
+                            "proposal_title": proposal["title"],
+                            "vote_choice": vote["vote_choice"],
+                            "timestamp": vote["timestamp"],
+                            "is_anonymous": vote.get("is_anonymous", False),
+                            "proposal_status": proposal["status"],
+                            "proposal_closing_date": proposal["closing_date"]
+                        })
+
+        return {"my_votes": my_votes, "total_votes": len(my_votes)}, 200
+
+    except Exception as e:
+        print(f"Get my votes error: {str(e)}")
+        return {"error": "Failed to retrieve votes"}, 500
 
 # Health check endpoint
 @app.route("/health", methods=["GET"])
@@ -1060,9 +1196,10 @@ def health_check():
 def root():
     """Root endpoint with API information"""
     return {
-        "service": "Library Management API",
-        "version": "1.1",
+        "service": "Library Management API with PTA Voting Systems (Ballots & Proposals)",
+        "version": "1.0",
         "endpoints": {
+            # Library API endpoints
             "authentication": "/auth/login",
             "member_registration": "/members",
             "books": "/books",
@@ -1070,19 +1207,27 @@ def root():
             "borrow_book": "/loans/borrow",
             "return_book": "/loans/return",
             "loan_details": "/loans/{id}",
+            # Ballot voting system (elections)
+            "ballots": "/ballots",
+            "ballot_detail": "/ballots/{id}",
+            "submit_ballot_vote": "/ballots/{id}/votes",
+            "ballot_results": "/ballots/{id}/results",
+            # Proposal voting system (decisions)
+            "proposals": "/proposals",
+            "create_proposal": "/proposals",
+            "proposal_details": "/proposals/{id}",
+            "update_proposal": "/proposals/{id}",
+            "cast_proposal_vote": "/proposals/{id}/votes",
+            "update_proposal_vote": "/proposals/{id}/votes",
+            "delete_proposal_vote": "/proposals/{id}/votes",
+            "my_votes": "/votes/my-votes",
             "health": "/health"
         },
-        "admin_endpoints": {
-            "admin_dashboard": "/admin/dashboard",
-            "admin_members": "/admin/members",
-            "admin_member_detail": "/admin/members/{id}",
-            "admin_audit_logs": "/admin/audit-logs"
-        },
         "new_features": [
-            "Admin user management",
-            "Role-based access control",
-            "Comprehensive audit logging",
-            "Admin dashboard with statistics"
+            "PTA voting system with ballots and proposals",
+            "Dual voting mechanisms for elections and decisions",
+            "Thread-safe voting operations",
+            "Anonymous voting with audit trails"
         ]
     }, 200
 

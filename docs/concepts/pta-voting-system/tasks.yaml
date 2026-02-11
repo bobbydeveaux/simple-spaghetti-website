@@ -1,0 +1,355 @@
+GeneratedAt: "2026-02-11T15:21:38Z"
+Plan: pta-voting-system-plan
+Sprints:
+- Features:
+  - FeatureID: pta-voting-system-feat-ballot-voting
+    FeatureTitle: Ballot and Voting System
+    Tasks:
+    - AcceptanceCriteria:
+      - Verification codes are generated and stored with 15-minute expiration
+      - Sessions are created with valid JWT tokens on successful code verification
+      - Session validation correctly authenticates requests and handles token expiration
+      - LOGIN audit logs are created on successful authentication
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Implement email-based verification code generation, code validation,
+        and JWT session management. This includes the request_verification_code, verify_code,
+        and validate_session functions with 15-minute code expiration and 2-hour session
+        tokens.
+      EstimatedEffort: M
+      Files:
+      - api/voting/services.py
+      - api/voting/routes.py
+      ID: task-pta-voting-system-feat-ballot-voting-1
+      Title: Implement voter authentication and session management
+    - AcceptanceCriteria:
+      - Votes are cast without voter_id to ensure anonymity
+      - Duplicate votes for same position are prevented via voted_positions check
+      - Candidate validation ensures valid position-candidate matching
+      - VOTE_CAST audit logs record position only, not candidate selection
+      AgentType: backend-engineer
+      Dependencies:
+      - task-pta-voting-system-feat-ballot-voting-1
+      Description: Implement cast_votes and get_voter_status functions with duplicate
+        vote prevention, candidate validation, and anonymous vote storage. Ensure
+        votes are stored without voter_id linkage and voted_positions tracking prevents
+        re-voting.
+      EstimatedEffort: M
+      Files:
+      - api/voting/services.py
+      - api/voting/routes.py
+      ID: task-pta-voting-system-feat-ballot-voting-2
+      Title: Implement voting service with anonymity guarantees
+    - AcceptanceCriteria:
+      - Results are calculated correctly by grouping votes per position and candidate
+      - Admin-only operations verify is_admin flag before execution
+      - Audit logs are paginated and accessible to admins only
+      - Election and candidate creation adds appropriate audit log entries
+      AgentType: backend-engineer
+      Dependencies:
+      - task-pta-voting-system-feat-ballot-voting-2
+      Description: Implement calculate_results for vote tallying and admin functions
+        including create_election, add_candidate, and get_audit_logs with proper authorization
+        checks and admin session validation.
+      EstimatedEffort: M
+      Files:
+      - api/voting/services.py
+      - api/voting/routes.py
+      ID: task-pta-voting-system-feat-ballot-voting-3
+      Title: Implement results calculation and admin services
+    - AcceptanceCriteria:
+      - Ballot displays all positions with their candidates on page load
+      - Vote selections are tracked in component state and submitted together
+      - Already-voted positions are disabled based on voter status
+      - Confirmation modal displays on successful vote submission
+      - Error handling covers duplicate votes and network failures
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-pta-voting-system-feat-ballot-voting-2
+      Description: Implement Ballot.jsx page and PositionBallot.jsx component with
+        ballot fetching, vote selection tracking, submission handling, and status
+        checking. Display all positions with candidates, track selections, prevent
+        duplicate voting, and show confirmation on success.
+      EstimatedEffort: M
+      Files:
+      - src/voting/pages/Ballot.jsx
+      - src/voting/components/PositionBallot.jsx
+      ID: task-pta-voting-system-feat-ballot-voting-4
+      Title: Build voter ballot interface and voting flow
+  Sprint: 3
+- Features:
+  - FeatureID: pta-voting-system-feat-live-results
+    FeatureTitle: Live Results Dashboard
+    Tasks:
+    - AcceptanceCriteria:
+      - calculate_results() correctly aggregates votes by position and candidate with
+        percentages
+      - GET /api/voting/results endpoint returns structured results data
+      - Results update in real-time as new votes are cast
+      - API handles edge cases (no votes, empty positions)
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Implement the calculate_results() function in the voting service
+        that aggregates vote counts by position and candidate. Create the /api/voting/results
+        endpoint in routes.py that calls this service function and returns real-time
+        results data. Include basic validation and error handling.
+      EstimatedEffort: M
+      Files:
+      - api/voting/services.py
+      - api/voting/routes.py
+      ID: task-pta-voting-system-feat-live-results-1
+      Title: Implement results calculation and API endpoint
+    - AcceptanceCriteria:
+      - Results page polls API every 2 seconds and updates without refresh
+      - Bar charts correctly visualize vote distribution by position
+      - Vote counts and percentages display accurately
+      - Dashboard layout is responsive and user-friendly
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-pta-voting-system-feat-live-results-1
+      Description: Create the Results.jsx component that polls the /api/voting/results
+        endpoint every 2 seconds. Display results grouped by position using recharts
+        BarChart components. Show vote counts and percentages for each candidate with
+        automatic real-time updates.
+      EstimatedEffort: M
+      Files:
+      - src/voting/pages/Results.jsx
+      ID: task-pta-voting-system-feat-live-results-2
+      Title: Build live results dashboard UI
+  Sprint: 4
+- Features:
+  - FeatureID: pta-voting-system-feat-data-store-auth
+    FeatureTitle: Data Store and Authentication
+    Tasks:
+    - AcceptanceCriteria:
+      - All data models defined with proper types and validation
+      - VotingDataStore implements thread-safe CRUD operations with Lock
+      - Storage dictionaries for voters, candidates, votes, sessions, audit_logs,
+        election, and verification_codes are initialized
+      - Basic data store operations (get_voter, create_voter, record_vote) work correctly
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Create Pydantic models for Voter, Candidate, Vote, Session, Election,
+        and AuditLog in models.py. Implement VotingDataStore singleton class with
+        thread-safe storage dictionaries and lock-protected methods for data access
+        and mutation.
+      EstimatedEffort: M
+      Files:
+      - api/voting/models.py
+      - api/voting/data_store.py
+      ID: task-pta-voting-system-feat-data-store-auth-1
+      Title: Implement data models and thread-safe data store
+    - AcceptanceCriteria:
+      - Verification codes are generated and stored with expiration
+      - Code verification creates valid JWT sessions
+      - Session validation correctly decodes tokens and checks expiration
+      - Failed authentication raises appropriate 401 errors
+      AgentType: backend-engineer
+      Dependencies:
+      - task-pta-voting-system-feat-data-store-auth-1
+      Description: Build voter authentication flow with email/code verification in
+        services.py. Implement request_verification_code to generate 6-digit codes
+        with 15-min expiry, verify_code to create JWT sessions with 2-hour expiry,
+        and validate_session for token verification.
+      EstimatedEffort: M
+      Files:
+      - api/voting/services.py
+      ID: task-pta-voting-system-feat-data-store-auth-2
+      Title: Implement authentication and session management
+    - AcceptanceCriteria:
+      - Votes are recorded anonymously without voter_id reference
+      - Duplicate voting for same position is prevented
+      - Voter status correctly shows completed positions
+      - Results calculation groups votes by position and computes percentages
+      AgentType: backend-engineer
+      Dependencies:
+      - task-pta-voting-system-feat-data-store-auth-1
+      Description: Create cast_votes function with thread-safe vote recording, duplicate
+        vote prevention via voted_positions tracking, and anonymous Vote records.
+        Implement get_voter_status to return completed positions and calculate_results
+        to aggregate votes by position without voter linkage.
+      EstimatedEffort: M
+      Files:
+      - api/voting/services.py
+      ID: task-pta-voting-system-feat-data-store-auth-3
+      Title: Implement voting and results services
+    - AcceptanceCriteria:
+      - Admin privilege verification works for all admin operations
+      - Election and candidate creation stores data correctly
+      - Audit logs are appended for all critical actions
+      - Audit log pagination returns correct results with limit/offset
+      AgentType: backend-engineer
+      Dependencies:
+      - task-pta-voting-system-feat-data-store-auth-1
+      Description: 'Build admin-only functions for election management: create_election,
+        add_candidate, and get_audit_logs with pagination. Implement audit logging
+        throughout all critical operations (LOGIN, VOTE_CAST, ADMIN_ACTION) with proper
+        context.'
+      EstimatedEffort: S
+      Files:
+      - api/voting/services.py
+      ID: task-pta-voting-system-feat-data-store-auth-4
+      Title: Implement admin services and audit logging
+    - AcceptanceCriteria:
+      - Middleware extracts Authorization Bearer tokens correctly
+      - Valid sessions attach voter context to requests
+      - Invalid/missing tokens return 401 with clear error messages
+      - Admin-only endpoints verify is_admin flag
+      AgentType: backend-engineer
+      Dependencies:
+      - task-pta-voting-system-feat-data-store-auth-2
+      Description: Create middleware in middleware.py to intercept requests, extract
+        JWT tokens from headers, validate sessions using validate_session, and attach
+        session/voter context to request objects for downstream handlers.
+      EstimatedEffort: S
+      Files:
+      - api/voting/middleware.py
+      ID: task-pta-voting-system-feat-data-store-auth-5
+      Title: Implement authentication middleware
+  - FeatureID: pta-voting-system-feat-voter-ui
+    FeatureTitle: Voter Authentication UI
+    Tasks:
+    - AcceptanceCriteria:
+      - All API methods implemented with proper error handling
+      - Methods return typed responses matching LLD specifications
+      - HTTP requests use correct endpoints and headers
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create the frontend API client module with methods for voter authentication,
+        ballot fetching, and vote submission. Implement all API methods specified
+        in the LLD including request/verify code, fetch ballot, submit votes, and
+        fetch voting status.
+      EstimatedEffort: S
+      Files:
+      - src/voting/api/votingApi.js
+      ID: task-pta-voting-system-feat-voter-ui-1
+      Title: Implement voting API client
+    - AcceptanceCriteria:
+      - AuthContext manages token, sessionId, and votedPositions state
+      - Login/logout methods work correctly with localStorage persistence
+      - VoterLogin page handles email submission and code verification
+      - Error states and loading indicators display appropriately
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-pta-voting-system-feat-voter-ui-1
+      Description: Create AuthContext for managing voter session state with token
+        persistence to localStorage. Build the VoterLogin component with email input,
+        code verification flow, error handling, and integration with the API client
+        and auth context.
+      EstimatedEffort: M
+      Files:
+      - src/voting/context/AuthContext.jsx
+      - src/voting/pages/VoterLogin.jsx
+      ID: task-pta-voting-system-feat-voter-ui-2
+      Title: Implement authentication context and voter login UI
+  Sprint: 1
+- Features:
+  - FeatureID: pta-voting-system-feat-candidate-management
+    FeatureTitle: Candidate Management
+    Tasks:
+    - AcceptanceCriteria:
+      - Admin can create candidates with name, position, bio, and photo URL
+      - Admin can update and delete existing candidates
+      - API returns proper validation errors for invalid data
+      - Endpoints require admin authentication
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Create admin routes for candidate CRUD operations in api/voting/admin_routes.py.
+        Implement endpoints for creating, updating, deleting, and listing candidates
+        with validation. Add business logic to link candidates to positions and handle
+        profile information storage in the in-memory data store.
+      EstimatedEffort: M
+      Files:
+      - api/voting/admin_routes.py
+      - api/voting/models.py
+      - api/voting/data_store.py
+      ID: task-pta-voting-system-feat-candidate-management-1
+      Title: Implement backend candidate management API
+    - AcceptanceCriteria:
+      - Admin can view all candidates grouped by position
+      - Add/Edit forms validate required fields and display errors
+      - Delete action shows confirmation dialog
+      - CandidateCard displays photo, name, position, and bio
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-pta-voting-system-feat-candidate-management-1
+      Description: Create CandidateManagement page with table/list view of all candidates
+        and forms for add/edit operations. Implement CandidateCard component to display
+        candidate information consistently. Add form validation, confirmation dialogs
+        for deletion, and integrate with backend API endpoints.
+      EstimatedEffort: M
+      Files:
+      - src/voting/pages/admin/CandidateManagement.jsx
+      - src/voting/components/CandidateCard.jsx
+      ID: task-pta-voting-system-feat-candidate-management-2
+      Title: Build candidate management UI components
+  - FeatureID: pta-voting-system-feat-admin-panel
+    FeatureTitle: Admin Panel and Audit Logs
+    Tasks:
+    - AcceptanceCriteria:
+      - All CRUD endpoints for candidates functional (create, read, update, delete)
+      - Election status can be toggled between SETUP/ACTIVE/CLOSED states
+      - Audit logs endpoint returns paginated results with timestamp, voter_id, action,
+        position
+      - Admin-only access enforced via authentication middleware
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Create REST API endpoints for admin operations including candidate
+        CRUD, election configuration (position setup, status transitions), and audit
+        log retrieval. Implement authentication middleware to restrict access to admin
+        users only.
+      EstimatedEffort: M
+      Files:
+      - api/voting/admin_routes.py
+      ID: task-pta-voting-system-feat-admin-panel-1
+      Title: Implement admin API endpoints
+    - AcceptanceCriteria:
+      - Dashboard renders with three-tab navigation structure
+      - Tab switching works correctly and preserves state
+      - Admin authentication state integrated
+      - Responsive layout for desktop usage
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create the main admin dashboard component with tab navigation for
+        Candidates, Election Config, and Audit Logs. Implement shared layout, routing,
+        and state management for admin panel.
+      EstimatedEffort: S
+      Files:
+      - src/voting/pages/admin/Dashboard.jsx
+      ID: task-pta-voting-system-feat-admin-panel-2
+      Title: Build admin dashboard UI
+    - AcceptanceCriteria:
+      - Position configuration form functional (add/edit positions)
+      - Status toggle buttons update election state via API
+      - Current election status displayed and updates in real-time
+      - Form validation and error handling implemented
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-pta-voting-system-feat-admin-panel-1
+      - task-pta-voting-system-feat-admin-panel-2
+      Description: Build the Election Config tab with position configuration UI and
+        election status controls. Connect to backend APIs for updating election settings
+        and transitioning between states (SETUP/ACTIVE/CLOSED).
+      EstimatedEffort: M
+      Files:
+      - src/voting/pages/admin/ElectionManagement.jsx
+      ID: task-pta-voting-system-feat-admin-panel-3
+      Title: Implement election management interface
+    - AcceptanceCriteria:
+      - Candidate table displays all candidates with edit/delete buttons
+      - Add candidate form creates new entries successfully
+      - Audit log table shows timestamp, voter_id, action, position with pagination
+      - All API integrations functional with proper error handling
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-pta-voting-system-feat-admin-panel-1
+      - task-pta-voting-system-feat-admin-panel-2
+      Description: Build the Candidates tab with table displaying all candidates and
+        add/edit/delete actions. Implement the Audit Logs tab with paginated table
+        showing voting activity. Connect both to backend APIs.
+      EstimatedEffort: M
+      Files:
+      - src/voting/pages/admin/AuditLogs.jsx
+      ID: task-pta-voting-system-feat-admin-panel-4
+      Title: Implement candidate management and audit log views
+  Sprint: 2
