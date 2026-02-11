@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 import logging
 
 from api.config import settings
-from api.routes import auth, protected
+from api.routes import auth, protected, loans
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -32,6 +32,7 @@ app.add_middleware(
 # Include routers
 app.include_router(auth.router)
 app.include_router(protected.router)
+app.include_router(loans.router)
 
 
 @app.exception_handler(HTTPException)
@@ -84,7 +85,10 @@ async def root():
             "register": "/auth/register",
             "login": "/auth/login",
             "refresh": "/auth/refresh",
-            "protected": "/protected/"
+            "protected": "/protected/",
+            "borrow_book": "/loans/borrow",
+            "return_book": "/loans/return",
+            "loan_details": "/loans/{loan_id}"
         }
     }
 
