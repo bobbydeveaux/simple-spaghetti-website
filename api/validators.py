@@ -241,3 +241,105 @@ def validate_loan_return(loan_id: int) -> Tuple[bool, Optional[str]]:
         return False, "Loan has already been returned"
 
     return True, None
+
+def validate_role_update(member_id: int, new_role: str) -> Tuple[bool, Optional[str]]:
+    """
+    Validate role update operation for admin functions.
+
+    Args:
+        member_id: ID of the member to update
+        new_role: New role to assign (user, admin)
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not isinstance(member_id, int) or member_id <= 0:
+        return False, "Member ID must be a positive integer"
+
+    if member_id not in MEMBERS:
+        return False, "Member with this ID does not exist"
+
+    valid_roles = ["user", "admin"]
+    if new_role not in valid_roles:
+        return False, f"Role must be one of: {', '.join(valid_roles)}"
+
+    return True, None
+
+def validate_member_status_update(member_id: int, new_status: str) -> Tuple[bool, Optional[str]]:
+    """
+    Validate member status update operation for admin functions.
+
+    Args:
+        member_id: ID of the member to update
+        new_status: New status to assign (active, suspended)
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not isinstance(member_id, int) or member_id <= 0:
+        return False, "Member ID must be a positive integer"
+
+    if member_id not in MEMBERS:
+        return False, "Member with this ID does not exist"
+
+    valid_statuses = ["active", "suspended"]
+    if new_status not in valid_statuses:
+        return False, f"Status must be one of: {', '.join(valid_statuses)}"
+
+    return True, None
+
+def validate_admin_member_update(member_id: int, data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+    """
+    Validate member update data for admin operations.
+
+    Args:
+        member_id: ID of the member to update
+        data: Dictionary containing update data
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not isinstance(member_id, int) or member_id <= 0:
+        return False, "Member ID must be a positive integer"
+
+    if member_id not in MEMBERS:
+        return False, "Member with this ID does not exist"
+
+    if not isinstance(data, dict):
+        return False, "Invalid data format"
+
+    if not data:
+        return False, "No update data provided"
+
+    # Validate name if provided
+    if "name" in data:
+        name = str(data["name"]).strip()
+        if len(name) < 2 or len(name) > 100:
+            return False, "Name must be between 2 and 100 characters"
+
+    # Validate email if provided
+    if "email" in data:
+        email = str(data["email"]).strip()
+        email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+        if not re.match(email_pattern, email):
+            return False, "Invalid email format"
+
+        # Check email uniqueness (excluding current member)
+        email_lower = email.lower()
+        for other_id, other_member in MEMBERS.items():
+            if other_id != member_id and other_member["email"].lower() == email_lower:
+                return False, "Email address already exists"
+
+    # Validate role if provided
+    if "role" in data:
+        role = str(data["role"]).strip()
+        if role not in ["user", "admin"]:
+            return False, "Role must be 'user' or 'admin'"
+
+    # Validate status if provided
+    if "status" in data:
+        status = str(data["status"]).strip()
+        if status not in ["active", "suspended"]:
+            return False, "Status must be 'active' or 'suspended'"
+
+    return True, None
