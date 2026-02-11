@@ -1,6 +1,6 @@
 {
   "method": "ai-assisted",
-  "filesResolved": 1,
-  "summary": "Resolved merge conflict in .claude-output.json by integrating both UI implementation (issue #119) and API implementation (issue #118) into a comprehensive combined description that reflects the complete admin system functionality",
-  "strategyUsed": "Combined both implementations - preserved API endpoints from main branch (issue #118) and UI components from feature branch (issue #119), creating an integrated description that shows how the UI layer now works with the complete API backend to provide full admin dashboard functionality"
+  "filesResolved": 2,
+  "summary": "Successfully resolved merge conflicts in 2 files by combining functionality from both branches. For .claude-output.json, created a comprehensive PR description that encompasses all implemented features from both Issue #121 (candidate management and audit logs) and Issues #118/119 (admin dashboard integration). For test_admin_endpoints.py, preserved the HTTP-based API testing approach which is more appropriate for testing actual API endpoints, while expanding it to cover all admin endpoints including dashboard, voter management, election management, and results analysis.",
+  "strategyUsed": "preserved and combined both changes - merged PR descriptions to cover all implemented features, kept comprehensive HTTP-based testing approach for better API endpoint validation"
 }

@@ -1,213 +1,433 @@
 #!/usr/bin/env python3
 """
-Test script for new admin API endpoints in the PTA voting system.
-Tests all admin endpoints with proper authentication and authorization.
+Test script for admin endpoints in PTA Voting System
+Tests candidate management, audit log functionality, and all admin API endpoints
 """
 
-import sys
-import os
-sys.path.insert(0, os.path.abspath('.'))
-
+import requests
+import json
 from datetime import datetime
-from api.voting.data_store import voting_data_store
-from api.voting.models import Session, Voter, generate_session_id, generate_voter_id
-from api.utils.jwt_manager import JWTManager
 
-# Initialize JWT manager
-jwt_manager = JWTManager()
+# Configuration
+BASE_URL = "http://localhost:5000/api/voting"
+ADMIN_USERNAME = "admin@pta.school"
+ADMIN_PASSWORD = "admin123"
 
-def setup_test_data():
-    """Setup test data for admin endpoint testing"""
-    print("🔧 Setting up test data...")
+# Global variables
+admin_token = None
+test_candidate_id = None
 
-    # Clear existing data
-    voting_data_store.clear_all_data()
+def log_test(test_name, success=True, message=""):
+    """Log test results"""
+    status = "✓ PASS" if success else "✗ FAIL"
+    print(f"{status}: {test_name}")
+    if message:
+        print(f"   {message}")
 
-    # Create test admin user
-    admin_email = "admin@pta.school"
-    admin_voter = voting_data_store.create_or_get_voter(admin_email)
+def admin_login():
+    """Login as admin and get token"""
+    global admin_token
 
-    # Create admin JWT token
-    admin_token = jwt_manager.create_access_token(admin_voter.voter_id)
+    print("=== Testing Admin Authentication ===")
 
-    # Create admin session
-    admin_session = voting_data_store.create_session(
-        admin_voter.voter_id,
-        admin_token,
-        is_admin=True
-    )
-
-    # Create test regular users
-    test_users = [
-        "voter1@example.com",
-        "voter2@example.com",
-        "voter3@example.com"
-    ]
-
-    for email in test_users:
-        voter = voting_data_store.create_or_get_voter(email)
-        # Simulate some voting activity
-        if email == "voter1@example.com":
-            voter.mark_voted_for_position("president")
-            voter.mark_voted_for_position("treasurer")
-        elif email == "voter2@example.com":
-            voter.mark_voted_for_position("president")
-
-    # Add some test votes
-    voting_data_store.cast_vote("president", "candidate_abc123")
-    voting_data_store.cast_vote("president", "candidate_def456")
-    voting_data_store.cast_vote("treasurer", "candidate_ghi789")
-
-    print(f"✅ Test data setup complete")
-    print(f"   - Admin token: {admin_token[:20]}...")
-    print(f"   - Admin voter ID: {admin_voter.voter_id}")
-    print(f"   - Test voters: {len(test_users)}")
-
-    return admin_token, admin_voter.voter_id
-
-
-def test_admin_endpoints():
-    """Test all admin endpoints functionality"""
-    print("\n🧪 Testing admin endpoints...")
-
-    admin_token, admin_voter_id = setup_test_data()
-
-    # Test 1: Admin dashboard
-    print("\n📊 Testing admin dashboard...")
     try:
-        # Simulate dashboard request
-        stats = voting_data_store.get_stats()
-        all_voters = voting_data_store.get_all_voters()
-        active_election = voting_data_store.get_active_election()
+        response = requests.post(
+            f"{BASE_URL}/auth/admin-login",
+            json={
+                "username": ADMIN_USERNAME,
+                "password": ADMIN_PASSWORD
+            },
+            headers={"Content-Type": "application/json"}
+        )
 
-        print(f"   - Total voters: {stats['total_voters']}")
-        print(f"   - Total votes: {stats['total_votes']}")
-        print(f"   - Active sessions: {stats['active_sessions']}")
-        print(f"   - Has active election: {active_election is not None}")
-        print("✅ Admin dashboard data accessible")
+        if response.status_code == 200:
+            data = response.json()
+            admin_token = data.get('token')
+            log_test("Admin login", True, f"Token received: {admin_token[:20]}...")
+            return True
+        else:
+            log_test("Admin login", False, f"Status {response.status_code}: {response.text}")
+            return False
+
     except Exception as e:
-        print(f"❌ Admin dashboard test failed: {e}")
+        log_test("Admin login", False, f"Exception: {str(e)}")
+        return False
 
-    # Test 2: Voter management
-    print("\n👥 Testing voter management...")
+def test_admin_dashboard():
+    """Test admin dashboard endpoint"""
+    print("\n=== Testing Admin Dashboard ===")
+
+    if not admin_token:
+        log_test("Admin dashboard", False, "No admin token available")
+        return False
+
+    headers = {
+        "Authorization": f"Bearer {admin_token}",
+        "Content-Type": "application/json"
+    }
+
     try:
-        voters = voting_data_store.get_all_voters()
-        print(f"   - Retrieved {len(voters)} voters")
-
-        if voters:
-            # Test voter details
-            test_voter = voters[0]
-            audit_logs = voting_data_store.get_audit_logs_for_voter(test_voter.voter_id)
-            print(f"   - Voter {test_voter.email} has {len(audit_logs)} audit entries")
-            print(f"   - Voted positions: {list(test_voter.voted_positions)}")
-
-        print("✅ Voter management data accessible")
+        response = requests.get(f"{BASE_URL}/admin/dashboard", headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            stats = data.get('dashboard', {})
+            total_voters = stats.get('total_voters', 0)
+            active_sessions = stats.get('active_sessions', 0)
+            log_test("Get dashboard stats", True, f"Voters: {total_voters}, Sessions: {active_sessions}")
+        else:
+            log_test("Get dashboard stats", False, f"Status {response.status_code}: {response.text}")
+            return False
     except Exception as e:
-        print(f"❌ Voter management test failed: {e}")
+        log_test("Get dashboard stats", False, f"Exception: {str(e)}")
+        return False
 
-    # Test 3: Audit logs
-    print("\n📝 Testing audit logs...")
+    return True
+
+def test_voter_management():
+    """Test voter management endpoints"""
+    print("\n=== Testing Voter Management ===")
+
+    if not admin_token:
+        log_test("Voter management", False, "No admin token available")
+        return False
+
+    headers = {
+        "Authorization": f"Bearer {admin_token}",
+        "Content-Type": "application/json"
+    }
+
     try:
-        all_audit_logs = voting_data_store.get_all_audit_logs()
-        recent_logs = voting_data_store.get_recent_audit_logs(10)
-
-        print(f"   - Total audit logs: {len(all_audit_logs)}")
-        print(f"   - Recent logs (last 10): {len(recent_logs)}")
-
-        if recent_logs:
-            latest_log = recent_logs[0]
-            print(f"   - Latest action: {latest_log.action} by {latest_log.voter_id}")
-
-        print("✅ Audit logs accessible")
+        response = requests.get(f"{BASE_URL}/admin/voters", headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            voter_count = len(data.get('voters', []))
+            log_test("Get all voters", True, f"Found {voter_count} voters")
+        else:
+            log_test("Get all voters", False, f"Status {response.status_code}: {response.text}")
+            return False
     except Exception as e:
-        print(f"❌ Audit logs test failed: {e}")
+        log_test("Get all voters", False, f"Exception: {str(e)}")
+        return False
 
-    # Test 4: Election management
-    print("\n🗳️  Testing election management...")
+    return True
+
+def test_candidate_management():
+    """Test candidate CRUD operations"""
+    global test_candidate_id
+
+    print("\n=== Testing Candidate Management ===")
+
+    if not admin_token:
+        log_test("Candidate management", False, "No admin token available")
+        return False
+
+    headers = {
+        "Authorization": f"Bearer {admin_token}",
+        "Content-Type": "application/json"
+    }
+
+    # Test 1: Get all candidates
     try:
-        active_election = voting_data_store.get_active_election()
-        all_candidates = voting_data_store.get_all_candidates()
-        positions = voting_data_store.get_all_positions()
-
-        print(f"   - Active election: {active_election.name if active_election else 'None'}")
-        print(f"   - Total candidates: {len(all_candidates)}")
-        print(f"   - Total positions: {len(positions)}")
-
-        if positions:
-            # Test vote counting
-            position = positions[0]
-            vote_counts = voting_data_store.get_vote_counts_for_position(position)
-            print(f"   - Votes for {position}: {vote_counts}")
-
-        print("✅ Election management data accessible")
+        response = requests.get(f"{BASE_URL}/admin/candidates", headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            candidate_count = len(data.get('candidates', []))
+            log_test("Get all candidates", True, f"Found {candidate_count} candidates")
+        else:
+            log_test("Get all candidates", False, f"Status {response.status_code}: {response.text}")
+            return False
     except Exception as e:
-        print(f"❌ Election management test failed: {e}")
+        log_test("Get all candidates", False, f"Exception: {str(e)}")
+        return False
 
-    # Test 5: Results and statistics
-    print("\n📈 Testing results and statistics...")
+    # Test 2: Create a new candidate
+    new_candidate = {
+        "name": "Test Candidate Admin",
+        "position": "president",
+        "bio": "A test candidate created by admin endpoint testing."
+    }
+
     try:
-        total_votes = voting_data_store.get_total_votes()
-        stats = voting_data_store.get_stats()
+        response = requests.post(
+            f"{BASE_URL}/admin/candidates",
+            json=new_candidate,
+            headers=headers
+        )
 
-        print(f"   - Total votes cast: {total_votes}")
-        print(f"   - System statistics: {stats}")
-
-        # Test position-specific results
-        for position in voting_data_store.get_all_positions()[:2]:  # Test first 2 positions
-            votes_for_position = voting_data_store.get_votes_for_position(position)
-            vote_counts = voting_data_store.get_vote_counts_for_position(position)
-            print(f"   - {position}: {len(votes_for_position)} votes, counts: {vote_counts}")
-
-        print("✅ Results and statistics accessible")
+        if response.status_code == 201:
+            data = response.json()
+            test_candidate_id = data.get('candidate', {}).get('candidate_id')
+            log_test("Create candidate", True, f"Created candidate with ID: {test_candidate_id}")
+        else:
+            log_test("Create candidate", False, f"Status {response.status_code}: {response.text}")
+            return False
     except Exception as e:
-        print(f"❌ Results and statistics test failed: {e}")
+        log_test("Create candidate", False, f"Exception: {str(e)}")
+        return False
 
-    # Test 6: Authorization checks
-    print("\n🔒 Testing authorization...")
+    # Test 3: Update the candidate
+    if test_candidate_id:
+        updated_data = {
+            "name": "Updated Test Candidate",
+            "bio": "Updated biography for the test candidate."
+        }
+
+        try:
+            response = requests.put(
+                f"{BASE_URL}/admin/candidates/{test_candidate_id}",
+                json=updated_data,
+                headers=headers
+            )
+
+            if response.status_code == 200:
+                log_test("Update candidate", True, "Candidate updated successfully")
+            else:
+                log_test("Update candidate", False, f"Status {response.status_code}: {response.text}")
+        except Exception as e:
+            log_test("Update candidate", False, f"Exception: {str(e)}")
+
+    # Test 4: Get specific candidate
+    if test_candidate_id:
+        try:
+            response = requests.get(
+                f"{BASE_URL}/admin/candidates/{test_candidate_id}",
+                headers=headers
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                candidate_name = data.get('candidate', {}).get('name')
+                log_test("Get specific candidate", True, f"Retrieved: {candidate_name}")
+            else:
+                log_test("Get specific candidate", False, f"Status {response.status_code}: {response.text}")
+        except Exception as e:
+            log_test("Get specific candidate", False, f"Exception: {str(e)}")
+
+    return True
+
+def test_audit_logs():
+    """Test audit log functionality"""
+    print("\n=== Testing Audit Logs ===")
+
+    if not admin_token:
+        log_test("Audit logs", False, "No admin token available")
+        return False
+
+    headers = {
+        "Authorization": f"Bearer {admin_token}",
+        "Content-Type": "application/json"
+    }
+
+    # Test 1: Get all audit logs
     try:
-        # Test admin session verification
-        admin_session = voting_data_store.get_session_by_token(admin_token)
-        print(f"   - Admin session valid: {admin_session is not None}")
-        print(f"   - Is admin: {admin_session.is_admin if admin_session else False}")
-
-        # Test non-admin user (create regular user session)
-        regular_voter = voting_data_store.get_all_voters()[-1]  # Get last voter (non-admin)
-        regular_token = jwt_manager.create_access_token(regular_voter.voter_id)
-        regular_session = voting_data_store.create_session(regular_voter.voter_id, regular_token, is_admin=False)
-
-        print(f"   - Regular session valid: {regular_session is not None}")
-        print(f"   - Regular user is admin: {regular_session.is_admin}")
-
-        print("✅ Authorization checks working")
+        response = requests.get(f"{BASE_URL}/admin/audit", headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            log_count = len(data.get('audit_logs', []))
+            total_logs = data.get('total', 0)
+            log_test("Get audit logs", True, f"Retrieved {log_count} logs out of {total_logs} total")
+        else:
+            log_test("Get audit logs", False, f"Status {response.status_code}: {response.text}")
+            return False
     except Exception as e:
-        print(f"❌ Authorization test failed: {e}")
+        log_test("Get audit logs", False, f"Exception: {str(e)}")
+        return False
+
+    # Test 2: Get audit logs with pagination
+    try:
+        response = requests.get(
+            f"{BASE_URL}/admin/audit?limit=10&offset=0",
+            headers=headers
+        )
+        if response.status_code == 200:
+            data = response.json()
+            log_test("Get paginated audit logs", True, f"Limit: {data.get('limit')}, Offset: {data.get('offset')}")
+        else:
+            log_test("Get paginated audit logs", False, f"Status {response.status_code}: {response.text}")
+    except Exception as e:
+        log_test("Get paginated audit logs", False, f"Exception: {str(e)}")
+
+    # Test 3: Filter by action type
+    try:
+        response = requests.get(
+            f"{BASE_URL}/admin/audit?action=ADMIN_ACTION",
+            headers=headers
+        )
+        if response.status_code == 200:
+            data = response.json()
+            filtered_logs = len(data.get('audit_logs', []))
+            log_test("Filter audit logs by action", True, f"Found {filtered_logs} ADMIN_ACTION logs")
+        else:
+            log_test("Filter audit logs by action", False, f"Status {response.status_code}: {response.text}")
+    except Exception as e:
+        log_test("Filter audit logs by action", False, f"Exception: {str(e)}")
+
+    return True
+
+def test_election_management():
+    """Test election management endpoint"""
+    print("\n=== Testing Election Management ===")
+
+    if not admin_token:
+        log_test("Election management", False, "No admin token available")
+        return False
+
+    headers = {
+        "Authorization": f"Bearer {admin_token}",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        response = requests.get(f"{BASE_URL}/admin/elections", headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            election_data = data.get('election', {})
+            positions_count = len(election_data.get('positions', []))
+            log_test("Get election data", True, f"Election has {positions_count} positions")
+        else:
+            log_test("Get election data", False, f"Status {response.status_code}: {response.text}")
+            return False
+    except Exception as e:
+        log_test("Get election data", False, f"Exception: {str(e)}")
+        return False
+
+    return True
+
+def test_results_analysis():
+    """Test results analysis endpoint"""
+    print("\n=== Testing Results Analysis ===")
+
+    if not admin_token:
+        log_test("Results analysis", False, "No admin token available")
+        return False
+
+    headers = {
+        "Authorization": f"Bearer {admin_token}",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        response = requests.get(f"{BASE_URL}/admin/results", headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            results = data.get('results', {})
+            total_votes = results.get('total_votes', 0)
+            log_test("Get voting results", True, f"Total votes analyzed: {total_votes}")
+        else:
+            log_test("Get voting results", False, f"Status {response.status_code}: {response.text}")
+            return False
+    except Exception as e:
+        log_test("Get voting results", False, f"Exception: {str(e)}")
+        return False
+
+    return True
+
+def test_admin_statistics():
+    """Test admin statistics endpoint"""
+    print("\n=== Testing Admin Statistics ===")
+
+    if not admin_token:
+        log_test("Admin statistics", False, "No admin token available")
+        return False
+
+    headers = {
+        "Authorization": f"Bearer {admin_token}",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        response = requests.get(f"{BASE_URL}/admin/statistics", headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            stats = data.get('statistics', {})
+            total_voters = stats.get('total_voters', 0)
+            total_candidates = stats.get('total_candidates', 0)
+            log_test("Get admin statistics", True, f"Voters: {total_voters}, Candidates: {total_candidates}")
+        else:
+            log_test("Get admin statistics", False, f"Status {response.status_code}: {response.text}")
+            return False
+    except Exception as e:
+        log_test("Get admin statistics", False, f"Exception: {str(e)}")
+        return False
+
+    return True
+
+def cleanup_test_data():
+    """Clean up test candidate"""
+    print("\n=== Cleaning Up Test Data ===")
+
+    if not admin_token or not test_candidate_id:
+        return
+
+    headers = {
+        "Authorization": f"Bearer {admin_token}",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        response = requests.delete(
+            f"{BASE_URL}/admin/candidates/{test_candidate_id}",
+            headers=headers
+        )
+
+        if response.status_code == 200:
+            log_test("Delete test candidate", True, "Test data cleaned up")
+        else:
+            log_test("Delete test candidate", False, f"Status {response.status_code}: {response.text}")
+    except Exception as e:
+        log_test("Delete test candidate", False, f"Exception: {str(e)}")
 
 def main():
-    """Main test function"""
-    print("🚀 PTA Voting System - Admin Endpoints Test Suite")
-    print("=" * 60)
+    """Run all admin endpoint tests"""
+    print("🧪 Testing PTA Voting System Admin Endpoints")
+    print("=" * 50)
 
-    try:
-        test_admin_endpoints()
-        print("\n🎉 All admin endpoint tests completed successfully!")
-        print("\n📋 Admin Endpoints Implemented:")
+    # Step 1: Admin login
+    if not admin_login():
+        print("\n❌ Cannot proceed without admin authentication")
+        return False
+
+    # Step 2: Test all admin endpoints
+    dashboard_success = test_admin_dashboard()
+    voter_success = test_voter_management()
+    candidate_success = test_candidate_management()
+    audit_success = test_audit_logs()
+    election_success = test_election_management()
+    results_success = test_results_analysis()
+    stats_success = test_admin_statistics()
+
+    # Step 3: Cleanup
+    cleanup_test_data()
+
+    # Summary
+    print("\n" + "=" * 50)
+    all_tests_passed = all([
+        dashboard_success, voter_success, candidate_success,
+        audit_success, election_success, results_success, stats_success
+    ])
+
+    if all_tests_passed:
+        print("🎉 All admin endpoint tests passed!")
+        print("\n📋 Tested Admin Endpoints:")
         print("   • GET /api/voting/admin/dashboard - System overview and statistics")
         print("   • GET /api/voting/admin/voters - List all voters with pagination")
-        print("   • GET /api/voting/admin/voters/<id> - Detailed voter information")
-        print("   • GET /api/voting/admin/audit-logs - Audit trail with filtering")
+        print("   • GET /api/voting/admin/candidates - Candidate management (CRUD)")
+        print("   • GET /api/voting/admin/audit - Audit trail with filtering")
         print("   • GET /api/voting/admin/elections - Election management info")
         print("   • GET /api/voting/admin/results - Comprehensive voting results")
-        print("\n🔐 Security Features:")
-        print("   • JWT token-based authentication required")
-        print("   • Admin role verification on all endpoints")
-        print("   • Proper error handling and status codes")
-        print("   • Audit logging for all admin actions")
-
+        print("   • GET /api/voting/admin/statistics - Admin statistics")
         return True
-    except Exception as e:
-        print(f"\n💥 Test suite failed with error: {e}")
+    else:
+        print("❌ Some admin endpoint tests failed")
         return False
 
 if __name__ == "__main__":
-    success = main()
-    sys.exit(0 if success else 1)
+    try:
+        success = main()
+        exit(0 if success else 1)
+    except KeyboardInterrupt:
+        print("\n\n⚠️  Test interrupted by user")
+        exit(1)
+    except Exception as e:
+        print(f"\n\n💥 Unexpected error: {str(e)}")
+        exit(1)
