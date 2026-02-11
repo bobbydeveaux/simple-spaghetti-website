@@ -26,6 +26,7 @@ from api.auth import token_required, authenticate_member, generate_token
 
 # Import voting system
 from api.voting.routes import voting_bp
+from api.voting.admin_routes import admin_bp
 
 # Create Flask application
 app = Flask(__name__)
@@ -35,6 +36,7 @@ CORS(app)
 
 # Register voting system blueprint
 app.register_blueprint(voting_bp)
+app.register_blueprint(admin_bp)
 
 # Global error handler
 @app.errorhandler(Exception)

@@ -260,6 +260,63 @@ export const healthCheck = async () => {
 };
 
 // ============================================================================
+// ADMIN CANDIDATE MANAGEMENT
+// ============================================================================
+
+/**
+ * Get all candidates (admin only)
+ */
+export const getAllCandidates = async () => {
+    return fetchAPI.request('/admin/candidates', {
+        method: 'GET',
+    });
+};
+
+/**
+ * Get a specific candidate by ID (admin only)
+ */
+export const getCandidate = async (candidateId) => {
+    return fetchAPI.request(`/admin/candidates/${candidateId}`, {
+        method: 'GET',
+    });
+};
+
+/**
+ * Create a new candidate (admin only)
+ */
+export const createCandidate = async (candidateData) => {
+    return fetchAPI.request('/admin/candidates', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(candidateData),
+    });
+};
+
+/**
+ * Update an existing candidate (admin only)
+ */
+export const updateCandidate = async (candidateId, candidateData) => {
+    return fetchAPI.request(`/admin/candidates/${candidateId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(candidateData),
+    });
+};
+
+/**
+ * Delete a candidate (admin only)
+ */
+export const deleteCandidate = async (candidateId) => {
+    return fetchAPI.request(`/admin/candidates/${candidateId}`, {
+        method: 'DELETE',
+    });
+};
+
+// ============================================================================
 // Local storage utilities
 // ============================================================================
 
@@ -420,6 +477,12 @@ export default {
     getVoterStatus,
     castVotes,
     healthCheck,
+    // Admin candidate management
+    getAllCandidates,
+    getCandidate,
+    createCandidate,
+    updateCandidate,
+    deleteCandidate,
     authUtils,
     errorUtils,
     // Legacy
