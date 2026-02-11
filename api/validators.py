@@ -4,8 +4,9 @@ Validates book, member, and loan data according to business rules.
 """
 
 import re
+from datetime import datetime
 from typing import Dict, Tuple, Any, Optional
-from api.data_store import BOOKS, AUTHORS, MEMBERS
+from api.data_store import BOOKS, AUTHORS, MEMBERS, PROPOSALS, VOTES
 
 def validate_book(data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
     """

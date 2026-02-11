@@ -24,11 +24,17 @@ from api.validators import (
 )
 from api.auth import token_required, authenticate_member, generate_token
 
+# Import voting system
+from api.voting.routes import voting_bp
+
 # Create Flask application
 app = Flask(__name__)
 
 # Enable CORS for development
 CORS(app)
+
+# Register voting system blueprint
+app.register_blueprint(voting_bp)
 
 # Global error handler
 @app.errorhandler(Exception)
@@ -986,9 +992,10 @@ def health_check():
 def root():
     """Root endpoint with API information"""
     return {
-        "service": "Library Management API",
+        "service": "Library Management API with PTA Voting System",
         "version": "1.0",
         "endpoints": {
+            # Library API endpoints
             "authentication": "/auth/login",
             "member_registration": "/members",
             "books": "/books",
