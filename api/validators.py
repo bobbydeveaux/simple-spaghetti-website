@@ -4,8 +4,9 @@ Validates book, member, and loan data according to business rules.
 """
 
 import re
+from datetime import datetime
 from typing import Dict, Tuple, Any, Optional
-from api.data_store import BOOKS, AUTHORS, MEMBERS
+from api.data_store import BOOKS, AUTHORS, MEMBERS, ELECTIONS, VOTES
 
 def validate_book(data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
     """
@@ -240,4 +241,150 @@ def validate_loan_return(loan_id: int) -> Tuple[bool, Optional[str]]:
     if loan.get("status") == "returned":
         return False, "Loan has already been returned"
 
+    return True, None
+
+def validate_election(data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+    """
+    Validate election data for creation.
+
+    Args:
+        data: Dictionary containing election data
+
+    Returns:
+        Tuple of (is_valid, error_message)
+        - is_valid: True if data is valid, False otherwise
+        - error_message: None if valid, error string if invalid
+    """
+    if not isinstance(data, dict):
+        return False, "Invalid data format"
+
+    # Check required fields
+    required_fields = ["title", "description", "candidates", "start_date", "end_date"]
+    for field in required_fields:
+        if field not in data or not data[field]:
+            return False, f"Missing required field: {field}"
+
+    # Validate title
+    title = data["title"].strip()
+    if len(title) < 3 or len(title) > 200:
+        return False, "Title must be between 3 and 200 characters"
+
+    # Validate description
+    description = data["description"].strip()
+    if len(description) < 10 or len(description) > 1000:
+        return False, "Description must be between 10 and 1000 characters"
+
+    # Validate candidates
+    candidates = data["candidates"]
+    if not isinstance(candidates, list) or len(candidates) < 2:
+        return False, "Must provide at least 2 candidates"
+
+    for candidate in candidates:
+        if not isinstance(candidate, str) or len(candidate.strip()) < 2:
+            return False, "Each candidate name must be at least 2 characters"
+
+    # Validate dates
+    try:
+        start_date = datetime.strptime(data["start_date"], "%Y-%m-%d")
+        end_date = datetime.strptime(data["end_date"], "%Y-%m-%d")
+
+        if end_date <= start_date:
+            return False, "End date must be after start date"
+
+        # Election should start in the future or today
+        today = datetime.now().date()
+        if start_date.date() < today:
+            return False, "Start date cannot be in the past"
+
+    except ValueError:
+        return False, "Invalid date format. Use YYYY-MM-DD format"
+
+    return True, None
+
+def validate_vote(data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+    """
+    Validate vote data for casting a vote.
+
+    Args:
+        data: Dictionary containing vote data
+
+    Returns:
+        Tuple of (is_valid, error_message)
+        - is_valid: True if data is valid, False otherwise
+        - error_message: None if valid, error string if invalid
+    """
+    if not isinstance(data, dict):
+        return False, "Invalid data format"
+
+    # Check required fields
+    required_fields = ["election_id", "member_id", "candidate"]
+    for field in required_fields:
+        if field not in data or data[field] is None:
+            return False, f"Missing required field: {field}"
+
+    # Validate election_id
+    try:
+        election_id = int(data["election_id"])
+        if election_id not in ELECTIONS:
+            return False, "Invalid election_id: election does not exist"
+    except (ValueError, TypeError):
+        return False, "election_id must be a valid integer"
+
+    # Validate member_id
+    try:
+        member_id = int(data["member_id"])
+        if member_id not in MEMBERS:
+            return False, "Invalid member_id: member does not exist"
+    except (ValueError, TypeError):
+        return False, "member_id must be a valid integer"
+
+    # Check if election is active
+    election = ELECTIONS[election_id]
+    if election.get("status") != "active":
+        return False, "Election is not currently active"
+
+    # Check if election voting period is valid
+    try:
+        today = datetime.now().date()
+        start_date = datetime.strptime(election["start_date"], "%Y-%m-%d").date()
+        end_date = datetime.strptime(election["end_date"], "%Y-%m-%d").date()
+
+        if today < start_date:
+            return False, "Voting has not started yet"
+        if today > end_date:
+            return False, "Voting period has ended"
+    except (ValueError, KeyError):
+        return False, "Invalid election date configuration"
+
+    # Validate candidate
+    candidate = str(data["candidate"]).strip()
+    if candidate not in election.get("candidates", []):
+        return False, "Invalid candidate for this election"
+
+    # Check if member has already voted in this election
+    for vote in VOTES.values():
+        if vote["election_id"] == election_id and vote["member_id"] == member_id:
+            return False, "Member has already voted in this election"
+
+    return True, None
+
+def validate_election_results(election_id: int) -> Tuple[bool, Optional[str]]:
+    """
+    Validate if election results can be retrieved.
+
+    Args:
+        election_id: ID of the election
+
+    Returns:
+        Tuple of (is_valid, error_message)
+        - is_valid: True if results can be retrieved, False otherwise
+        - error_message: None if valid, error string if invalid
+    """
+    if not isinstance(election_id, int) or election_id <= 0:
+        return False, "Election ID must be a positive integer"
+
+    if election_id not in ELECTIONS:
+        return False, "Election with this ID does not exist"
+
+    # Results can be viewed anytime, but include status info in the response
     return True, None
