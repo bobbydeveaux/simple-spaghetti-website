@@ -411,6 +411,24 @@ class VotingDataStore:
         with self._data_lock:
             return self._candidates.get(candidate_id)
 
+    def update_candidate(self, candidate_id: str, candidate: Candidate) -> bool:
+        """Update an existing candidate."""
+        with self._data_lock:
+            if candidate_id in self._candidates:
+                # Ensure the ID matches
+                candidate.candidate_id = candidate_id
+                self._candidates[candidate_id] = candidate
+                return True
+            return False
+
+    def delete_candidate(self, candidate_id: str) -> bool:
+        """Delete a candidate by ID."""
+        with self._data_lock:
+            if candidate_id in self._candidates:
+                del self._candidates[candidate_id]
+                return True
+            return False
+
     def get_all_positions(self) -> List[str]:
         """Get all available positions in the active election."""
         election = self.get_active_election()
