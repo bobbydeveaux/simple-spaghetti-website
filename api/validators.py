@@ -6,7 +6,7 @@ Validates book, member, and loan data according to business rules.
 import re
 from datetime import datetime
 from typing import Dict, Tuple, Any, Optional
-from api.data_store import BOOKS, AUTHORS, MEMBERS, PROPOSALS, VOTES
+from api.data_store import BOOKS, AUTHORS, MEMBERS, BALLOTS, PROPOSALS, VOTES
 
 def validate_book(data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
     """
@@ -243,7 +243,157 @@ def validate_loan_return(loan_id: int) -> Tuple[bool, Optional[str]]:
 
     return True, None
 
-# PTA Voting System Validators
+# Ballot System Validator (for elections with multiple candidates)
+def validate_ballot_vote(data: Dict[str, Any], member_id: int) -> Tuple[bool, Optional[str]]:
+    """
+    Validate vote data for ballot submission.
+
+    Args:
+        data: Dictionary containing vote data
+        member_id: ID of the member submitting the vote
+
+    Returns:
+        Tuple of (is_valid, error_message)
+        - is_valid: True if data is valid, False otherwise
+        - error_message: None if valid, error string if invalid
+    """
+    if not isinstance(data, dict):
+        return False, "Invalid data format"
+
+    # Check required fields
+    required_fields = ["ballot_id", "option_id"]
+    for field in required_fields:
+        if field not in data or data[field] is None:
+            return False, f"Missing required field: {field}"
+
+    # Validate ballot_id
+    try:
+        ballot_id = int(data["ballot_id"])
+        if ballot_id not in BALLOTS:
+            return False, "Invalid ballot_id: ballot does not exist"
+    except (ValueError, TypeError):
+        return False, "ballot_id must be a valid integer"
+
+    # Validate option_id
+    try:
+        option_id = int(data["option_id"])
+    except (ValueError, TypeError):
+        return False, "option_id must be a valid integer"
+
+    # Get ballot and validate option belongs to ballot
+    ballot = BALLOTS[ballot_id]
+    valid_option_ids = [opt["id"] for opt in ballot["options"]]
+    if option_id not in valid_option_ids:
+        return False, "Invalid option_id for this ballot"
+
+    # Check if ballot is active
+    if ballot["status"] != "active":
+        return False, "Ballot is not active"
+
+    # Check voting period
+    current_time = datetime.now().isoformat()
+    if not (ballot["start_date"] <= current_time <= ballot["end_date"]):
+        return False, "Voting period has expired or not yet started"
+
+    # Check if member has already used all votes for this ballot
+    existing_votes = [vote for vote in VOTES.values()
+                     if vote.get("ballot_id") == ballot_id and vote["member_id"] == member_id]
+
+    if len(existing_votes) >= ballot["max_votes_per_member"]:
+        return False, "Maximum votes per member exceeded for this ballot"
+
+    return True, None
+
+def validate_ballot(data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+    """
+    Validate ballot data for creation or update.
+
+    Args:
+        data: Dictionary containing ballot data
+
+    Returns:
+        Tuple of (is_valid, error_message)
+        - is_valid: True if data is valid, False otherwise
+        - error_message: None if valid, error string if invalid
+    """
+    if not isinstance(data, dict):
+        return False, "Invalid data format"
+
+    # Check required fields
+    required_fields = ["title", "description", "options", "start_date", "end_date", "max_votes_per_member"]
+    for field in required_fields:
+        if field not in data or data[field] is None:
+            return False, f"Missing required field: {field}"
+
+    # Validate title
+    title = str(data["title"]).strip()
+    if len(title) < 1 or len(title) > 200:
+        return False, "Title must be between 1 and 200 characters"
+
+    # Validate description
+    description = str(data["description"]).strip()
+    if len(description) < 1 or len(description) > 1000:
+        return False, "Description must be between 1 and 1000 characters"
+
+    # Validate options
+    options = data["options"]
+    if not isinstance(options, list) or len(options) < 2:
+        return False, "At least 2 options are required"
+
+    if len(options) > 20:
+        return False, "Maximum 20 options allowed"
+
+    # Validate each option
+    option_ids = []
+    for i, option in enumerate(options):
+        if not isinstance(option, dict):
+            return False, f"Option {i + 1} must be a dictionary"
+
+        if "id" not in option or "title" not in option or "description" not in option:
+            return False, f"Option {i + 1} must have id, title, and description fields"
+
+        try:
+            option_id = int(option["id"])
+            if option_id in option_ids:
+                return False, f"Duplicate option ID: {option_id}"
+            option_ids.append(option_id)
+        except (ValueError, TypeError):
+            return False, f"Option {i + 1} ID must be a valid integer"
+
+        option_title = str(option["title"]).strip()
+        if len(option_title) < 1 or len(option_title) > 100:
+            return False, f"Option {i + 1} title must be between 1 and 100 characters"
+
+        option_desc = str(option["description"]).strip()
+        if len(option_desc) > 500:
+            return False, f"Option {i + 1} description must be 500 characters or less"
+
+    # Validate dates
+    try:
+        start_date = datetime.fromisoformat(data["start_date"].replace('Z', '+00:00'))
+        end_date = datetime.fromisoformat(data["end_date"].replace('Z', '+00:00'))
+
+        if start_date >= end_date:
+            return False, "End date must be after start date"
+
+        # Check if start date is too far in the past (more than 1 year)
+        if (datetime.now() - start_date).days > 365:
+            return False, "Start date cannot be more than 1 year in the past"
+
+    except ValueError:
+        return False, "Invalid date format. Use ISO format (YYYY-MM-DDTHH:MM:SS)"
+
+    # Validate max_votes_per_member
+    try:
+        max_votes = int(data["max_votes_per_member"])
+        if max_votes < 1 or max_votes > len(options):
+            return False, "max_votes_per_member must be between 1 and the number of options"
+    except (ValueError, TypeError):
+        return False, "max_votes_per_member must be a valid integer"
+
+    return True, None
+
+# Proposal System Validators (for yes/no decisions and simple choices)
 
 def validate_proposal(data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
     """

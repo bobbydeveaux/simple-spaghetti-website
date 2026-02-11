@@ -13,6 +13,7 @@ BOOK_ID_COUNTER = 5
 AUTHOR_ID_COUNTER = 3
 MEMBER_ID_COUNTER = 2
 LOAN_ID_COUNTER = 1
+BALLOT_ID_COUNTER = 2
 PROPOSAL_ID_COUNTER = 2
 VOTE_ID_COUNTER = 3
 
@@ -111,7 +112,41 @@ LOANS = {
     }
 }
 
-# PTA Voting System Data Structures
+# Ballot-based voting system (for elections with multiple candidate options)
+BALLOTS = {
+    1: {
+        "id": 1,
+        "title": "PTA Board Election 2024",
+        "description": "Annual election for PTA board positions including President, Vice President, Secretary, and Treasurer.",
+        "options": [
+            {"id": 1, "title": "President: Sarah Johnson", "description": "Parent volunteer with 5 years PTA experience"},
+            {"id": 2, "title": "President: Michael Chen", "description": "Local business owner and education advocate"},
+            {"id": 3, "title": "Vice President: Lisa Rodriguez", "description": "Former teacher and current parent liaison"},
+            {"id": 4, "title": "Secretary: David Kim", "description": "Organization specialist with nonprofit background"},
+            {"id": 5, "title": "Treasurer: Amanda Williams", "description": "CPA with financial management expertise"}
+        ],
+        "start_date": "2024-03-01T00:00:00",
+        "end_date": "2024-03-15T23:59:59",
+        "max_votes_per_member": 3,
+        "status": "active"
+    },
+    2: {
+        "id": 2,
+        "title": "School Fundraising Initiative",
+        "description": "Choose the primary fundraising activity for this school year.",
+        "options": [
+            {"id": 6, "title": "Spring Carnival", "description": "Traditional carnival with games and food booths"},
+            {"id": 7, "title": "Silent Auction", "description": "Online auction featuring donated items and services"},
+            {"id": 8, "title": "Fun Run", "description": "Community fun run with sponsorship opportunities"}
+        ],
+        "start_date": "2024-02-15T00:00:00",
+        "end_date": "2024-02-28T23:59:59",
+        "max_votes_per_member": 1,
+        "status": "active"
+    }
+}
+
+# Proposal-based voting system (for yes/no decisions and simple choices)
 PROPOSALS = {
     1: {
         "id": 1,
@@ -140,22 +175,29 @@ PROPOSALS = {
 VOTES = {
     1: {
         "id": 1,
-        "proposal_id": 1,
+        "ballot_id": 2,  # Ballot vote
+        "member_id": 1,
+        "option_id": 6,
+        "timestamp": "2024-02-16T10:30:00"
+    },
+    2: {
+        "id": 2,
+        "proposal_id": 1,  # Proposal vote
         "member_id": 1,
         "vote_choice": "yes",
         "timestamp": "2024-02-11T10:30:00",
         "is_anonymous": False
     },
-    2: {
-        "id": 2,
+    3: {
+        "id": 3,
         "proposal_id": 1,
         "member_id": 2,
         "vote_choice": "no",
         "timestamp": "2024-02-11T11:15:00",
         "is_anonymous": False
     },
-    3: {
-        "id": 3,
+    4: {
+        "id": 4,
         "proposal_id": 2,
         "member_id": 1,
         "vote_choice": "approve",
@@ -187,6 +229,12 @@ def get_next_loan_id():
     global LOAN_ID_COUNTER
     LOAN_ID_COUNTER += 1
     return LOAN_ID_COUNTER
+
+def get_next_ballot_id():
+    """Generate next auto-increment ID for ballots"""
+    global BALLOT_ID_COUNTER
+    BALLOT_ID_COUNTER += 1
+    return BALLOT_ID_COUNTER
 
 def get_next_proposal_id():
     """Generate next auto-increment ID for proposals (thread-safe)"""
@@ -241,14 +289,14 @@ def get_vote_by_member_and_proposal(member_id, proposal_id):
     """Get existing vote by member and proposal (thread-safe)"""
     with VOTE_LOCK:
         for vote in VOTES.values():
-            if vote["member_id"] == member_id and vote["proposal_id"] == proposal_id:
+            if vote.get("member_id") == member_id and vote.get("proposal_id") == proposal_id:
                 return vote.copy()
         return None
 
 def get_votes_for_proposal(proposal_id):
     """Get all votes for a specific proposal (thread-safe)"""
     with VOTE_LOCK:
-        return [vote.copy() for vote in VOTES.values() if vote["proposal_id"] == proposal_id]
+        return [vote.copy() for vote in VOTES.values() if vote.get("proposal_id") == proposal_id]
 
 def update_vote(vote_id, update_data):
     """Update an existing vote (thread-safe)"""
@@ -268,16 +316,17 @@ def delete_vote(vote_id):
 
 def reset_data_store():
     """Reset data store to initial state (useful for testing)"""
-    global BOOK_ID_COUNTER, AUTHOR_ID_COUNTER, MEMBER_ID_COUNTER, LOAN_ID_COUNTER
+    global BOOK_ID_COUNTER, AUTHOR_ID_COUNTER, MEMBER_ID_COUNTER, LOAN_ID_COUNTER, BALLOT_ID_COUNTER
     global PROPOSAL_ID_COUNTER, VOTE_ID_COUNTER
-    global BOOKS, AUTHORS, MEMBERS, LOANS, PROPOSALS, VOTES
+    global BOOKS, AUTHORS, MEMBERS, LOANS, BALLOTS, PROPOSALS, VOTES
 
     BOOK_ID_COUNTER = 5
     AUTHOR_ID_COUNTER = 3
     MEMBER_ID_COUNTER = 2
     LOAN_ID_COUNTER = 1
+    BALLOT_ID_COUNTER = 2
     PROPOSAL_ID_COUNTER = 2
-    VOTE_ID_COUNTER = 3
+    VOTE_ID_COUNTER = 4
 
     # Reset to original sample data
     BOOKS.clear()
@@ -305,6 +354,40 @@ def reset_data_store():
     LOANS.clear()
     LOANS.update({
         1: {"id": 1, "book_id": 3, "member_id": 1, "borrow_date": "2024-02-01", "return_date": None, "status": "borrowed"}
+    })
+
+    BALLOTS.clear()
+    BALLOTS.update({
+        1: {
+            "id": 1,
+            "title": "PTA Board Election 2024",
+            "description": "Annual election for PTA board positions including President, Vice President, Secretary, and Treasurer.",
+            "options": [
+                {"id": 1, "title": "President: Sarah Johnson", "description": "Parent volunteer with 5 years PTA experience"},
+                {"id": 2, "title": "President: Michael Chen", "description": "Local business owner and education advocate"},
+                {"id": 3, "title": "Vice President: Lisa Rodriguez", "description": "Former teacher and current parent liaison"},
+                {"id": 4, "title": "Secretary: David Kim", "description": "Organization specialist with nonprofit background"},
+                {"id": 5, "title": "Treasurer: Amanda Williams", "description": "CPA with financial management expertise"}
+            ],
+            "start_date": "2024-03-01T00:00:00",
+            "end_date": "2024-03-15T23:59:59",
+            "max_votes_per_member": 3,
+            "status": "active"
+        },
+        2: {
+            "id": 2,
+            "title": "School Fundraising Initiative",
+            "description": "Choose the primary fundraising activity for this school year.",
+            "options": [
+                {"id": 6, "title": "Spring Carnival", "description": "Traditional carnival with games and food booths"},
+                {"id": 7, "title": "Silent Auction", "description": "Online auction featuring donated items and services"},
+                {"id": 8, "title": "Fun Run", "description": "Community fun run with sponsorship opportunities"}
+            ],
+            "start_date": "2024-02-15T00:00:00",
+            "end_date": "2024-02-28T23:59:59",
+            "max_votes_per_member": 1,
+            "status": "active"
+        }
     })
 
     PROPOSALS.clear()
@@ -335,24 +418,25 @@ def reset_data_store():
 
     VOTES.clear()
     VOTES.update({
-        1: {
-            "id": 1,
+        1: {"id": 1, "ballot_id": 2, "member_id": 1, "option_id": 6, "timestamp": "2024-02-16T10:30:00"},
+        2: {
+            "id": 2,
             "proposal_id": 1,
             "member_id": 1,
             "vote_choice": "yes",
             "timestamp": "2024-02-11T10:30:00",
             "is_anonymous": False
         },
-        2: {
-            "id": 2,
+        3: {
+            "id": 3,
             "proposal_id": 1,
             "member_id": 2,
             "vote_choice": "no",
             "timestamp": "2024-02-11T11:15:00",
             "is_anonymous": False
         },
-        3: {
-            "id": 3,
+        4: {
+            "id": 4,
             "proposal_id": 2,
             "member_id": 1,
             "vote_choice": "approve",

@@ -13,14 +13,14 @@ from datetime import datetime
 
 # Import our modules
 from api.data_store import (
-    BOOKS, AUTHORS, MEMBERS, LOANS, PROPOSALS, VOTES,
-    get_next_book_id, get_next_loan_id, get_next_member_id,
+    BOOKS, AUTHORS, MEMBERS, LOANS, BALLOTS, PROPOSALS, VOTES,
+    get_next_book_id, get_next_loan_id, get_next_member_id, get_next_ballot_id, get_next_vote_id,
     create_proposal, update_proposal, get_proposal, get_all_proposals,
     create_vote, get_vote_by_member_and_proposal, get_votes_for_proposal, update_vote, delete_vote
 )
 from api.validators import (
     validate_book, validate_book_update, validate_loan, validate_loan_return, validate_member,
-    validate_proposal, validate_vote, validate_proposal_update, validate_vote_update
+    validate_ballot_vote, validate_ballot, validate_proposal, validate_vote, validate_proposal_update, validate_vote_update
 )
 from api.auth import token_required, authenticate_member, generate_token
 
@@ -572,7 +572,188 @@ def get_loan_details(loan_id: int) -> Tuple[Dict[str, Any], int]:
         return {"error": "Failed to retrieve loan details"}, 500
 
 
-# PTA Voting System Endpoints
+# BALLOT VOTING SYSTEM (for elections with multiple candidates)
+
+@app.route("/ballots", methods=["GET"])
+def list_ballots() -> Tuple[List[Dict[str, Any]], int]:
+    """
+    List all active ballots available for voting.
+
+    Returns:
+        200: List of active ballots with options
+    """
+    try:
+        active_ballots = []
+        current_time = datetime.now().isoformat()
+
+        for ballot in BALLOTS.values():
+            # Only include active ballots that are within voting period
+            if ballot["status"] == "active" and ballot["start_date"] <= current_time <= ballot["end_date"]:
+                active_ballots.append(ballot)
+
+        # Sort by start date
+        active_ballots.sort(key=lambda x: x["start_date"])
+
+        return active_ballots, 200
+
+    except Exception as e:
+        print(f"List ballots error: {str(e)}")
+        return {"error": "Failed to retrieve ballots"}, 500
+
+
+@app.route("/ballots/<int:ballot_id>", methods=["GET"])
+def get_ballot(ballot_id: int) -> Tuple[Dict[str, Any], int]:
+    """
+    Get a specific ballot by ID.
+
+    Returns:
+        200: Ballot details with options
+        404: Ballot not found
+    """
+    try:
+        ballot = BALLOTS.get(ballot_id)
+        if not ballot:
+            return {"error": "Ballot not found"}, 404
+
+        return ballot, 200
+
+    except Exception as e:
+        print(f"Get ballot error: {str(e)}")
+        return {"error": "Failed to retrieve ballot"}, 500
+
+
+@app.route("/ballots/<int:ballot_id>/votes", methods=["POST"])
+@token_required
+def submit_ballot_vote(ballot_id: int) -> Tuple[Dict[str, Any], int]:
+    """
+    Submit a vote for a ballot option.
+
+    Request body:
+        {
+            "option_id": int
+        }
+
+    Returns:
+        201: Vote submitted successfully
+        400: Validation error
+        401: Authentication required
+        404: Ballot or option not found
+        409: Already voted
+    """
+    try:
+        data = request.get_json()
+        if not data:
+            return {"error": "Request body required"}, 400
+
+        # Get current user ID from the token
+        member_id = getattr(request, 'current_member_id', None)
+        if not member_id:
+            return {"error": "Authentication required"}, 401
+
+        # Add ballot_id and member_id to the data
+        data["ballot_id"] = ballot_id
+        data["member_id"] = member_id
+
+        # Validate vote data
+        is_valid, error_msg = validate_ballot_vote(data, member_id)
+        if not is_valid:
+            return {"error": error_msg}, 400
+
+        option_id = int(data["option_id"])
+        ballot = BALLOTS[ballot_id]  # We know it exists from validation
+
+        # Create the vote
+        vote_id = get_next_vote_id()
+        new_vote = {
+            "id": vote_id,
+            "ballot_id": ballot_id,
+            "member_id": member_id,
+            "option_id": option_id,
+            "timestamp": datetime.now().isoformat()
+        }
+
+        VOTES[vote_id] = new_vote
+
+        # Get option title for response
+        option_title = next((opt["title"] for opt in ballot["options"] if opt["id"] == option_id), "Unknown option")
+
+        return {
+            "vote_id": vote_id,
+            "ballot_id": ballot_id,
+            "ballot_title": ballot["title"],
+            "option_id": option_id,
+            "option_title": option_title,
+            "timestamp": new_vote["timestamp"],
+            "message": f"Vote successfully submitted for '{option_title}'"
+        }, 201
+
+    except ValueError as e:
+        return {"error": f"Invalid data format: {str(e)}"}, 400
+    except Exception as e:
+        print(f"Submit ballot vote error: {str(e)}")
+        return {"error": "Failed to submit vote"}, 500
+
+
+@app.route("/ballots/<int:ballot_id>/results", methods=["GET"])
+def get_ballot_results(ballot_id: int) -> Tuple[Dict[str, Any], int]:
+    """
+    Get voting results for a specific ballot.
+
+    Returns:
+        200: Ballot results with vote counts
+        404: Ballot not found
+    """
+    try:
+        ballot = BALLOTS.get(ballot_id)
+        if not ballot:
+            return {"error": "Ballot not found"}, 404
+
+        # Count votes for each option
+        vote_counts = {}
+        total_votes = 0
+
+        for vote in VOTES.values():
+            if vote.get("ballot_id") == ballot_id:
+                option_id = vote["option_id"]
+                vote_counts[option_id] = vote_counts.get(option_id, 0) + 1
+                total_votes += 1
+
+        # Build results with option details
+        results = []
+        for option in ballot["options"]:
+            option_id = option["id"]
+            vote_count = vote_counts.get(option_id, 0)
+            percentage = (vote_count / total_votes * 100) if total_votes > 0 else 0
+
+            results.append({
+                "option_id": option_id,
+                "option_title": option["title"],
+                "option_description": option["description"],
+                "vote_count": vote_count,
+                "percentage": round(percentage, 1)
+            })
+
+        # Sort by vote count (highest first)
+        results.sort(key=lambda x: x["vote_count"], reverse=True)
+
+        return {
+            "ballot_id": ballot_id,
+            "ballot_title": ballot["title"],
+            "ballot_description": ballot["description"],
+            "total_votes": total_votes,
+            "results": results,
+            "voting_period": {
+                "start_date": ballot["start_date"],
+                "end_date": ballot["end_date"]
+            }
+        }, 200
+
+    except Exception as e:
+        print(f"Get ballot results error: {str(e)}")
+        return {"error": "Failed to retrieve ballot results"}, 500
+
+
+# PROPOSAL VOTING SYSTEM (for yes/no decisions and simple choices)
 
 @app.route("/proposals", methods=["GET"])
 @token_required
@@ -638,6 +819,90 @@ def create_new_proposal() -> Tuple[Dict[str, Any], int]:
         if not data:
             return {"error": "Request body required"}, 400
 
+        # Get current user ID from the token (this is set by the @token_required decorator)
+        member_id = getattr(request, 'current_member_id', None)
+        if not member_id:
+            return {"error": "Authentication required"}, 401
+
+        # Validate vote data
+        is_valid, error_msg = validate_vote(data, member_id)
+        if not is_valid:
+            return {"error": error_msg}, 400
+
+        ballot_id = int(data["ballot_id"])
+        option_id = int(data["option_id"])
+        ballot = BALLOTS[ballot_id]  # We know it exists from validation
+
+        # Create the vote
+        vote_id = get_next_vote_id()
+        new_vote = {
+            "id": vote_id,
+            "ballot_id": ballot_id,
+            "member_id": member_id,
+            "option_id": option_id,
+            "timestamp": datetime.now().isoformat()
+        }
+
+        VOTES[vote_id] = new_vote
+
+        # Get option title for response
+        option_title = next((opt["title"] for opt in ballot["options"] if opt["id"] == option_id), "Unknown option")
+
+        return {
+            "vote_id": vote_id,
+            "ballot_id": ballot_id,
+            "ballot_title": ballot["title"],
+            "option_id": option_id,
+            "option_title": option_title,
+            "timestamp": new_vote["timestamp"],
+            "message": f"Vote successfully submitted for '{option_title}'"
+        }, 201
+
+    except ValueError as e:
+        return {"error": f"Invalid data format: {str(e)}"}, 400
+    except Exception as e:
+        print(f"Submit vote error: {str(e)}")
+        return {"error": "Failed to submit vote"}, 500
+
+
+@app.route("/votes/my-votes", methods=["GET"])
+@token_required
+def get_my_votes() -> Tuple[List[Dict[str, Any]], int]:
+    """
+    Get all votes submitted by the current user.
+
+    Returns:
+        200: List of user's votes with ballot and option details
+        401: Authentication required
+    """
+    try:
+        # Get current user ID from the token
+        member_id = getattr(request, 'current_member_id', None)
+        if not member_id:
+            return {"error": "Authentication required"}, 401
+
+        user_votes = []
+        for vote in VOTES.values():
+            if vote["member_id"] == member_id:
+                # Get ballot and option details
+                ballot = BALLOTS.get(vote["ballot_id"])
+                if ballot:
+                    option = next((opt for opt in ballot["options"] if opt["id"] == vote["option_id"]), None)
+
+                    vote_details = {
+                        "vote_id": vote["id"],
+                        "ballot_id": vote["ballot_id"],
+                        "ballot_title": ballot["title"],
+                        "option_id": vote["option_id"],
+                        "option_title": option["title"] if option else "Unknown option",
+                        "timestamp": vote["timestamp"]
+                    }
+                    user_votes.append(vote_details)
+
+        # Sort by timestamp (newest first)
+        user_votes.sort(key=lambda x: x["timestamp"], reverse=True)
+
+        return user_votes, 200
         # Add created_by from authentication token
         data["created_by"] = request.current_member_id
         data["created_date"] = datetime.now().strftime("%Y-%m-%d")
@@ -962,24 +1227,102 @@ def get_my_votes() -> Tuple[Dict[str, Any], int]:
 
         for vote in VOTES.values():
             if vote["member_id"] == current_member_id:
-                proposal = get_proposal(vote["proposal_id"])
-                if proposal:
-                    my_votes.append({
-                        "vote_id": vote["id"],
-                        "proposal_id": vote["proposal_id"],
-                        "proposal_title": proposal["title"],
-                        "vote_choice": vote["vote_choice"],
-                        "timestamp": vote["timestamp"],
-                        "is_anonymous": vote.get("is_anonymous", False),
-                        "proposal_status": proposal["status"],
-                        "proposal_closing_date": proposal["closing_date"]
-                    })
+                # Check if it's a ballot vote or proposal vote
+                if "ballot_id" in vote:
+                    # Ballot vote
+                    ballot = BALLOTS.get(vote["ballot_id"])
+                    if ballot:
+                        option = next((opt for opt in ballot["options"] if opt["id"] == vote["option_id"]), None)
+                        my_votes.append({
+                            "vote_id": vote["id"],
+                            "type": "ballot",
+                            "ballot_id": vote["ballot_id"],
+                            "ballot_title": ballot["title"],
+                            "option_id": vote["option_id"],
+                            "option_title": option["title"] if option else "Unknown option",
+                            "timestamp": vote["timestamp"]
+                        })
+                elif "proposal_id" in vote:
+                    # Proposal vote
+                    proposal = get_proposal(vote["proposal_id"])
+                    if proposal:
+                        my_votes.append({
+                            "vote_id": vote["id"],
+                            "type": "proposal",
+                            "proposal_id": vote["proposal_id"],
+                            "proposal_title": proposal["title"],
+                            "vote_choice": vote["vote_choice"],
+                            "timestamp": vote["timestamp"],
+                            "is_anonymous": vote.get("is_anonymous", False),
+                            "proposal_status": proposal["status"],
+                            "proposal_closing_date": proposal["closing_date"]
+                        })
 
         return {"my_votes": my_votes, "total_votes": len(my_votes)}, 200
 
     except Exception as e:
         print(f"Get my votes error: {str(e)}")
         return {"error": "Failed to retrieve votes"}, 500
+
+
+@app.route("/ballots/<int:ballot_id>/results", methods=["GET"])
+def get_ballot_results(ballot_id: int) -> Tuple[Dict[str, Any], int]:
+    """
+    Get voting results for a specific ballot.
+
+    Returns:
+        200: Ballot results with vote counts
+        404: Ballot not found
+    """
+    try:
+        ballot = BALLOTS.get(ballot_id)
+        if not ballot:
+            return {"error": "Ballot not found"}, 404
+
+        # Count votes for each option
+        vote_counts = {}
+        total_votes = 0
+
+        for vote in VOTES.values():
+            if vote["ballot_id"] == ballot_id:
+                option_id = vote["option_id"]
+                vote_counts[option_id] = vote_counts.get(option_id, 0) + 1
+                total_votes += 1
+
+        # Build results with option details
+        results = []
+        for option in ballot["options"]:
+            option_id = option["id"]
+            vote_count = vote_counts.get(option_id, 0)
+            percentage = (vote_count / total_votes * 100) if total_votes > 0 else 0
+
+            results.append({
+                "option_id": option_id,
+                "option_title": option["title"],
+                "option_description": option["description"],
+                "vote_count": vote_count,
+                "percentage": round(percentage, 1)
+            })
+
+        # Sort by vote count (highest first)
+        results.sort(key=lambda x: x["vote_count"], reverse=True)
+
+        return {
+            "ballot_id": ballot_id,
+            "ballot_title": ballot["title"],
+            "ballot_description": ballot["description"],
+            "total_votes": total_votes,
+            "results": results,
+            "voting_period": {
+                "start_date": ballot["start_date"],
+                "end_date": ballot["end_date"]
+            }
+        }, 200
+
+    except Exception as e:
+        print(f"Get ballot results error: {str(e)}")
+        return {"error": "Failed to retrieve ballot results"}, 500
+
 
 # Health check endpoint
 @app.route("/health", methods=["GET"])
@@ -992,7 +1335,7 @@ def health_check():
 def root():
     """Root endpoint with API information"""
     return {
-        "service": "Library Management API with PTA Voting System",
+        "service": "Library Management API with PTA Voting Systems (Ballots & Proposals)",
         "version": "1.0",
         "endpoints": {
             # Library API endpoints
@@ -1003,13 +1346,19 @@ def root():
             "borrow_book": "/loans/borrow",
             "return_book": "/loans/return",
             "loan_details": "/loans/{id}",
-            "voting_proposals": "/proposals",
+            # Ballot voting system (elections)
+            "ballots": "/ballots",
+            "ballot_detail": "/ballots/{id}",
+            "submit_ballot_vote": "/ballots/{id}/votes",
+            "ballot_results": "/ballots/{id}/results",
+            # Proposal voting system (decisions)
+            "proposals": "/proposals",
             "create_proposal": "/proposals",
             "proposal_details": "/proposals/{id}",
             "update_proposal": "/proposals/{id}",
-            "cast_vote": "/proposals/{id}/votes",
-            "update_vote": "/proposals/{id}/votes",
-            "delete_vote": "/proposals/{id}/votes",
+            "cast_proposal_vote": "/proposals/{id}/votes",
+            "update_proposal_vote": "/proposals/{id}/votes",
+            "delete_proposal_vote": "/proposals/{id}/votes",
             "my_votes": "/votes/my-votes",
             "health": "/health"
         }
