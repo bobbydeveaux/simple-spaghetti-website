@@ -1,5 +1,5 @@
 # Routes package for API endpoints
 
-from . import auth, protected, loans
+from . import auth, protected
 
-__all__ = ["auth", "protected", "loans"]
+__all__ = ["auth", "protected"]
