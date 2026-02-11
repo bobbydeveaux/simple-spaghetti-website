@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 // Create the context
 const VotingContext = createContext();
@@ -56,7 +56,7 @@ export const VotingProvider = ({ children }) => {
   };
 
   // Function to load ballots
-  const loadBallots = async () => {
+  const loadBallots = useCallback(async () => {
     try {
       setLoading(true);
       const data = await makeAuthenticatedRequest('/ballots');
@@ -68,10 +68,10 @@ export const VotingProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [authToken]);
 
   // Function to load user's votes
-  const loadMyVotes = async () => {
+  const loadMyVotes = useCallback(async () => {
     if (!isAuthenticated) return;
 
     try {
@@ -81,7 +81,7 @@ export const VotingProvider = ({ children }) => {
       console.error('Error loading user votes:', err);
       // Don't set error for this as it's not critical
     }
-  };
+  }, [isAuthenticated, authToken]);
 
   // Function to submit a vote
   const submitVote = async (ballotId, optionId) => {
@@ -169,7 +169,7 @@ export const VotingProvider = ({ children }) => {
       loadBallots();
       loadMyVotes();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, loadBallots, loadMyVotes]);
 
   // Get user's vote for a specific ballot
   const getUserVoteForBallot = (ballotId) => {
