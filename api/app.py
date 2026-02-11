@@ -9,13 +9,14 @@ import traceback
 from datetime import datetime
 from werkzeug.security import generate_password_hash
 from typing import Dict, List, Any, Tuple
+from datetime import datetime
 
 # Import our modules
 from api.data_store import (
     BOOKS, AUTHORS, MEMBERS, LOANS,
-    get_next_book_id, get_next_member_id
+    get_next_book_id, get_next_loan_id, get_next_member_id
 )
-from api.validators import validate_book, validate_book_update, validate_member
+from api.validators import validate_book, validate_book_update, validate_loan, validate_loan_return, validate_member
 from api.auth import token_required, authenticate_member, generate_token
 
 # Create Flask application
@@ -378,6 +379,188 @@ def delete_book(book_id: int) -> Tuple[Dict[str, str], int]:
         print(f"Delete book error: {str(e)}")
         return {"error": "Failed to delete book"}, 500
 
+
+# LOAN ENDPOINTS
+
+@app.route("/loans/borrow", methods=["POST"])
+@token_required
+def borrow_book() -> Tuple[Dict[str, Any], int]:
+    """
+    Borrow a book by creating a new loan record.
+
+    Request body:
+        {
+            "book_id": int,
+            "member_id": int
+        }
+
+    Returns:
+        201: Loan created successfully
+        400: Validation error
+        401: Unauthorized
+        404: Book or member not found
+        500: Internal server error
+    """
+    try:
+        data = request.get_json()
+        if not data:
+            return {"error": "Request body required"}, 400
+
+        # Validate loan data
+        is_valid, error_msg = validate_loan(data)
+        if not is_valid:
+            return {"error": error_msg}, 400
+
+        # Get book and member details for response
+        book_id = int(data["book_id"])
+        member_id = int(data["member_id"])
+
+        book = BOOKS[book_id]
+        member = MEMBERS[member_id]
+
+        # Create the loan
+        loan_id = get_next_loan_id()
+        borrow_date = datetime.now().strftime("%Y-%m-%d")
+
+        new_loan = {
+            "id": loan_id,
+            "book_id": book_id,
+            "member_id": member_id,
+            "borrow_date": borrow_date,
+            "return_date": None,
+            "status": "borrowed"
+        }
+
+        # Add loan to data store
+        LOANS[loan_id] = new_loan
+
+        # Decrease available copies of the book
+        book["available_copies"] -= 1
+
+        # Return loan details
+        return {
+            "loan_id": loan_id,
+            "book_id": book_id,
+            "member_id": member_id,
+            "borrow_date": borrow_date,
+            "book_title": book["title"],
+            "member_name": member["name"],
+            "status": "borrowed",
+            "message": f"Book '{book['title']}' successfully borrowed by {member['name']}"
+        }, 201
+
+    except KeyError as e:
+        return {"error": f"Resource not found: {str(e)}"}, 404
+    except Exception as e:
+        print(f"Borrow book error: {str(e)}")
+        return {"error": "Failed to borrow book"}, 500
+
+
+@app.route("/loans/return", methods=["POST"])
+@token_required
+def return_book() -> Tuple[Dict[str, Any], int]:
+    """
+    Return a borrowed book by updating the loan record.
+
+    Request body:
+        {
+            "loan_id": int
+        }
+
+    Returns:
+        200: Book returned successfully
+        400: Validation error
+        401: Unauthorized
+        404: Loan not found
+        500: Internal server error
+    """
+    try:
+        data = request.get_json()
+        if not data:
+            return {"error": "Request body required"}, 400
+
+        if "loan_id" not in data:
+            return {"error": "Missing required field: loan_id"}, 400
+
+        loan_id = int(data["loan_id"])
+
+        # Validate loan return
+        is_valid, error_msg = validate_loan_return(loan_id)
+        if not is_valid:
+            return {"error": error_msg}, 400
+
+        # Get loan, book, and member details
+        loan = LOANS[loan_id]
+        book = BOOKS[loan["book_id"]]
+        member = MEMBERS[loan["member_id"]]
+
+        # Update the loan
+        return_date = datetime.now().strftime("%Y-%m-%d")
+        loan["return_date"] = return_date
+        loan["status"] = "returned"
+
+        # Increase available copies of the book
+        book["available_copies"] += 1
+
+        return {
+            "loan_id": loan_id,
+            "book_id": loan["book_id"],
+            "member_id": loan["member_id"],
+            "borrow_date": loan["borrow_date"],
+            "return_date": return_date,
+            "book_title": book["title"],
+            "member_name": member["name"],
+            "status": "returned",
+            "message": f"Book '{book['title']}' successfully returned by {member['name']}"
+        }, 200
+
+    except KeyError as e:
+        return {"error": f"Resource not found: {str(e)}"}, 404
+    except ValueError as e:
+        return {"error": f"Invalid loan_id: {str(e)}"}, 400
+    except Exception as e:
+        print(f"Return book error: {str(e)}")
+        return {"error": "Failed to return book"}, 500
+
+
+@app.route("/loans/<int:loan_id>", methods=["GET"])
+@token_required
+def get_loan_details(loan_id: int) -> Tuple[Dict[str, Any], int]:
+    """
+    Get details of a specific loan by ID.
+
+    Returns:
+        200: Loan details
+        401: Unauthorized
+        404: Loan not found
+        500: Internal server error
+    """
+    try:
+        if loan_id not in LOANS:
+            return {"error": f"Loan with ID {loan_id} not found"}, 404
+
+        loan = LOANS[loan_id]
+        book = BOOKS[loan["book_id"]]
+        member = MEMBERS[loan["member_id"]]
+
+        return {
+            "loan_id": loan["id"],
+            "book_id": loan["book_id"],
+            "member_id": loan["member_id"],
+            "borrow_date": loan["borrow_date"],
+            "return_date": loan.get("return_date"),
+            "book_title": book["title"],
+            "member_name": member["name"],
+            "status": loan["status"]
+        }, 200
+
+    except KeyError as e:
+        return {"error": f"Related resource not found: {str(e)}"}, 404
+    except Exception as e:
+        print(f"Get loan error: {str(e)}")
+        return {"error": "Failed to retrieve loan details"}, 500
+
+
 # Health check endpoint
 @app.route("/health", methods=["GET"])
 def health_check():
@@ -396,6 +579,9 @@ def root():
             "member_registration": "/members",
             "books": "/books",
             "book_detail": "/books/{id}",
+            "borrow_book": "/loans/borrow",
+            "return_book": "/loans/return",
+            "loan_details": "/loans/{id}",
             "health": "/health"
         }
     }, 200

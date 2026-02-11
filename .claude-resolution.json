@@ -1,6 +1,6 @@
 {
   "method": "ai-assisted",
   "filesResolved": 2,
-  "summary": "Resolved merge conflicts in .claude-output.json and .pr-number by keeping the appropriate content for PR #106 (JWT authentication implementation)",
-  "strategyUsed": "For .pr-number, kept the current PR number 106. For .claude-output.json, kept the HEAD version (JWT authentication implementation) as it matches the feature branch feature/97-library-api-sprint-1-issue-97 and PR #106 context."
+  "summary": "Successfully merged member registration functionality (origin/main) with loan management functionality (HEAD) by combining imports, validators, and PR descriptions. Both features are now available in the unified codebase.",
+  "strategyUsed": "preserved both changes - combined import statements for all required functions (get_next_member_id, get_next_loan_id, validate_member, validate_loan, validate_loan_return) and merged PR descriptions to document both member registration and loan management features"
 }

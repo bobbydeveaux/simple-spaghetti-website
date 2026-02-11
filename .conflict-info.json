@@ -1,10 +1,10 @@
 {
-  "prNumber": 106,
+  "prNumber": 107,
   "baseBranch": "main",
-  "headBranch": "feature/97-library-api-sprint-1-issue-97",
+  "headBranch": "feature/101-library-api-sprint-2-issue-101",
   "conflictedFiles": [
     ".claude-output.json",
-    ".pr-number"
+    "api/app.py"
   ],
   "conflictCount": 2
 }
