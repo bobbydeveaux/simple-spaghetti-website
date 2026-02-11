@@ -1,6 +1,6 @@
 {
   "method": "ai-assisted",
   "filesResolved": 4,
-  "summary": "Successfully merged two complementary PTA voting systems by preserving both ballot-based elections and proposal-based decision making functionality. Created a unified system that supports both voting mechanisms with comprehensive validation, thread-safe operations, and proper authentication. The merge combined the best features from both implementations.",
-  "strategyUsed": "merged both systems by preserving ballot functionality from HEAD (elections with multiple candidates) and proposal functionality from origin/main (decision voting with thread-safety). Unified data structures to support both BALLOTS and PROPOSALS, combined validation functions for both systems, integrated API endpoints with proper namespacing, and maintained thread-safe operations throughout. The result is a comprehensive voting platform supporting both election-style and decision-based voting."
+  "summary": "Successfully resolved conflicts by creating unified implementations that support both FastAPI and Flask architectures. Combined authentication middleware, data models, and documentation to preserve functionality from both branches while enabling dual-framework compatibility.",
+  "strategyUsed": "unified-architecture - Created hybrid implementations supporting both Pydantic (FastAPI) and dataclass (Flask) patterns. For middleware, implemented conditional imports and framework detection to provide FastAPI dependencies and Flask decorators from the same codebase. For models, used feature detection to dynamically select appropriate implementations. For documentation, merged both PR descriptions to reflect the comprehensive nature of the combined implementation."
 }

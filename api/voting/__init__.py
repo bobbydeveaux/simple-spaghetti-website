@@ -1,4 +1,4 @@
 """
-PTA Voting System - Authentication and Session Management
-Sprint 1: Data Store and Voter Authentication
+PTA Voting System - Comprehensive Elections and Authentication
+Provides voter authentication, session management, and dual voting mechanisms for PTA elections.
 """
