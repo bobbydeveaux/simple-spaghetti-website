@@ -1,10 +1,12 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { RecipeProvider } from './context/RecipeContext';
+import { VotingProvider } from './context/VotingContext';
 import Navigation from './components/Navigation';
 import RecipeList from './components/RecipeList';
 import RecipeDetail from './components/RecipeDetail';
 import VotingApp from './voting/App';
+import VotingPage from './components/VotingPage';
 
 // Simple About component
 const About = () => (
@@ -35,19 +37,22 @@ const About = () => (
 function App() {
   return (
     <RecipeProvider>
-      <Router>
-        <div className="min-h-screen bg-gray-50">
-          <Navigation />
-          <main className="py-8">
-            <Routes>
-              <Route path="/" element={<RecipeList />} />
-              <Route path="/recipe/:id" element={<RecipeDetail />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/voting/*" element={<VotingApp />} />
-            </Routes>
-          </main>
-        </div>
-      </Router>
+      <VotingProvider>
+        <Router>
+          <div className="min-h-screen bg-gray-50">
+            <Navigation />
+            <main className="py-8">
+              <Routes>
+                <Route path="/" element={<RecipeList />} />
+                <Route path="/recipe/:id" element={<RecipeDetail />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/voting/*" element={<VotingApp />} />
+                <Route path="/voting-simple" element={<VotingPage />} />
+              </Routes>
+            </main>
+          </div>
+        </Router>
+      </VotingProvider>
     </RecipeProvider>
   );
 }
