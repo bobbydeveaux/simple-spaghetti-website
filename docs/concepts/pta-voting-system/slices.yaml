@@ -1,0 +1,35 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: pta-voting-system-feat-data-store-auth
+        name: Data Store and Authentication
+        type: enabler
+        files: [api/voting/data_store.py api/voting/models.py api/voting/middleware.py api/voting/services.py]
+      - id: pta-voting-system-feat-voter-ui
+        name: Voter Authentication UI
+        type: feature
+        files: [src/voting/pages/VoterLogin.jsx src/voting/context/AuthContext.jsx src/voting/api/votingApi.js]
+  - number: 2
+    features:
+      - id: pta-voting-system-feat-candidate-management
+        name: Candidate Management
+        type: feature
+        files: [api/voting/admin_routes.py src/voting/pages/admin/CandidateManagement.jsx src/voting/components/CandidateCard.jsx]
+      - id: pta-voting-system-feat-admin-panel
+        name: Admin Panel and Audit Logs
+        type: feature
+        files: [api/voting/admin_routes.py src/voting/pages/admin/Dashboard.jsx src/voting/pages/admin/ElectionManagement.jsx src/voting/pages/admin/AuditLogs.jsx]
+  - number: 3
+    features:
+      - id: pta-voting-system-feat-ballot-voting
+        name: Ballot and Voting System
+        type: feature
+        files: [api/voting/routes.py api/voting/services.py src/voting/pages/Ballot.jsx src/voting/components/PositionBallot.jsx]
+  - number: 4
+    features:
+      - id: pta-voting-system-feat-live-results
+        name: Live Results Dashboard
+        type: feature
+        files: [api/voting/routes.py api/voting/services.py src/voting/pages/Results.jsx]

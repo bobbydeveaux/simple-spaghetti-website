@@ -1,6 +1,7 @@
 Epic: pta-voting-system
 Features:
-- dependencies: []
+- Sprint: 1
+  dependencies: []
   description: In-memory data store with thread-safe access, voter email/code authentication,
     and session management with JWT tokens
   estimatedComplexity: medium
@@ -13,7 +14,8 @@ Features:
   name: Data Store and Authentication
   project: simple-spaghetti-repo
   type: enabler
-- dependencies:
+- Sprint: 2
+  dependencies:
   - pta-voting-system-feat-data-store-auth
   description: Admin functionality to add, edit, and manage candidates for each position
     with profile information
@@ -26,7 +28,8 @@ Features:
   name: Candidate Management
   project: simple-spaghetti-repo
   type: feature
-- dependencies:
+- Sprint: 3
+  dependencies:
   - pta-voting-system-feat-data-store-auth
   - pta-voting-system-feat-candidate-management
   description: Voter ballot interface displaying all positions and candidates, vote
@@ -41,7 +44,8 @@ Features:
   name: Ballot and Voting System
   project: simple-spaghetti-repo
   type: feature
-- dependencies:
+- Sprint: 4
+  dependencies:
   - pta-voting-system-feat-ballot-voting
   description: Public real-time results dashboard with vote counts, percentages, and
     visual charts that update as votes are cast
@@ -54,7 +58,8 @@ Features:
   name: Live Results Dashboard
   project: simple-spaghetti-repo
   type: feature
-- dependencies:
+- Sprint: 2
+  dependencies:
   - pta-voting-system-feat-data-store-auth
   description: Admin dashboard for election configuration, audit log viewing, and
     election status management
@@ -68,7 +73,8 @@ Features:
   name: Admin Panel and Audit Logs
   project: simple-spaghetti-repo
   type: feature
-- dependencies:
+- Sprint: 1
+  dependencies:
   - pta-voting-system-feat-data-store-auth
   description: Frontend voter login flow with email/code verification and session
     management
