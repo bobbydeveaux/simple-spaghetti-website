@@ -1,23 +1,10 @@
 {
-  "prNumber": 129,
+  "prNumber": 132,
   "baseBranch": "main",
-  "headBranch": "feature/115-pta-voting-system-sprint-1-issue-115",
+  "headBranch": "feature/121-pta-voting-system-sprint-2-issue-121",
   "conflictedFiles": [
     ".claude-output.json",
-    "api/voting/__init__.py",
-    "api/voting/data_store.py",
-    "api/voting/middleware.py",
-    "api/voting/models.py",
-    "api/voting/routes.py",
-    "dist/index.html",
-    "node_modules/.package-lock.json",
-    "node_modules/axios/LICENSE",
-    "package-lock.json",
-    "src/App.jsx",
-    "src/components/Navigation.jsx",
-    "src/voting/api/votingApi.js",
-    "src/voting/context/AuthContext.jsx",
-    "src/voting/pages/VoterLogin.jsx"
+    "test_admin_endpoints.py"
   ],
-  "conflictCount": 15
+  "conflictCount": 2
 }

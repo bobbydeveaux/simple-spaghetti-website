@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Test script for admin endpoints in PTA Voting System
-Tests candidate management and audit log functionality
+Tests candidate management, audit log functionality, and all admin API endpoints
 """
 
 import requests
@@ -52,6 +52,64 @@ def admin_login():
     except Exception as e:
         log_test("Admin login", False, f"Exception: {str(e)}")
         return False
+
+def test_admin_dashboard():
+    """Test admin dashboard endpoint"""
+    print("\n=== Testing Admin Dashboard ===")
+
+    if not admin_token:
+        log_test("Admin dashboard", False, "No admin token available")
+        return False
+
+    headers = {
+        "Authorization": f"Bearer {admin_token}",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        response = requests.get(f"{BASE_URL}/admin/dashboard", headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            stats = data.get('dashboard', {})
+            total_voters = stats.get('total_voters', 0)
+            active_sessions = stats.get('active_sessions', 0)
+            log_test("Get dashboard stats", True, f"Voters: {total_voters}, Sessions: {active_sessions}")
+        else:
+            log_test("Get dashboard stats", False, f"Status {response.status_code}: {response.text}")
+            return False
+    except Exception as e:
+        log_test("Get dashboard stats", False, f"Exception: {str(e)}")
+        return False
+
+    return True
+
+def test_voter_management():
+    """Test voter management endpoints"""
+    print("\n=== Testing Voter Management ===")
+
+    if not admin_token:
+        log_test("Voter management", False, "No admin token available")
+        return False
+
+    headers = {
+        "Authorization": f"Bearer {admin_token}",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        response = requests.get(f"{BASE_URL}/admin/voters", headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            voter_count = len(data.get('voters', []))
+            log_test("Get all voters", True, f"Found {voter_count} voters")
+        else:
+            log_test("Get all voters", False, f"Status {response.status_code}: {response.text}")
+            return False
+    except Exception as e:
+        log_test("Get all voters", False, f"Exception: {str(e)}")
+        return False
+
+    return True
 
 def test_candidate_management():
     """Test candidate CRUD operations"""
@@ -206,6 +264,64 @@ def test_audit_logs():
 
     return True
 
+def test_election_management():
+    """Test election management endpoint"""
+    print("\n=== Testing Election Management ===")
+
+    if not admin_token:
+        log_test("Election management", False, "No admin token available")
+        return False
+
+    headers = {
+        "Authorization": f"Bearer {admin_token}",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        response = requests.get(f"{BASE_URL}/admin/elections", headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            election_data = data.get('election', {})
+            positions_count = len(election_data.get('positions', []))
+            log_test("Get election data", True, f"Election has {positions_count} positions")
+        else:
+            log_test("Get election data", False, f"Status {response.status_code}: {response.text}")
+            return False
+    except Exception as e:
+        log_test("Get election data", False, f"Exception: {str(e)}")
+        return False
+
+    return True
+
+def test_results_analysis():
+    """Test results analysis endpoint"""
+    print("\n=== Testing Results Analysis ===")
+
+    if not admin_token:
+        log_test("Results analysis", False, "No admin token available")
+        return False
+
+    headers = {
+        "Authorization": f"Bearer {admin_token}",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        response = requests.get(f"{BASE_URL}/admin/results", headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            results = data.get('results', {})
+            total_votes = results.get('total_votes', 0)
+            log_test("Get voting results", True, f"Total votes analyzed: {total_votes}")
+        else:
+            log_test("Get voting results", False, f"Status {response.status_code}: {response.text}")
+            return False
+    except Exception as e:
+        log_test("Get voting results", False, f"Exception: {str(e)}")
+        return False
+
+    return True
+
 def test_admin_statistics():
     """Test admin statistics endpoint"""
     print("\n=== Testing Admin Statistics ===")
@@ -271,22 +387,35 @@ def main():
         print("\n❌ Cannot proceed without admin authentication")
         return False
 
-    # Step 2: Test candidate management
+    # Step 2: Test all admin endpoints
+    dashboard_success = test_admin_dashboard()
+    voter_success = test_voter_management()
     candidate_success = test_candidate_management()
-
-    # Step 3: Test audit logs
     audit_success = test_audit_logs()
-
-    # Step 4: Test admin statistics
+    election_success = test_election_management()
+    results_success = test_results_analysis()
     stats_success = test_admin_statistics()
 
-    # Step 5: Cleanup
+    # Step 3: Cleanup
     cleanup_test_data()
 
     # Summary
     print("\n" + "=" * 50)
-    if candidate_success and audit_success and stats_success:
+    all_tests_passed = all([
+        dashboard_success, voter_success, candidate_success,
+        audit_success, election_success, results_success, stats_success
+    ])
+
+    if all_tests_passed:
         print("🎉 All admin endpoint tests passed!")
+        print("\n📋 Tested Admin Endpoints:")
+        print("   • GET /api/voting/admin/dashboard - System overview and statistics")
+        print("   • GET /api/voting/admin/voters - List all voters with pagination")
+        print("   • GET /api/voting/admin/candidates - Candidate management (CRUD)")
+        print("   • GET /api/voting/admin/audit - Audit trail with filtering")
+        print("   • GET /api/voting/admin/elections - Election management info")
+        print("   • GET /api/voting/admin/results - Comprehensive voting results")
+        print("   • GET /api/voting/admin/statistics - Admin statistics")
         return True
     else:
         print("❌ Some admin endpoint tests failed")
