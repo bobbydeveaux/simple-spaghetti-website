@@ -10,7 +10,6 @@ import re
 # Import existing JWT utilities
 from api.utils.jwt_manager import JWTManager
 from .data_store import voting_data_store
-from .models import generate_session_id
 
 
 # Create Blueprint for voting routes
