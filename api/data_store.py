@@ -9,8 +9,9 @@ from werkzeug.security import generate_password_hash
 # Auto-increment ID generators
 BOOK_ID_COUNTER = 5
 AUTHOR_ID_COUNTER = 3
-MEMBER_ID_COUNTER = 2
+MEMBER_ID_COUNTER = 3
 LOAN_ID_COUNTER = 1
+AUDIT_LOG_ID_COUNTER = 0
 
 # In-memory data dictionaries
 BOOKS = {
@@ -80,14 +81,27 @@ MEMBERS = {
         "name": "John Doe",
         "email": "john.doe@email.com",
         "password_hash": generate_password_hash("password123"),
-        "registration_date": "2024-01-15"
+        "registration_date": "2024-01-15",
+        "role": "user",
+        "status": "active"
     },
     2: {
         "id": 2,
         "name": "Jane Smith",
         "email": "jane.smith@email.com",
         "password_hash": generate_password_hash("securepass456"),
-        "registration_date": "2024-01-20"
+        "registration_date": "2024-01-20",
+        "role": "user",
+        "status": "active"
+    },
+    3: {
+        "id": 3,
+        "name": "Admin User",
+        "email": "admin@library.com",
+        "password_hash": generate_password_hash("admin123"),
+        "registration_date": "2024-01-01",
+        "role": "admin",
+        "status": "active"
     }
 }
 
@@ -100,6 +114,26 @@ LOANS = {
         "return_date": None,
         "status": "borrowed"
     }
+}
+
+# Audit logging data structure
+AUDIT_LOGS = {
+    # Example structure - will be populated by audit logging service
+    # {
+    #     "id": int,
+    #     "timestamp": "YYYY-MM-DD HH:MM:SS",
+    #     "user_id": int,
+    #     "user_email": "string",
+    #     "action": "CREATE|UPDATE|DELETE|LOGIN|LOGOUT|BORROW|RETURN",
+    #     "resource_type": "book|member|loan|author",
+    #     "resource_id": int,
+    #     "old_value": dict,  # Previous state of resource (for updates/deletes)
+    #     "new_value": dict,  # New state of resource (for creates/updates)
+    #     "status": "success|failed",
+    #     "ip_address": "string",
+    #     "user_agent": "string",
+    #     "details": "string"  # Additional context or error messages
+    # }
 }
 
 def get_next_book_id():
@@ -126,15 +160,22 @@ def get_next_loan_id():
     LOAN_ID_COUNTER += 1
     return LOAN_ID_COUNTER
 
+def get_next_audit_log_id():
+    """Generate next auto-increment ID for audit logs"""
+    global AUDIT_LOG_ID_COUNTER
+    AUDIT_LOG_ID_COUNTER += 1
+    return AUDIT_LOG_ID_COUNTER
+
 def reset_data_store():
     """Reset data store to initial state (useful for testing)"""
-    global BOOK_ID_COUNTER, AUTHOR_ID_COUNTER, MEMBER_ID_COUNTER, LOAN_ID_COUNTER
-    global BOOKS, AUTHORS, MEMBERS, LOANS
+    global BOOK_ID_COUNTER, AUTHOR_ID_COUNTER, MEMBER_ID_COUNTER, LOAN_ID_COUNTER, AUDIT_LOG_ID_COUNTER
+    global BOOKS, AUTHORS, MEMBERS, LOANS, AUDIT_LOGS
 
     BOOK_ID_COUNTER = 5
     AUTHOR_ID_COUNTER = 3
-    MEMBER_ID_COUNTER = 2
+    MEMBER_ID_COUNTER = 3
     LOAN_ID_COUNTER = 1
+    AUDIT_LOG_ID_COUNTER = 0
 
     # Reset to original sample data
     BOOKS.clear()
@@ -155,11 +196,15 @@ def reset_data_store():
 
     MEMBERS.clear()
     MEMBERS.update({
-        1: {"id": 1, "name": "John Doe", "email": "john.doe@email.com", "password_hash": generate_password_hash("password123"), "registration_date": "2024-01-15"},
-        2: {"id": 2, "name": "Jane Smith", "email": "jane.smith@email.com", "password_hash": generate_password_hash("securepass456"), "registration_date": "2024-01-20"}
+        1: {"id": 1, "name": "John Doe", "email": "john.doe@email.com", "password_hash": generate_password_hash("password123"), "registration_date": "2024-01-15", "role": "user", "status": "active"},
+        2: {"id": 2, "name": "Jane Smith", "email": "jane.smith@email.com", "password_hash": generate_password_hash("securepass456"), "registration_date": "2024-01-20", "role": "user", "status": "active"},
+        3: {"id": 3, "name": "Admin User", "email": "admin@library.com", "password_hash": generate_password_hash("admin123"), "registration_date": "2024-01-01", "role": "admin", "status": "active"}
     })
 
     LOANS.clear()
     LOANS.update({
         1: {"id": 1, "book_id": 3, "member_id": 1, "borrow_date": "2024-02-01", "return_date": None, "status": "borrowed"}
     })
+
+    AUDIT_LOGS.clear()
+    # Audit logs will be populated as actions are performed
