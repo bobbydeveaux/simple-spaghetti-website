@@ -1,0 +1,1 @@
+"""Voting system module for PTA elections."""
