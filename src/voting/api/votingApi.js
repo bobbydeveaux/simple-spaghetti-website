@@ -90,14 +90,14 @@ export const verifyCode = async (email, code) => {
 /**
  * Admin login
  */
-export const adminLogin = async (username, password) => {
+export const adminLogin = async (email, password) => {
     if (useAxios) {
         // FastAPI doesn't have admin login endpoint, simulate response
         throw new Error('Admin login not supported in FastAPI mode');
     } else {
         return fetchAPI.request('/auth/admin-login', {
             method: 'POST',
-            body: { username, password },
+            body: { email, password },
         });
     }
 };

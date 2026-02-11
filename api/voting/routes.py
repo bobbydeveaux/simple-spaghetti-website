@@ -12,6 +12,10 @@ from datetime import datetime
 from api.utils.jwt_manager import JWTManager
 from api.utils.password import verify_password
 from api.utils.rate_limiter import auth_rate_limit, admin_rate_limit, code_request_limit
+from api.utils.sanitizer import (
+    sanitize_email, sanitize_password, sanitize_verification_code,
+    sanitize_position_name, sanitize_text_input
+)
 from api.config import settings
 from .data_store import voting_data_store
 
@@ -38,13 +42,6 @@ voting_bp = Blueprint('voting', __name__, url_prefix='/api/voting')
 jwt_manager = JWTManager()
 
 
-def validate_email(email: str) -> bool:
-    """Validate email format."""
-    if not email or len(email) > 254:
-        return False
-
-    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return bool(re.match(email_pattern, email))
 
 
 @voting_bp.route('/auth/request-code', methods=['POST'])
@@ -67,12 +64,13 @@ def request_verification_code() -> Tuple[Dict[str, Any], int]:
         if not data:
             return {"error": "Request body required"}, 400
 
-        email = data.get("email", "").strip()
-        if not email:
-            return {"error": "Email is required"}, 400
+        raw_email = data.get("email", "")
 
-        if not validate_email(email):
-            return {"error": "Invalid email format"}, 400
+        # Sanitize and validate email
+        try:
+            email = sanitize_email(raw_email)
+        except ValueError as e:
+            return {"error": str(e)}, 400
 
         # Create or get voter
         voter = voting_data_store.create_or_get_voter(email)
@@ -122,14 +120,20 @@ def verify_code() -> Tuple[Dict[str, Any], int]:
         if not data:
             return {"error": "Request body required"}, 400
 
-        email = data.get("email", "").strip()
-        code = data.get("code", "").strip()
+        raw_email = data.get("email", "")
+        raw_code = data.get("code", "")
 
-        if not email or not code:
-            return {"error": "Email and code are required"}, 400
+        # Sanitize and validate email
+        try:
+            email = sanitize_email(raw_email)
+        except ValueError as e:
+            return {"error": str(e)}, 400
 
-        if not validate_email(email):
-            return {"error": "Invalid email format"}, 400
+        # Sanitize and validate verification code
+        try:
+            code = sanitize_verification_code(raw_code)
+        except ValueError as e:
+            return {"error": str(e)}, 400
 
         # Get and use verification code
         voter_id = voting_data_store.use_verification_code(code)
@@ -185,14 +189,20 @@ def admin_login() -> Tuple[Dict[str, Any], int]:
         if not data:
             return {"error": "Request body required"}, 400
 
-        email = data.get("email", "").strip().lower()
-        password = data.get("password", "").strip()
+        raw_email = data.get("email", "")
+        raw_password = data.get("password", "")
 
-        if not email or not password:
-            return {"error": "Email and password are required"}, 400
+        # Sanitize and validate email
+        try:
+            email = sanitize_email(raw_email)
+        except ValueError as e:
+            return {"error": str(e)}, 400
 
-        if not validate_email(email):
-            return {"error": "Invalid email format"}, 400
+        # Sanitize password (basic validation only)
+        try:
+            password = sanitize_password(raw_password)
+        except ValueError as e:
+            return {"error": str(e)}, 400
 
         # Get admin from database
         admin = voting_data_store.get_admin_by_email(email)
@@ -373,14 +383,24 @@ def add_election_position():
 
     try:
         data = request.get_json()
-        position = data.get('position', '').strip()
+        raw_position = data.get('position', '')
 
-        if not position:
+        if not raw_position:
             return {"error": "Position name is required"}, 400
+
+        # Sanitize position name to prevent XSS and validate format
+        try:
+            position = sanitize_position_name(raw_position)
+        except ValueError as e:
+            return {"error": f"Invalid position name: {str(e)}"}, 400
 
         election = voting_data_store.get_active_election()
         if not election:
             return {"error": "No active election found"}, 404
+
+        # Check if position already exists
+        if position in election.positions:
+            return {"error": f"Position '{position}' already exists"}, 409
 
         # Add position to election
         election.add_position(position)
@@ -401,20 +421,30 @@ def remove_election_position(position: str):
         return error_response
 
     try:
+        # Sanitize position parameter from URL
+        try:
+            sanitized_position = sanitize_position_name(position)
+        except ValueError as e:
+            return {"error": f"Invalid position name: {str(e)}"}, 400
+
         election = voting_data_store.get_active_election()
         if not election:
             return {"error": "No active election found"}, 404
 
+        # Check if position exists
+        if sanitized_position not in election.positions:
+            return {"error": f"Position '{sanitized_position}' not found"}, 404
+
         # Remove position from election
         if hasattr(election, 'positions'):
             if isinstance(election.positions, set):
-                election.positions.discard(position)
+                election.positions.discard(sanitized_position)
             elif isinstance(election.positions, list):
-                if position in election.positions:
-                    election.positions.remove(position)
+                if sanitized_position in election.positions:
+                    election.positions.remove(sanitized_position)
 
         return {
-            "message": f"Position '{position}' removed successfully",
+            "message": f"Position '{sanitized_position}' removed successfully",
             "positions": list(election.positions)
         }, 200
 
