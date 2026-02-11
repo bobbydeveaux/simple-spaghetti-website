@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 
 const ElectionManagement = () => {
-  const { user } = useAuth();
+  // Note: useAuth is available but not currently used in this component
+  useAuth();
 
   // Get token from localStorage since AuthContext doesn't expose it directly
   const token = localStorage.getItem('auth_token');
@@ -27,7 +28,7 @@ const ElectionManagement = () => {
     'CLOSED': 'bg-gray-100 text-gray-800'
   };
 
-  const fetchElection = async () => {
+  const fetchElection = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -53,7 +54,7 @@ const ElectionManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
 
   const updateElectionStatus = async (newStatus) => {
     try {
@@ -168,13 +169,13 @@ const ElectionManagement = () => {
 
   useEffect(() => {
     fetchElection();
-  }, []);
+  }, [fetchElection]);
 
   // Auto refresh election status every 30 seconds
   useEffect(() => {
     const interval = setInterval(fetchElection, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchElection]);
 
   if (loading && !election) {
     return (
