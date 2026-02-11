@@ -1,1 +1,4 @@
-"""Voting system module for PTA elections."""
+"""
+PTA Voting System - Comprehensive Elections and Authentication
+Provides voter authentication, session management, and dual voting mechanisms for PTA elections.
+"""

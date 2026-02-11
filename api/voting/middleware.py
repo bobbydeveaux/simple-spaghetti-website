@@ -1,13 +1,34 @@
-"""Authentication middleware for PTA voting system."""
+"""
+PTA Voting System Middleware
+Unified authentication and authorization middleware supporting both FastAPI and Flask.
+"""
 
-from fastapi import HTTPException, Header, Depends
-from typing import Optional
-import jwt
+# Standard library imports
+from functools import wraps
 from datetime import datetime
+from typing import Optional, Callable, Any, Union, Tuple
+import jwt
 
-from api.utils.jwt_manager import jwt_manager
-from api.voting.models import Session
+# Framework-specific imports (conditional)
+try:
+    from fastapi import HTTPException, Header, Depends
+    FASTAPI_AVAILABLE = True
+except ImportError:
+    FASTAPI_AVAILABLE = False
 
+try:
+    from flask import request, jsonify, g
+    FLASK_AVAILABLE = True
+except ImportError:
+    FLASK_AVAILABLE = False
+
+# Local imports
+from api.voting.models import Session, Voter
+
+
+# ============================================================================
+# Exception Classes
+# ============================================================================
 
 class VotingAuthenticationError(Exception):
     """Base exception for voting authentication errors."""
@@ -24,42 +45,60 @@ class SessionExpiredError(VotingAuthenticationError):
     pass
 
 
-# Placeholder for validate_session function - will be replaced when services.py is implemented
-def validate_session_placeholder(token: str) -> Session:
+# ============================================================================
+# Token Extraction and Session Validation
+# ============================================================================
+
+def get_token_from_header(authorization: Optional[str] = None) -> Optional[str]:
     """
-    Placeholder for validate_session function.
+    Extract JWT token from Authorization header.
 
-    This is a temporary implementation until api/voting/services.py is created
-    with the actual validate_session function. The real implementation should:
-    1. Decode JWT using jwt_manager
-    2. Lookup session in data store
-    3. Check expiration
-    4. Return session or raise appropriate errors
+    Works with both FastAPI (via parameter) and Flask (via request).
+    """
+    if authorization is None:
+        # Flask mode - get from request
+        if FLASK_AVAILABLE:
+            authorization = request.headers.get('Authorization', '')
+        else:
+            return None
 
-    Args:
-        token: JWT token string
+    if not authorization or not authorization.startswith('Bearer '):
+        return None
 
-    Returns:
-        Session object if valid
+    parts = authorization.split(' ', 1)
+    return parts[1] if len(parts) == 2 else None
 
-    Raises:
-        SessionNotFoundError: If session not found in data store
-        SessionExpiredError: If token or session has expired
-        VotingAuthenticationError: For other validation errors
+
+def validate_session_from_token(token: str) -> Union[Session, Tuple[Optional[Session], Optional[Voter]]]:
+    """
+    Validate session from JWT token.
+
+    Returns Session object for FastAPI mode, or (Session, Voter) tuple for Flask mode.
     """
     try:
-        # Decode JWT token
+        # Import here to avoid circular imports
+        from api.utils.jwt_manager import jwt_manager
+
+        # Try Flask data store first
+        if FLASK_AVAILABLE:
+            try:
+                from .data_store import voting_data_store
+
+                # Find session by token
+                session = voting_data_store.get_session_by_token(token)
+                if session:
+                    voter = voting_data_store.get_voter_by_id(session.voter_id)
+                    if voter:
+                        return session, voter
+            except (ImportError, AttributeError):
+                pass
+
+        # Fallback to JWT validation (FastAPI mode)
         payload = jwt_manager.decode_token(token)
 
-        # Check if it's a voting session token (you may want to add a specific type)
-        # For now, we'll accept any valid JWT token
-
-        # Extract session information
-        # In real implementation, this would lookup the session in data store
-        # For now, create a mock session from JWT payload
         session = Session(
-            session_id="mock-session-id",
-            voter_id=payload.get("voter_id", "mock-voter-id"),
+            session_id="jwt-session-" + payload.get("voter_id", "unknown"),
+            voter_id=payload.get("voter_id", "unknown"),
             token=token,
             created_at=datetime.utcnow(),
             expires_at=datetime.fromtimestamp(payload["exp"]),
@@ -76,127 +115,300 @@ def validate_session_placeholder(token: str) -> Session:
         raise SessionExpiredError("Token has expired")
     except jwt.InvalidTokenError as e:
         raise VotingAuthenticationError(f"Invalid token: {str(e)}")
+    except Exception as e:
+        print(f"Session validation error: {str(e)}")
+        if FLASK_AVAILABLE:
+            return None, None
+        raise VotingAuthenticationError(f"Token validation failed: {str(e)}")
 
 
-# This will be replaced with actual import when services.py is implemented
-# from api.voting.services import validate_session
-validate_session = validate_session_placeholder
+# ============================================================================
+# FastAPI Dependencies (when FastAPI is available)
+# ============================================================================
+
+if FASTAPI_AVAILABLE:
+
+    def verify_voting_session(authorization: Optional[str] = Header(None)) -> Session:
+        """
+        FastAPI dependency to verify voting session JWT tokens.
+        """
+        if not authorization:
+            raise HTTPException(
+                status_code=401,
+                detail="Authorization header required",
+                headers={"WWW-Authenticate": "Bearer"}
+            )
+
+        token = get_token_from_header(authorization)
+        if not token:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid authorization header format. Must be 'Bearer <token>'",
+                headers={"WWW-Authenticate": "Bearer"}
+            )
+
+        try:
+            result = validate_session_from_token(token)
+            if isinstance(result, tuple):
+                session, voter = result
+                if not session or not voter:
+                    raise SessionNotFoundError("Session validation failed")
+                return session
+            else:
+                return result
+
+        except SessionNotFoundError:
+            raise HTTPException(
+                status_code=401,
+                detail="Session not found or invalid",
+                headers={"WWW-Authenticate": "Bearer"}
+            )
+        except SessionExpiredError:
+            raise HTTPException(
+                status_code=401,
+                detail="Session has expired",
+                headers={"WWW-Authenticate": "Bearer"}
+            )
+        except VotingAuthenticationError as e:
+            raise HTTPException(
+                status_code=401,
+                detail=f"Authentication failed: {str(e)}",
+                headers={"WWW-Authenticate": "Bearer"}
+            )
 
 
-def verify_voting_session(authorization: Optional[str] = Header(None)) -> Session:
-    """
-    FastAPI dependency to verify voting session JWT tokens.
+    def verify_admin_session(authorization: Optional[str] = Header(None)) -> Session:
+        """
+        FastAPI dependency to verify admin session JWT tokens.
+        """
+        session = verify_voting_session(authorization)
 
-    Extracts the Authorization header, validates the Bearer token format,
-    and validates the session using the validate_session function.
+        if not session.is_admin:
+            raise HTTPException(
+                status_code=403,
+                detail="Admin privileges required"
+            )
 
-    Args:
-        authorization: Authorization header value (automatically injected by FastAPI)
-
-    Returns:
-        Session object containing voter context
-
-    Raises:
-        HTTPException: 401 if token is missing, invalid, or expired
-    """
-    if not authorization:
-        raise HTTPException(
-            status_code=401,
-            detail="Authorization header required",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
-
-    # Check if it's a Bearer token
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid authorization header format. Must be 'Bearer <token>'",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
-
-    # Extract token from "Bearer <token>"
-    token = authorization[7:]  # Remove "Bearer " prefix
-
-    if not token:
-        raise HTTPException(
-            status_code=401,
-            detail="Token is required",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
-
-    try:
-        # Validate session using the voting services
-        session = validate_session(token)
         return session
 
-    except SessionNotFoundError:
-        raise HTTPException(
-            status_code=401,
-            detail="Session not found or invalid",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
-    except SessionExpiredError:
-        raise HTTPException(
-            status_code=401,
-            detail="Session has expired",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
-    except VotingAuthenticationError as e:
-        raise HTTPException(
-            status_code=401,
-            detail=f"Authentication failed: {str(e)}",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=401,
-            detail=f"Token validation failed: {str(e)}",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
+
+    def validate_token_direct(token: str) -> Session:
+        """
+        Directly validate a token without FastAPI dependency injection.
+        """
+        result = validate_session_from_token(token)
+        if isinstance(result, tuple):
+            session, voter = result
+            if not session or not voter:
+                raise VotingAuthenticationError("Session validation failed")
+            return session
+        else:
+            return result
 
 
-def verify_admin_session(authorization: Optional[str] = Header(None)) -> Session:
-    """
-    FastAPI dependency to verify admin session JWT tokens.
+# ============================================================================
+# Flask Decorators (when Flask is available)
+# ============================================================================
 
-    Similar to verify_voting_session but also checks the is_admin flag.
+if FLASK_AVAILABLE:
 
-    Args:
-        authorization: Authorization header value (automatically injected by FastAPI)
+    def voter_required(f: Callable) -> Callable:
+        """
+        Flask decorator to require valid voter authentication.
+        """
+        @wraps(f)
+        def decorated_function(*args, **kwargs) -> Any:
+            token = get_token_from_header()
+            if not token:
+                return jsonify({
+                    "error": "Missing Authorization header",
+                    "details": "Please provide 'Authorization: Bearer <token>' header"
+                }), 401
 
-    Returns:
-        Session object containing admin voter context
+            try:
+                result = validate_session_from_token(token)
+                if isinstance(result, tuple):
+                    session, voter = result
+                    if not session or not voter:
+                        raise SessionNotFoundError("Session validation failed")
+                else:
+                    # FastAPI mode result, create voter from session
+                    session = result
+                    voter = Voter(
+                        voter_id=session.voter_id,
+                        email="unknown@example.com"  # Placeholder
+                    )
 
-    Raises:
-        HTTPException: 401 if token is missing/invalid, 403 if not admin
-    """
-    # First verify it's a valid voting session
-    session = verify_voting_session(authorization)
+                # Store session and voter in Flask's g object
+                g.session = session
+                g.voter = voter
 
-    # Then verify admin privileges
-    if not session.is_admin:
-        raise HTTPException(
-            status_code=403,
-            detail="Admin privileges required"
-        )
+                return f(*args, **kwargs)
 
-    return session
+            except (SessionNotFoundError, SessionExpiredError, VotingAuthenticationError):
+                return jsonify({
+                    "error": "Invalid or expired authentication token",
+                    "details": "Please log in again to get a valid token"
+                }), 401
+
+        return decorated_function
 
 
-# Convenience function for direct token validation (not a FastAPI dependency)
-def validate_token_direct(token: str) -> Session:
-    """
-    Directly validate a token without FastAPI dependency injection.
+    def admin_required(f: Callable) -> Callable:
+        """
+        Flask decorator to require admin authentication.
+        """
+        @wraps(f)
+        def decorated_function(*args, **kwargs) -> Any:
+            token = get_token_from_header()
+            if not token:
+                return jsonify({
+                    "error": "Missing Authorization header",
+                    "details": "Please provide 'Authorization: Bearer <token>' header"
+                }), 401
 
-    Useful for internal use or testing.
+            try:
+                result = validate_session_from_token(token)
+                if isinstance(result, tuple):
+                    session, voter = result
+                    if not session or not voter:
+                        raise SessionNotFoundError("Session validation failed")
+                else:
+                    # FastAPI mode result, create voter from session
+                    session = result
+                    voter = Voter(
+                        voter_id=session.voter_id,
+                        email="unknown@example.com"  # Placeholder
+                    )
 
-    Args:
-        token: JWT token string
+                if not session.is_admin:
+                    return jsonify({
+                        "error": "Admin access required",
+                        "details": "This endpoint requires administrator privileges"
+                    }), 403
 
-    Returns:
-        Session object if valid
+                # Store session and voter in Flask's g object
+                g.session = session
+                g.voter = voter
 
-    Raises:
-        VotingAuthenticationError: If token is invalid or expired
-    """
-    return validate_session(token)
+                return f(*args, **kwargs)
+
+            except (SessionNotFoundError, SessionExpiredError, VotingAuthenticationError):
+                return jsonify({
+                    "error": "Invalid or expired authentication token",
+                    "details": "Please log in again to get a valid token"
+                }), 401
+
+        return decorated_function
+
+
+    def optional_voter_auth(f: Callable) -> Callable:
+        """
+        Flask decorator that provides optional voter authentication.
+        """
+        @wraps(f)
+        def decorated_function(*args, **kwargs) -> Any:
+            token = get_token_from_header()
+
+            if token:
+                try:
+                    result = validate_session_from_token(token)
+                    if isinstance(result, tuple):
+                        session, voter = result
+                        if session and voter:
+                            g.session = session
+                            g.voter = voter
+                        else:
+                            g.session = None
+                            g.voter = None
+                    else:
+                        # FastAPI mode result
+                        session = result
+                        g.session = session
+                        g.voter = Voter(
+                            voter_id=session.voter_id,
+                            email="unknown@example.com"
+                        )
+                except (SessionNotFoundError, SessionExpiredError, VotingAuthenticationError):
+                    g.session = None
+                    g.voter = None
+            else:
+                g.session = None
+                g.voter = None
+
+            return f(*args, **kwargs)
+
+        return decorated_function
+
+
+    # Utility functions for Flask
+    def get_current_voter() -> Optional[Voter]:
+        """Get the current authenticated voter from Flask's g object."""
+        return getattr(g, 'voter', None)
+
+
+    def get_current_session() -> Optional[Session]:
+        """Get the current session from Flask's g object."""
+        return getattr(g, 'session', None)
+
+
+    def is_current_user_admin() -> bool:
+        """Check if the current user is an admin."""
+        session = get_current_session()
+        return session.is_admin if session else False
+
+
+    def check_voting_allowed(position: str) -> tuple[bool, Optional[str]]:
+        """
+        Check if voting is allowed for a given position.
+        """
+        try:
+            from .data_store import voting_data_store
+
+            # Check if there's an active election
+            active_election = voting_data_store.get_active_election()
+            if not active_election:
+                return False, "No active election"
+
+            if not active_election.is_voting_period_active():
+                return False, "Voting period is not active"
+
+            # Check if position exists in the election
+            if position not in active_election.positions:
+                return False, f"Position '{position}' not found in election"
+
+            # Check if there are candidates for this position
+            candidates = voting_data_store.get_candidates_for_position(position)
+            if not candidates:
+                return False, f"No candidates available for position '{position}'"
+
+            return True, None
+
+        except ImportError:
+            return True, None  # Allow voting if data store not available
+
+
+    def validate_vote_eligibility(voter: Voter, position: str) -> tuple[bool, Optional[str]]:
+        """
+        Validate if a voter is eligible to vote for a specific position.
+        """
+        # Check if voter has already voted for this position
+        if hasattr(voter, 'has_voted_for_position') and voter.has_voted_for_position(position):
+            return False, f"You have already voted for the position '{position}'"
+
+        # Check if voting is allowed for this position
+        voting_allowed, error_msg = check_voting_allowed(position)
+        if not voting_allowed:
+            return False, error_msg
+
+        return True, None
+
+
+    def cleanup_expired_data():
+        """Clean up expired sessions and verification codes."""
+        try:
+            from .data_store import voting_data_store
+            voting_data_store.cleanup_expired_sessions()
+            voting_data_store.cleanup_expired_codes()
+        except ImportError:
+            pass  # Skip if data store not available

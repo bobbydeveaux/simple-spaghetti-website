@@ -49,6 +49,16 @@ const Navigation = () => {
             >
               About
             </Link>
+            <Link
+              to="/voting"
+              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                isActive('/voting')
+                  ? 'text-blue-600 bg-blue-50'
+                  : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
+              }`}
+            >
+              🗳️ Voting
+            </Link>
           </div>
 
           {/* Mobile menu button */}
@@ -96,6 +106,17 @@ const Navigation = () => {
                 }`}
               >
                 About
+              </Link>
+              <Link
+                to="/voting"
+                onClick={() => setIsMenuOpen(false)}
+                className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                  isActive('/voting')
+                    ? 'text-blue-600 bg-blue-50'
+                    : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
+                }`}
+              >
+                🗳️ Voting
               </Link>
             </div>
           </div>
