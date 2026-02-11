@@ -1,0 +1,89 @@
+Epic: pta-voting-system
+Features:
+- dependencies: []
+  description: Thread-safe in-memory storage for voters, candidates, votes, sessions,
+    and audit logs using Python dictionaries with threading.Lock
+  estimatedComplexity: medium
+  files:
+  - api/voting/__init__.py
+  - api/voting/data_store.py
+  - api/voting/models.py
+  id: pta-voting-system-feat-data-store
+  name: In-Memory Data Store
+  project: pta-voting-system
+  type: enabler
+- dependencies:
+  - pta-voting-system-feat-data-store
+  description: Email-based authentication with mock verification codes and JWT session
+    management
+  estimatedComplexity: medium
+  files:
+  - api/voting/routes.py
+  - api/voting/services.py
+  - api/voting/middleware.py
+  - src/voting/pages/VoterLogin.jsx
+  - src/voting/context/AuthContext.jsx
+  id: pta-voting-system-feat-voter-auth
+  name: Voter Authentication
+  project: pta-voting-system
+  type: feature
+- dependencies:
+  - pta-voting-system-feat-voter-auth
+  description: Ballot display, vote submission, duplicate prevention, and anonymous
+    vote recording for four PTA positions
+  estimatedComplexity: high
+  files:
+  - api/voting/services.py
+  - api/voting/routes.py
+  - src/voting/pages/Ballot.jsx
+  - src/voting/components/PositionBallot.jsx
+  - src/voting/components/CandidateCard.jsx
+  id: pta-voting-system-feat-voting-system
+  name: Core Voting System
+  project: pta-voting-system
+  type: feature
+- dependencies:
+  - pta-voting-system-feat-voting-system
+  description: Public real-time results dashboard with vote counts and percentages,
+    polling every 2 seconds
+  estimatedComplexity: medium
+  files:
+  - api/voting/services.py
+  - api/voting/routes.py
+  - src/voting/pages/Results.jsx
+  id: pta-voting-system-feat-live-results
+  name: Live Results Dashboard
+  project: pta-voting-system
+  type: feature
+- dependencies:
+  - pta-voting-system-feat-data-store
+  description: Admin authentication, election configuration, candidate management,
+    and audit log viewing
+  estimatedComplexity: high
+  files:
+  - api/voting/admin_routes.py
+  - api/voting/services.py
+  - api/voting/middleware.py
+  - src/voting/pages/admin/AdminLogin.jsx
+  - src/voting/pages/admin/Dashboard.jsx
+  - src/voting/pages/admin/CandidateManagement.jsx
+  - src/voting/pages/admin/ElectionManagement.jsx
+  - src/voting/pages/admin/AuditLogs.jsx
+  id: pta-voting-system-feat-admin-panel
+  name: Admin Management Panel
+  project: pta-voting-system
+  type: feature
+- dependencies: []
+  description: React application setup with routing, API client, and Tailwind CSS
+    integration
+  estimatedComplexity: low
+  files:
+  - src/voting/App.jsx
+  - src/voting/api/votingApi.js
+  - vite.config.js
+  - package.json
+  id: pta-voting-system-feat-frontend-setup
+  name: Frontend Application Setup
+  project: pta-voting-system
+  type: enabler
+Version: v1alpha1
