@@ -12,6 +12,7 @@ from datetime import datetime
 from api.utils.jwt_manager import JWTManager
 from api.utils.password import verify_password
 from api.utils.rate_limiter import auth_rate_limit, admin_rate_limit, code_request_limit
+from api.utils.csrf_protection import csrf_required, get_csrf_token
 from api.utils.sanitizer import (
     sanitize_email, sanitize_password, sanitize_verification_code,
     sanitize_position_name, sanitize_text_input
@@ -300,6 +301,19 @@ def require_admin_session():
         print(f"Admin session validation error: {str(e)}")
         return None, ({"error": "Failed to validate admin session"}, 500)
 
+@voting_bp.route('/admin/csrf-token', methods=['GET'])
+def get_csrf_token_endpoint():
+    """Get CSRF token for admin operations"""
+    session, error_response = require_admin_session()
+    if error_response:
+        return error_response
+
+    try:
+        token = get_csrf_token()
+        return {"csrf_token": token}, 200
+    except Exception as e:
+        return {"error": f"Failed to generate CSRF token: {str(e)}"}, 500
+
 @voting_bp.route('/admin/election', methods=['GET'])
 def get_election_config():
     """Get current election configuration"""
@@ -331,6 +345,7 @@ def get_election_config():
         return {"error": f"Failed to get election configuration: {str(e)}"}, 500
 
 @voting_bp.route('/admin/election/status', methods=['PUT'])
+@csrf_required
 def update_election_status():
     """Update election status (SETUP/ACTIVE/CLOSED)"""
     session, error_response = require_admin_session()
@@ -375,6 +390,7 @@ def update_election_status():
         return {"error": f"Failed to update election status: {str(e)}"}, 500
 
 @voting_bp.route('/admin/election/positions', methods=['POST'])
+@csrf_required
 def add_election_position():
     """Add a new position to the election"""
     session, error_response = require_admin_session()
@@ -414,6 +430,7 @@ def add_election_position():
         return {"error": f"Failed to add position: {str(e)}"}, 500
 
 @voting_bp.route('/admin/election/positions/<position>', methods=['DELETE'])
+@csrf_required
 def remove_election_position(position: str):
     """Remove a position from the election"""
     session, error_response = require_admin_session()
