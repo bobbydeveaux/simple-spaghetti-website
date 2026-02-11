@@ -9,6 +9,10 @@ const Navigation = () => {
     return location.pathname === path;
   };
 
+  const isVotingActive = () => {
+    return location.pathname.startsWith('/voting');
+  };
+
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
   };
@@ -52,12 +56,12 @@ const Navigation = () => {
             <Link
               to="/voting"
               className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                isActive('/voting')
-                  ? 'text-blue-600 bg-blue-50'
-                  : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
+                isVotingActive()
+                  ? 'text-green-600 bg-green-50 border border-green-200'
+                  : 'text-green-700 hover:text-green-600 hover:bg-green-50 border border-green-300'
               }`}
             >
-              🗳️ Voting
+              🗳️ PTA Voting
             </Link>
           </div>
 
@@ -111,12 +115,12 @@ const Navigation = () => {
                 to="/voting"
                 onClick={() => setIsMenuOpen(false)}
                 className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                  isActive('/voting')
-                    ? 'text-blue-600 bg-blue-50'
-                    : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
+                  isVotingActive()
+                    ? 'text-green-600 bg-green-50 border border-green-200'
+                    : 'text-green-700 hover:text-green-600 hover:bg-green-50 border border-green-300'
                 }`}
               >
-                🗳️ Voting
+                🗳️ PTA Voting
               </Link>
             </div>
           </div>

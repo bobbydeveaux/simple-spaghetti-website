@@ -25,6 +25,17 @@ except ImportError:
 # Local imports
 from api.voting.models import Session, Voter
 
+# Legacy FastAPI support imports
+if FASTAPI_AVAILABLE:
+    try:
+        from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+        from .services import voter_auth_service
+        LEGACY_FASTAPI_SUPPORT = True
+    except ImportError:
+        LEGACY_FASTAPI_SUPPORT = False
+else:
+    LEGACY_FASTAPI_SUPPORT = False
+
 
 # ============================================================================
 # Exception Classes
@@ -204,6 +215,67 @@ if FASTAPI_AVAILABLE:
             return session
         else:
             return result
+
+
+# ============================================================================
+# Legacy FastAPI Support (Original HEAD Implementation)
+# ============================================================================
+
+if LEGACY_FASTAPI_SUPPORT:
+    # Security scheme for JWT tokens
+    security = HTTPBearer()
+
+    async def get_current_voter_session(
+        credentials: HTTPAuthorizationCredentials = Depends(security)
+    ) -> Session:
+        """
+        Legacy dependency to get current voter session from JWT token.
+        Raises 401 if token is invalid or session expired.
+        """
+        token = credentials.credentials
+
+        session = voter_auth_service.validate_session(token)
+        if not session:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or expired token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        return session
+
+    async def get_optional_voter_session(
+        credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))
+    ) -> Optional[Session]:
+        """
+        Legacy dependency to optionally get current voter session.
+        Returns None if no token provided or token invalid.
+        """
+        if not credentials:
+            return None
+
+        token = credentials.credentials
+        return voter_auth_service.validate_session(token)
+
+    async def require_admin_session(
+        session: Session = Depends(get_current_voter_session)
+    ) -> Session:
+        """
+        Legacy dependency that requires an admin session.
+        Raises 403 if session is not admin.
+        """
+        if not session.is_admin:
+            raise HTTPException(
+                status_code=403,
+                detail="Admin access required"
+            )
+
+        return session
+
+    # Convenience function for extracting voter ID from session
+    def get_voter_id_from_session(session: Session) -> str:
+        """Extract voter ID from session"""
+        return session.voter_id
 
 
 # ============================================================================

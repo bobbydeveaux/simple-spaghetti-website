@@ -1,6 +1,6 @@
 """
 PTA Voting System Data Models
-Unified models supporting both Pydantic (FastAPI) and dataclass patterns.
+Unified models supporting both Pydantic (FastAPI) and dataclass patterns with dual framework support.
 """
 
 from datetime import datetime, timedelta
@@ -8,7 +8,7 @@ from typing import Optional, Set, Dict, Any, List, Literal, Union
 from uuid import uuid4
 import secrets
 
-# Conditional imports
+# Conditional imports for framework flexibility
 try:
     from pydantic import BaseModel, Field, EmailStr
     PYDANTIC_AVAILABLE = True
@@ -22,6 +22,47 @@ try:
     DATACLASSES_AVAILABLE = True
 except ImportError:
     DATACLASSES_AVAILABLE = False
+
+# Legacy enum support for backward compatibility
+try:
+    from enum import Enum
+
+    class Position(Enum):
+        """Available PTA positions for voting (legacy support)"""
+        PRESIDENT = "president"
+        VICE_PRESIDENT = "vice_president"
+        SECRETARY = "secretary"
+        TREASURER = "treasurer"
+
+    class ElectionStatus(Enum):
+        """Election status states (legacy support)"""
+        SETUP = "setup"
+        OPEN = "open"
+        CLOSED = "closed"
+
+    class AuditAction(Enum):
+        """Actions that get logged for audit trail (legacy support)"""
+        LOGIN = "login"
+        VOTE_CAST = "vote_cast"
+        BALLOT_VIEW = "ballot_view"
+
+except ImportError:
+    # Fallback classes if enum not available
+    class Position:
+        PRESIDENT = "president"
+        VICE_PRESIDENT = "vice_president"
+        SECRETARY = "secretary"
+        TREASURER = "treasurer"
+
+    class ElectionStatus:
+        SETUP = "setup"
+        OPEN = "open"
+        CLOSED = "closed"
+
+    class AuditAction:
+        LOGIN = "login"
+        VOTE_CAST = "vote_cast"
+        BALLOT_VIEW = "ballot_view"
 
 
 # ============================================================================
@@ -64,6 +105,7 @@ class SessionMixin:
 if PYDANTIC_AVAILABLE:
 
     class Voter(BaseModel, VoterMixin):
+        """Pydantic voter model for FastAPI applications."""
         voter_id: str = Field(default_factory=lambda: str(uuid4()))
         email: EmailStr
         verification_code: Optional[str] = None
@@ -72,23 +114,31 @@ if PYDANTIC_AVAILABLE:
         created_at: datetime = Field(default_factory=datetime.utcnow)
         last_login: Optional[datetime] = None
 
+        class Config:
+            arbitrary_types_allowed = True
+
 
     class Session(BaseModel, SessionMixin):
+        """Pydantic session model for FastAPI applications."""
         session_id: str = Field(default_factory=lambda: str(uuid4()))
         voter_id: str
         token: str
-        created_at: datetime
-        expires_at: datetime
+        created_at: datetime = Field(default_factory=datetime.utcnow)
+        expires_at: datetime = Field(default=None)
         is_admin: bool = False
 
         def __init__(self, **data):
             super().__init__(**data)
             # Set default expiration if not provided
-            if 'expires_at' not in data or data['expires_at'] is None:
+            if not self.expires_at:
                 self.expires_at = self.created_at + timedelta(hours=2)
+
+        class Config:
+            arbitrary_types_allowed = True
 
 
     class Candidate(BaseModel):
+        """Pydantic candidate model for FastAPI applications."""
         candidate_id: str = Field(default_factory=lambda: str(uuid4()))
         name: str
         position: str
@@ -107,6 +157,7 @@ if PYDANTIC_AVAILABLE:
 
 
     class Vote(BaseModel):
+        """Pydantic vote model for FastAPI applications."""
         vote_id: str = Field(default_factory=lambda: str(uuid4()))
         candidate_id: str
         position: str
@@ -115,15 +166,17 @@ if PYDANTIC_AVAILABLE:
 
 
     class AuditLog(BaseModel):
+        """Pydantic audit log model for FastAPI applications."""
         log_id: str = Field(default_factory=lambda: str(uuid4()))
         voter_id: str
-        action: Literal["LOGIN", "VOTE_CAST", "ADMIN_ACTION"]
+        action: Literal["LOGIN", "VOTE_CAST", "ADMIN_ACTION", "BALLOT_VIEW"]
         position: Optional[str] = None  # Only for VOTE_CAST
         timestamp: datetime = Field(default_factory=datetime.utcnow)
         metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
     class Election(BaseModel):
+        """Pydantic election model for FastAPI applications."""
         election_id: str = Field(default_factory=lambda: str(uuid4()))
         name: str = "PTA Election"
         description: str = ""
@@ -155,21 +208,13 @@ if PYDANTIC_AVAILABLE:
             else:
                 self.positions.add(position)
 
-
-    # Request/Response models for API
-    class VoteSubmission(BaseModel):
-        position: str
-        candidate_id: str
-
-
-    class CandidateResult(BaseModel):
-        candidate_id: str
-        candidate_name: str
-        vote_count: int
-        percentage: float
+        def get_positions_list(self) -> list:
+            """Get positions as a sorted list."""
+            return sorted(list(self.positions))
 
 
     class VerificationCode(BaseModel):
+        """Pydantic verification code model for FastAPI applications."""
         code: str
         email: EmailStr
         voter_id: str
@@ -199,6 +244,54 @@ if PYDANTIC_AVAILABLE:
             return True
 
 
+    # Legacy Pydantic models for backward compatibility with FastAPI approach
+    class VerificationRequest(BaseModel):
+        """Request model for verification code"""
+        email: EmailStr
+
+    class VerificationResponse(BaseModel):
+        """Response model for verification code request"""
+        message: str
+
+    class VerifyCodeRequest(BaseModel):
+        """Request model for code verification"""
+        email: EmailStr
+        code: str
+
+    class VerifyCodeResponse(BaseModel):
+        """Response model for successful verification"""
+        token: str
+        voter_id: str
+
+    class VoteRequest(BaseModel):
+        """Request model for casting votes"""
+        votes: dict  # position -> candidate_id
+
+    class VoteResponse(BaseModel):
+        """Response model for vote submission"""
+        message: str
+        votes_cast: int
+
+    class VoterStatusResponse(BaseModel):
+        """Response model for voter status"""
+        voter_id: str
+        voted_positions: list
+        can_vote: list
+
+    class CandidateResponse(BaseModel):
+        """Response model for candidate information"""
+        candidate_id: str
+        name: str
+        bio: Optional[str]
+        photo_url: Optional[str]
+        position: str
+
+    class BallotResponse(BaseModel):
+        """Response model for ballot information"""
+        positions: dict
+        election_status: str
+
+
 # ============================================================================
 # Dataclass Models (for Flask/general use)
 # ============================================================================
@@ -207,9 +300,7 @@ if DATACLASSES_AVAILABLE:
 
     @dataclass
     class VoterDataclass(VoterMixin):
-        """
-        Dataclass version of Voter for Flask applications.
-        """
+        """Dataclass version of Voter for Flask applications."""
         voter_id: str
         email: str
         voted_positions: Set[str] = field(default_factory=set)
@@ -223,9 +314,7 @@ if DATACLASSES_AVAILABLE:
 
     @dataclass
     class SessionDataclass(SessionMixin):
-        """
-        Dataclass version of Session for Flask applications.
-        """
+        """Dataclass version of Session for Flask applications."""
         session_id: str
         voter_id: str
         token: str
@@ -242,9 +331,7 @@ if DATACLASSES_AVAILABLE:
 
     @dataclass
     class CandidateDataclass:
-        """
-        Dataclass version of Candidate for Flask applications.
-        """
+        """Dataclass version of Candidate for Flask applications."""
         candidate_id: str
         position: str  # e.g., "president", "vice_president", "treasurer"
         name: str
@@ -261,23 +348,9 @@ if DATACLASSES_AVAILABLE:
             }
 
 
-# ============================================================================
-# Dynamic Model Selection
-# ============================================================================
-
-# Use Pydantic models if available, otherwise fall back to dataclasses
-if PYDANTIC_AVAILABLE:
-    # Export Pydantic models as the primary interface
-    pass  # Models already defined above
-elif DATACLASSES_AVAILABLE:
-    # Use dataclasses as fallback
-    Voter = VoterDataclass
-    Session = SessionDataclass
-    Candidate = CandidateDataclass
-
-    # Create simple classes for other models
     @dataclass
-    class Vote:
+    class VoteDataclass:
+        """Dataclass version of Vote for Flask applications."""
         vote_id: str
         position: str
         candidate_id: str
@@ -285,7 +358,8 @@ elif DATACLASSES_AVAILABLE:
 
 
     @dataclass
-    class AuditLog:
+    class AuditLogDataclass:
+        """Dataclass version of AuditLog for Flask applications."""
         log_id: str
         voter_id: str
         action: str
@@ -295,7 +369,8 @@ elif DATACLASSES_AVAILABLE:
 
 
     @dataclass
-    class Election:
+    class ElectionDataclass:
+        """Dataclass version of Election for Flask applications."""
         election_id: str
         name: str
         description: str = ""
@@ -325,6 +400,24 @@ elif DATACLASSES_AVAILABLE:
         def get_positions_list(self) -> list:
             """Get positions as a sorted list."""
             return sorted(list(self.positions))
+
+
+# ============================================================================
+# Dynamic Model Selection
+# ============================================================================
+
+# Use Pydantic models if available, otherwise fall back to dataclasses
+if PYDANTIC_AVAILABLE:
+    # Export Pydantic models as the primary interface
+    pass  # Models already defined above
+elif DATACLASSES_AVAILABLE:
+    # Use dataclasses as fallback
+    Voter = VoterDataclass
+    Session = SessionDataclass
+    Candidate = CandidateDataclass
+    Vote = VoteDataclass
+    AuditLog = AuditLogDataclass
+    Election = ElectionDataclass
 
 
 # ============================================================================

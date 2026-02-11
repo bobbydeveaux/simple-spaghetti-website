@@ -5,6 +5,7 @@ import { VotingProvider } from './context/VotingContext';
 import Navigation from './components/Navigation';
 import RecipeList from './components/RecipeList';
 import RecipeDetail from './components/RecipeDetail';
+import VotingApp from './voting/App';
 import VotingPage from './components/VotingPage';
 
 // Simple About component
@@ -45,7 +46,8 @@ function App() {
                 <Route path="/" element={<RecipeList />} />
                 <Route path="/recipe/:id" element={<RecipeDetail />} />
                 <Route path="/about" element={<About />} />
-                <Route path="/voting" element={<VotingPage />} />
+                <Route path="/voting/*" element={<VotingApp />} />
+                <Route path="/voting-simple" element={<VotingPage />} />
               </Routes>
             </main>
           </div>

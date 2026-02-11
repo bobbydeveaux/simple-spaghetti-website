@@ -7,6 +7,7 @@ import logging
 
 from api.config import settings
 from api.routes import auth, protected
+from api.voting import routes as voting_routes
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -32,6 +33,7 @@ app.add_middleware(
 # Include routers
 app.include_router(auth.router)
 app.include_router(protected.router)
+app.include_router(voting_routes.router)
 
 
 @app.exception_handler(HTTPException)
@@ -84,7 +86,8 @@ async def root():
             "register": "/auth/register",
             "login": "/auth/login",
             "refresh": "/auth/refresh",
-            "protected": "/protected/"
+            "protected": "/protected/",
+            "voting": "/voting/"
         }
     }
 
