@@ -1,123 +1,88 @@
 # ROAM Analysis: pta-voting-system
 
 **Feature Count:** 6
-**Created:** 2026-02-11T15:07:31Z
+**Created:** 2026-02-11T15:13:11Z
 
 ## Risks
 
-1. **In-Memory Data Loss** (High): Server restarts or crashes during active voting will result in complete data loss including all votes cast, candidate information, and session state. This is critical during live elections and could undermine trust in the system.
+1. **In-Memory Data Volatility** (High): Server restart or crash causes complete data loss including all votes, voter sessions, and election configuration. In a real election scenario, this could invalidate the entire voting process and require re-voting.
 
-2. **Race Conditions in Concurrent Voting** (High): Despite using threading.Lock, the separate storage of voter tracking (voted_positions) and vote records creates a window where lock release/acquisition could allow duplicate votes if not implemented atomically. With 500 concurrent voters, race conditions are highly probable.
+2. **Race Conditions in Concurrent Voting** (High): Despite threading.Lock implementation, complex vote submission logic with multiple data structure updates (voter.voted_positions, votes list, audit_logs) creates opportunities for race conditions if lock scope is incorrectly implemented. Could result in duplicate votes or vote loss.
 
-3. **Vote Anonymity Implementation Gap** (Medium): The separation between voter tracking and vote records relies on correct implementation discipline. Any inadvertent logging, error messages, or debugging code could leak voter-vote associations. The audit logs track voter_id and position, creating potential correlation risks.
+3. **Vote Anonymity Verification Gap** (Medium): While design separates voter tracking from vote records, lack of automated testing and formal verification means anonymity guarantees depend entirely on developer discipline. Code changes could accidentally introduce voter-vote linkage.
 
-4. **Session State Scalability Bottleneck** (Medium): All session validation, vote recording, and results calculation share a single threading.Lock, creating a serialization bottleneck. At 500 concurrent voters with <200ms response time requirements, lock contention could cause cascading failures.
+4. **Session Management Scalability** (Medium): JWT tokens with in-memory session storage create memory pressure as voter count approaches 500. Each session stores full voter context, and expired sessions aren't automatically cleaned up, leading to memory leaks.
 
-5. **JWT Token Security Without Refresh Mechanism** (Medium): 2-hour token expiration without refresh tokens means voters could be logged out mid-voting during long sessions. Lost tokens cannot be revoked (in-memory sessions disappear on restart), creating security gaps.
+5. **Frontend Polling Load** (Medium): Results dashboard polling every 2 seconds from all viewers creates N*0.5 requests/second load. With 100 concurrent viewers, this generates 50 req/s just for results, potentially overwhelming the single-threaded results calculation.
 
-6. **Frontend Polling Overhead** (Low): Every client polling /api/results every 2 seconds creates O(n) load on results calculation. With public access and no rate limiting, this endpoint could be abused for DoS attacks.
+6. **Mock Authentication Security** (Low): Hardcoded admin credentials and console-logged verification codes in prototype could accidentally reach production deployment, creating severe security vulnerabilities.
 
-7. **Mock Verification Code Exposure** (Low): Logging verification codes to console for testing purposes could be accidentally left enabled in production, allowing unauthorized access via server log inspection.
+7. **Lack of Input Sanitization Testing** (Medium): While Pydantic validates types, there's no explicit XSS or injection attack testing. Candidate bios, names, and photo URLs could contain malicious payloads that execute in the frontend.
 
 ---
 
 ## Obstacles
 
-- **No existing thread-safe data store pattern**: The repo's current `api/data_store.py` doesn't implement concurrent access patterns needed for voting. Need to design and test threading.Lock implementation from scratch without existing reference code.
+- **No existing testing infrastructure**: Repository lacks pytest setup, test fixtures, or CI/CD pipeline. Implementing comprehensive unit, integration, and E2E tests requires building testing infrastructure from scratch.
 
-- **JWT infrastructure mismatch**: Existing `api/utils/jwt_manager.py` is designed for user authentication, not voter sessions with anonymity requirements. May need parallel JWT implementation to avoid coupling voter and admin authentication.
+- **Frontend-backend integration complexity**: Existing repo has separate pasta-recipes React app and auth API with no established pattern for integrating a new voting app. Need to determine routing strategy (separate domains, path-based, subdomain) and proxy configuration.
 
-- **Frontend architecture separation**: Voting app in `src/voting/` is completely isolated from existing `src/` app. Need to determine routing strategy (separate entry point vs. integrated routing) and whether to share Tailwind config or duplicate.
+- **Concurrency testing limitations**: Simulating 500 concurrent voters requires load testing tools (locust, k6) not currently in the repository. Difficult to validate thread-safety and performance requirements without proper infrastructure.
 
-- **Testing infrastructure gap**: No existing E2E test setup (Cypress mentioned in LLD but not in repo). Need to bootstrap entire testing infrastructure including concurrent voting simulation tools.
+- **Audit log storage unbounded growth**: Append-only audit_logs list will grow indefinitely during testing and usage. No pagination implementation limit on backend means memory usage grows linearly with all voter actions.
 
 ---
 
 ## Assumptions
 
-1. **Verification codes are sufficient authentication**: Assumes email-based 6-digit codes provide adequate security for school PTA elections without implementing actual email delivery, CAPTCHA, or rate limiting. *Validation: Review with school administration on acceptable authentication level.*
+1. **Single active election assumption**: Design assumes only one election runs at a time (single `election: Optional[Election]` field). Requires validation that school won't need overlapping elections or quick succession elections without server restart.
 
-2. **Single active election model**: Assumes only one election runs at a time (single Election object in data store). *Validation: Confirm with stakeholders that sequential elections are acceptable.*
+2. **Email uniqueness for voter identification**: System assumes one email = one voter. Need confirmation that voters won't use multiple emails, shared family emails, or that school has authoritative voter registration list.
 
-3. **500 concurrent voters is maximum scale**: In-memory design assumes school voter population won't exceed 500 simultaneous users. *Validation: Analyze historical PTA participation rates and peak voting patterns.*
+3. **Browser localStorage persistence**: Voter session recovery after page refresh depends on localStorage availability. Assumes voters use standard browsers with localStorage enabled (not private/incognito mode).
 
-4. **Threading.Lock provides sufficient concurrency**: Assumes Python's GIL and threading.Lock will handle concurrent writes without deadlocks or performance degradation at target load. *Validation: Load testing with 500 simulated concurrent voters before production deployment.*
+4. **Verification code delivery mechanism**: Assumes console logging is acceptable for prototype and school has plan for production email delivery. Need validation on whether school has SMTP server or will use service (SendGrid, SES).
 
-5. **Voters use single device/session**: Assumes voters won't attempt to vote from multiple devices simultaneously with same credentials. *Validation: Test multi-device scenario and document expected behavior.*
+5. **Candidate profile data size**: Design assumes candidate bios and photos are reasonably sized (<1MB per candidate). Large photo URLs or extensive bios could impact memory usage with 50 candidates.
 
 ---
 
 ## Mitigations
 
-### For Risk 1: In-Memory Data Loss (High)
+### For Risk 1: In-Memory Data Volatility
+- **Immediate**: Implement auto-save to JSON file every 30 seconds as backup mechanism. On startup, load from JSON if exists.
+- **Short-term**: Add admin endpoint to export election state (all votes, voters, candidates) as JSON for manual backup before election start.
+- **Long-term**: Document clear migration path to SQLite (file-based) as interim step before PostgreSQL, requiring only data_store.py changes.
 
-- **Periodic State Snapshots**: Implement automatic JSON serialization of entire data store every 30 seconds to disk. On server restart, load latest snapshot to recover state (won't prevent loss of last 30s of votes, but limits damage).
+### For Risk 2: Race Conditions in Concurrent Voting
+- **Immediate**: Implement comprehensive lock scope tests with concurrent vote submissions (threading library for 50 parallel votes).
+- **Code review**: Ensure single lock acquisition per cast_votes() call with all data mutations inside try-finally block.
+- **Testing**: Add `test_concurrent_votes_race_condition.py` with ThreadPoolExecutor simulating 100 simultaneous votes to same/different positions.
 
-- **Graceful Shutdown Handler**: Add signal handlers (SIGTERM/SIGINT) that flush current state to disk before server shutdown. Prevents data loss during planned restarts.
+### For Risk 3: Vote Anonymity Verification Gap
+- **Immediate**: Create `test_vote_anonymity.py` with assertions that Vote model has no voter_id field and votes list cannot be joined to voters.
+- **Code analysis**: Add pre-commit hook running grep for "vote.*voter_id" patterns in api/voting/ to catch accidental linkage.
+- **Documentation**: Add ANONYMITY.md explaining separation architecture and requiring review for any vote-related code changes.
 
-- **Dual-Write Logging**: Write all vote submissions to append-only log file immediately after recording in memory. Provides audit trail and recovery mechanism even if in-memory state is lost.
+### For Risk 4: Session Management Scalability
+- **Immediate**: Implement session cleanup background thread removing expired sessions every 5 minutes.
+- **Monitoring**: Add memory usage logging and session count metrics to /api/health endpoint.
+- **Optimization**: Reduce session storage to minimal data (voter_id, expiry only), reconstruct voter details from voters dict on each request.
 
-- **Pre-Production Communication**: Document data loss risk explicitly for stakeholders. Schedule elections during low-traffic periods to minimize server restart needs.
+### For Risk 5: Frontend Polling Load
+- **Immediate**: Implement results caching with 1-second TTL in calculate_results() using time-based cache invalidation.
+- **Optimization**: Add HTTP ETag headers to results endpoint, return 304 Not Modified if results unchanged.
+- **Alternative**: Document WebSocket implementation path for future real-time updates without polling.
 
-### For Risk 2: Race Conditions in Concurrent Voting (High)
+### For Risk 6: Mock Authentication Security
+- **Immediate**: Add prominent "PROTOTYPE ONLY" warnings in auth service comments and README.
+- **Configuration**: Move admin credentials and mock auth flag to environment variables with validation that raises error if MOCK_AUTH=true in production.
+- **Deployment checklist**: Create DEPLOYMENT.md with security checklist including credential rotation and email service integration.
 
-- **Atomic Vote Recording**: Refactor `cast_votes()` to acquire lock once, perform all checks (voter.voted_positions) and updates (vote recording + voter.voted_positions update) within single lock context. Never release and re-acquire lock mid-transaction.
-
-- **Comprehensive Concurrency Tests**: Create dedicated `test_concurrent_voting.py` using threading.Thread to simulate 50+ simultaneous vote submissions for same voter. Assert only one succeeds.
-
-- **Transaction Logging**: Log every lock acquisition/release with timestamps and operation type. Monitor logs during load testing to detect lock hold time exceeding 50ms (warning sign of contention).
-
-- **Read-Write Lock Upgrade**: Replace threading.Lock with threading.RLock (reentrant) or implement read-write lock using threading.Condition to allow concurrent reads (results calculation) while blocking writes.
-
-### For Risk 3: Vote Anonymity Implementation Gap (Medium)
-
-- **Anonymity Verification Test Suite**: Create `test_vote_anonymity.py` that records votes, then searches entire data store (voters, votes, audit_logs) for any data structure containing both voter_id and candidate_id. Assert none exist.
-
-- **Code Review Checklist**: Before merging, review all logging statements, error handlers, and audit log entries to verify no voter-vote linkage appears in any output.
-
-- **Separate Vote Recording Module**: Isolate vote recording logic in dedicated module that never receives voter_id as parameter. Pass only position and candidate_id to prevent accidental linkage.
-
-- **Production Log Sanitization**: Implement custom logging filter that scrubs any log messages containing both "voter_id" and "candidate" patterns before writing to disk.
-
-### For Risk 4: Session State Scalability Bottleneck (Medium)
-
-- **Read-Heavy Optimization**: Results calculation and ballot fetching (read-only operations) should use copy-on-read pattern - create shallow dict copy outside lock, then process without holding lock.
-
-- **Lock Profiling**: Add instrumentation to measure lock wait times per endpoint. Set alert threshold at 100ms wait time. If exceeded during load testing, implement per-resource locks (separate locks for voters, votes, candidates).
-
-- **Results Caching**: Implement 1-second TTL cache for `calculate_results()` as specified in LLD. Invalidate on vote submission. Reduces lock acquisition frequency for most common read operation.
-
-- **Load Testing Validation**: Before production, run load test simulating 500 concurrent voters with 70% voting, 30% viewing results. Assert p95 latency stays under 200ms.
-
-### For Risk 5: JWT Token Security Without Refresh Mechanism (Medium)
-
-- **Extended Session Duration**: Increase token expiration to 4 hours instead of 2 hours to cover typical voting session duration. School elections unlikely to require multi-hour voting sessions.
-
-- **Session Extension Endpoint**: Add `POST /api/auth/extend-session` that issues new token if current token is valid and less than 30 minutes expired. Frontend calls automatically when detecting token expiring within 10 minutes.
-
-- **Voter Re-Authentication Flow**: Design UX to gracefully handle session expiration - save ballot selections to localStorage, redirect to login, restore selections after re-authentication.
-
-- **Admin Token Separation**: Use separate JWT signing key for admin tokens vs voter tokens to prevent privilege escalation if voter token is compromised.
-
-### For Risk 6: Frontend Polling Overhead (Low)
-
-- **Exponential Backoff Polling**: Start with 2-second interval, but if results unchanged for 3 consecutive polls, increase interval to 5 seconds, then 10 seconds. Resume 2-second polling after detecting result change.
-
-- **Conditional GET with ETag**: Return ETag header with results response hash. Frontend sends If-None-Match header. Backend returns 304 Not Modified if results unchanged, saving computation and bandwidth.
-
-- **Rate Limiting Middleware**: Add rate limiter to `/api/results` endpoint allowing max 1 request per second per IP. Prevents DoS abuse while allowing legitimate polling.
-
-- **Server-Sent Events (SSE) Future Migration**: Document SSE as future enhancement to replace polling with push-based updates. Prototype remains with polling for simplicity.
-
-### For Risk 7: Mock Verification Code Exposure (Low)
-
-- **Environment-Based Logging**: Wrap verification code logging in `if os.getenv('ENVIRONMENT') == 'development'` check. Never log codes in production environment.
-
-- **Code Delivery Abstraction**: Create `EmailService` interface with `MockEmailService` (logs codes) and `ProductionEmailService` (silent) implementations. Inject via dependency injection based on environment.
-
-- **Security Audit Checklist**: Add pre-deployment checklist item: "Verify no verification codes appear in production logs during test voting session."
-
-- **Alternative Testing Method**: In production, display verification code in API response only (not logs). Admin can view code via admin panel for troubleshooting without exposing in server logs.
+### For Risk 7: Lack of Input Sanitization Testing
+- **Immediate**: Add DOMPurify library to frontend for sanitizing candidate bios before rendering.
+- **Backend**: Implement input length limits (bio: 500 chars, name: 100 chars) in Pydantic models.
+- **Testing**: Create `test_xss_prevention.py` with malicious payloads (`<script>alert('xss')</script>`) in candidate data and verify sanitization.
 
 ---
 
