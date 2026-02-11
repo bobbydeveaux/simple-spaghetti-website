@@ -13,10 +13,15 @@ from datetime import datetime
 
 # Import our modules
 from api.data_store import (
-    BOOKS, AUTHORS, MEMBERS, LOANS,
-    get_next_book_id, get_next_loan_id, get_next_member_id
+    BOOKS, AUTHORS, MEMBERS, LOANS, PROPOSALS, VOTES,
+    get_next_book_id, get_next_loan_id, get_next_member_id,
+    create_proposal, update_proposal, get_proposal, get_all_proposals,
+    create_vote, get_vote_by_member_and_proposal, get_votes_for_proposal, update_vote, delete_vote
 )
-from api.validators import validate_book, validate_book_update, validate_loan, validate_loan_return, validate_member
+from api.validators import (
+    validate_book, validate_book_update, validate_loan, validate_loan_return, validate_member,
+    validate_proposal, validate_vote, validate_proposal_update, validate_vote_update
+)
 from api.auth import token_required, authenticate_member, generate_token
 
 # Create Flask application
@@ -561,6 +566,415 @@ def get_loan_details(loan_id: int) -> Tuple[Dict[str, Any], int]:
         return {"error": "Failed to retrieve loan details"}, 500
 
 
+# PTA Voting System Endpoints
+
+@app.route("/proposals", methods=["GET"])
+@token_required
+def get_proposals() -> Tuple[Dict[str, Any], int]:
+    """
+    Get all proposals.
+
+    Returns:
+        200: List of all proposals
+        401: Unauthorized
+        500: Internal server error
+    """
+    try:
+        proposals_dict = get_all_proposals()
+        proposals_list = list(proposals_dict.values())
+
+        # Add vote counts for each proposal
+        for proposal in proposals_list:
+            votes = get_votes_for_proposal(proposal["id"])
+            vote_counts = {}
+            for option in proposal.get("options", []):
+                vote_counts[option] = 0
+            if proposal.get("allow_abstain", False):
+                vote_counts["abstain"] = 0
+
+            for vote in votes:
+                choice = vote.get("vote_choice", "")
+                if choice in vote_counts:
+                    vote_counts[choice] += 1
+
+            proposal["vote_counts"] = vote_counts
+            proposal["total_votes"] = len(votes)
+
+        return {"proposals": proposals_list}, 200
+
+    except Exception as e:
+        print(f"Get proposals error: {str(e)}")
+        return {"error": "Failed to retrieve proposals"}, 500
+
+@app.route("/proposals", methods=["POST"])
+@token_required
+def create_new_proposal() -> Tuple[Dict[str, Any], int]:
+    """
+    Create a new proposal.
+
+    Request body:
+        {
+            "title": "string",
+            "description": "string",
+            "closing_date": "YYYY-MM-DD",
+            "options": ["option1", "option2"],
+            "allow_abstain": boolean (optional)
+        }
+
+    Returns:
+        201: Proposal created successfully
+        400: Invalid data
+        401: Unauthorized
+        500: Internal server error
+    """
+    try:
+        data = request.get_json()
+        if not data:
+            return {"error": "Request body required"}, 400
+
+        # Add created_by from authentication token
+        data["created_by"] = request.current_member_id
+        data["created_date"] = datetime.now().strftime("%Y-%m-%d")
+        data["status"] = "draft"  # Start as draft by default
+
+        # Validate proposal data
+        is_valid, error_msg = validate_proposal(data)
+        if not is_valid:
+            return {"error": error_msg}, 400
+
+        # Create the proposal
+        proposal_id = create_proposal(data)
+
+        # Get the created proposal for response
+        proposal = get_proposal(proposal_id)
+
+        return {
+            "id": proposal_id,
+            "title": proposal["title"],
+            "description": proposal["description"],
+            "created_by": proposal["created_by"],
+            "created_date": proposal["created_date"],
+            "closing_date": proposal["closing_date"],
+            "status": proposal["status"],
+            "options": proposal["options"],
+            "allow_abstain": proposal.get("allow_abstain", False),
+            "message": f"Proposal '{proposal['title']}' created successfully"
+        }, 201
+
+    except Exception as e:
+        print(f"Create proposal error: {str(e)}")
+        return {"error": "Failed to create proposal"}, 500
+
+@app.route("/proposals/<int:proposal_id>", methods=["GET"])
+@token_required
+def get_proposal_details(proposal_id: int) -> Tuple[Dict[str, Any], int]:
+    """
+    Get details of a specific proposal including vote counts.
+
+    Returns:
+        200: Proposal details with vote counts
+        401: Unauthorized
+        404: Proposal not found
+        500: Internal server error
+    """
+    try:
+        proposal = get_proposal(proposal_id)
+        if proposal is None:
+            return {"error": "Proposal not found"}, 404
+
+        # Get votes for this proposal
+        votes = get_votes_for_proposal(proposal_id)
+
+        # Calculate vote counts
+        vote_counts = {}
+        for option in proposal.get("options", []):
+            vote_counts[option] = 0
+        if proposal.get("allow_abstain", False):
+            vote_counts["abstain"] = 0
+
+        for vote in votes:
+            choice = vote.get("vote_choice", "")
+            if choice in vote_counts:
+                vote_counts[choice] += 1
+
+        # Add member name for created_by
+        creator = MEMBERS.get(proposal["created_by"], {})
+
+        return {
+            "id": proposal["id"],
+            "title": proposal["title"],
+            "description": proposal["description"],
+            "created_by": proposal["created_by"],
+            "created_by_name": creator.get("name", "Unknown"),
+            "created_date": proposal["created_date"],
+            "closing_date": proposal["closing_date"],
+            "status": proposal["status"],
+            "options": proposal["options"],
+            "allow_abstain": proposal.get("allow_abstain", False),
+            "vote_counts": vote_counts,
+            "total_votes": len(votes)
+        }, 200
+
+    except Exception as e:
+        print(f"Get proposal details error: {str(e)}")
+        return {"error": "Failed to retrieve proposal details"}, 500
+
+@app.route("/proposals/<int:proposal_id>", methods=["PUT"])
+@token_required
+def update_proposal_details(proposal_id: int) -> Tuple[Dict[str, Any], int]:
+    """
+    Update a proposal (only by creator or admin).
+
+    Request body: Partial proposal data to update
+
+    Returns:
+        200: Proposal updated successfully
+        400: Invalid data
+        401: Unauthorized
+        403: Permission denied
+        404: Proposal not found
+        500: Internal server error
+    """
+    try:
+        proposal = get_proposal(proposal_id)
+        if proposal is None:
+            return {"error": "Proposal not found"}, 404
+
+        # Check if current user is the creator (basic authorization)
+        current_member_id = request.current_member_id
+        if proposal["created_by"] != current_member_id:
+            return {"error": "Permission denied: only the proposal creator can update it"}, 403
+
+        data = request.get_json()
+        if not data:
+            return {"error": "Request body required"}, 400
+
+        # Validate update data
+        is_valid, error_msg = validate_proposal_update(proposal_id, data)
+        if not is_valid:
+            return {"error": error_msg}, 400
+
+        # Update the proposal
+        success = update_proposal(proposal_id, data)
+        if not success:
+            return {"error": "Failed to update proposal"}, 500
+
+        # Return updated proposal
+        updated_proposal = get_proposal(proposal_id)
+        return {
+            "id": updated_proposal["id"],
+            "title": updated_proposal["title"],
+            "description": updated_proposal["description"],
+            "created_by": updated_proposal["created_by"],
+            "created_date": updated_proposal["created_date"],
+            "closing_date": updated_proposal["closing_date"],
+            "status": updated_proposal["status"],
+            "options": updated_proposal["options"],
+            "allow_abstain": updated_proposal.get("allow_abstain", False),
+            "message": "Proposal updated successfully"
+        }, 200
+
+    except Exception as e:
+        print(f"Update proposal error: {str(e)}")
+        return {"error": "Failed to update proposal"}, 500
+
+@app.route("/proposals/<int:proposal_id>/votes", methods=["POST"])
+@token_required
+def cast_vote(proposal_id: int) -> Tuple[Dict[str, Any], int]:
+    """
+    Cast a vote on a proposal.
+
+    Request body:
+        {
+            "vote_choice": "string",
+            "is_anonymous": boolean (optional, default false)
+        }
+
+    Returns:
+        201: Vote cast successfully
+        400: Invalid data or duplicate vote
+        401: Unauthorized
+        404: Proposal not found
+        500: Internal server error
+    """
+    try:
+        proposal = get_proposal(proposal_id)
+        if proposal is None:
+            return {"error": "Proposal not found"}, 404
+
+        data = request.get_json()
+        if not data:
+            return {"error": "Request body required"}, 400
+
+        # Add member_id and proposal_id to vote data
+        current_member_id = request.current_member_id
+        data["member_id"] = current_member_id
+        data["proposal_id"] = proposal_id
+
+        # Check if member has already voted
+        existing_vote = get_vote_by_member_and_proposal(current_member_id, proposal_id)
+        if existing_vote:
+            return {"error": "You have already voted on this proposal. Use PUT to update your vote."}, 400
+
+        # Validate vote data
+        is_valid, error_msg = validate_vote(data)
+        if not is_valid:
+            return {"error": error_msg}, 400
+
+        # Create the vote
+        data["timestamp"] = datetime.now().isoformat()
+        data["is_anonymous"] = data.get("is_anonymous", False)
+
+        vote_id = create_vote(data)
+
+        return {
+            "vote_id": vote_id,
+            "proposal_id": proposal_id,
+            "vote_choice": data["vote_choice"],
+            "timestamp": data["timestamp"],
+            "is_anonymous": data["is_anonymous"],
+            "message": f"Vote '{data['vote_choice']}' cast successfully on proposal '{proposal['title']}'"
+        }, 201
+
+    except Exception as e:
+        print(f"Cast vote error: {str(e)}")
+        return {"error": "Failed to cast vote"}, 500
+
+@app.route("/proposals/<int:proposal_id>/votes", methods=["PUT"])
+@token_required
+def update_vote_choice(proposal_id: int) -> Tuple[Dict[str, Any], int]:
+    """
+    Update an existing vote on a proposal.
+
+    Request body:
+        {
+            "vote_choice": "string",
+            "is_anonymous": boolean (optional)
+        }
+
+    Returns:
+        200: Vote updated successfully
+        400: Invalid data
+        401: Unauthorized
+        404: Proposal or vote not found
+        500: Internal server error
+    """
+    try:
+        proposal = get_proposal(proposal_id)
+        if proposal is None:
+            return {"error": "Proposal not found"}, 404
+
+        current_member_id = request.current_member_id
+        existing_vote = get_vote_by_member_and_proposal(current_member_id, proposal_id)
+
+        if existing_vote is None:
+            return {"error": "No existing vote found. Use POST to cast a new vote."}, 404
+
+        data = request.get_json()
+        if not data:
+            return {"error": "Request body required"}, 400
+
+        # Validate vote update data
+        is_valid, error_msg = validate_vote_update(existing_vote["id"], data)
+        if not is_valid:
+            return {"error": error_msg}, 400
+
+        # Update timestamp and vote choice
+        data["timestamp"] = datetime.now().isoformat()
+
+        success = update_vote(existing_vote["id"], data)
+        if not success:
+            return {"error": "Failed to update vote"}, 500
+
+        return {
+            "vote_id": existing_vote["id"],
+            "proposal_id": proposal_id,
+            "vote_choice": data["vote_choice"],
+            "timestamp": data["timestamp"],
+            "is_anonymous": data.get("is_anonymous", existing_vote.get("is_anonymous", False)),
+            "message": f"Vote updated to '{data['vote_choice']}' on proposal '{proposal['title']}'"
+        }, 200
+
+    except Exception as e:
+        print(f"Update vote error: {str(e)}")
+        return {"error": "Failed to update vote"}, 500
+
+@app.route("/proposals/<int:proposal_id>/votes", methods=["DELETE"])
+@token_required
+def delete_vote_on_proposal(proposal_id: int) -> Tuple[Dict[str, Any], int]:
+    """
+    Delete a vote on a proposal.
+
+    Returns:
+        200: Vote deleted successfully
+        401: Unauthorized
+        404: Proposal or vote not found
+        500: Internal server error
+    """
+    try:
+        proposal = get_proposal(proposal_id)
+        if proposal is None:
+            return {"error": "Proposal not found"}, 404
+
+        current_member_id = request.current_member_id
+        existing_vote = get_vote_by_member_and_proposal(current_member_id, proposal_id)
+
+        if existing_vote is None:
+            return {"error": "No vote found to delete"}, 404
+
+        # Check if proposal is still active for vote changes
+        if proposal.get("status") != "active":
+            return {"error": "Cannot delete vote on inactive proposals"}, 400
+
+        success = delete_vote(existing_vote["id"])
+        if not success:
+            return {"error": "Failed to delete vote"}, 500
+
+        return {
+            "message": f"Vote deleted successfully from proposal '{proposal['title']}'",
+            "proposal_id": proposal_id
+        }, 200
+
+    except Exception as e:
+        print(f"Delete vote error: {str(e)}")
+        return {"error": "Failed to delete vote"}, 500
+
+@app.route("/votes/my-votes", methods=["GET"])
+@token_required
+def get_my_votes() -> Tuple[Dict[str, Any], int]:
+    """
+    Get all votes cast by the current user.
+
+    Returns:
+        200: List of user's votes with proposal details
+        401: Unauthorized
+        500: Internal server error
+    """
+    try:
+        current_member_id = request.current_member_id
+        my_votes = []
+
+        for vote in VOTES.values():
+            if vote["member_id"] == current_member_id:
+                proposal = get_proposal(vote["proposal_id"])
+                if proposal:
+                    my_votes.append({
+                        "vote_id": vote["id"],
+                        "proposal_id": vote["proposal_id"],
+                        "proposal_title": proposal["title"],
+                        "vote_choice": vote["vote_choice"],
+                        "timestamp": vote["timestamp"],
+                        "is_anonymous": vote.get("is_anonymous", False),
+                        "proposal_status": proposal["status"],
+                        "proposal_closing_date": proposal["closing_date"]
+                    })
+
+        return {"my_votes": my_votes, "total_votes": len(my_votes)}, 200
+
+    except Exception as e:
+        print(f"Get my votes error: {str(e)}")
+        return {"error": "Failed to retrieve votes"}, 500
+
 # Health check endpoint
 @app.route("/health", methods=["GET"])
 def health_check():
@@ -582,6 +996,14 @@ def root():
             "borrow_book": "/loans/borrow",
             "return_book": "/loans/return",
             "loan_details": "/loans/{id}",
+            "voting_proposals": "/proposals",
+            "create_proposal": "/proposals",
+            "proposal_details": "/proposals/{id}",
+            "update_proposal": "/proposals/{id}",
+            "cast_vote": "/proposals/{id}/votes",
+            "update_vote": "/proposals/{id}/votes",
+            "delete_vote": "/proposals/{id}/votes",
+            "my_votes": "/votes/my-votes",
             "health": "/health"
         }
     }, 200
