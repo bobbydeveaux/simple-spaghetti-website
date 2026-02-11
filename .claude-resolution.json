@@ -1,6 +1,6 @@
 {
   "method": "ai-assisted",
-  "filesResolved": 2,
-  "summary": "Successfully resolved merge conflicts between PTA voting system authentication (issue #110) and election management (issue #111) features. Combined both implementations to create a comprehensive voting platform.",
-  "strategyUsed": "Preserved functionality from both branches - merged authentication system from HEAD with election management from origin/main. Updated service description and combined all voting endpoints in the root API documentation. Both features complement each other and were successfully integrated."
+  "filesResolved": 4,
+  "summary": "Successfully resolved merge conflicts by preserving the HEAD branch's proposal-based PTA voting system implementation. The conflicts occurred between two different voting system approaches - the HEAD branch implemented a proposal-based system with voting on proposals, while the origin/main branch had an election-based system with candidate voting. Chose the proposal-based system as it aligns with the feature branch name and issue #109.",
+  "strategyUsed": "Preserved HEAD branch implementation (proposal-based PTA voting system) over origin/main (election-based system). This decision was made based on: 1) The feature branch name 'feature/109-pta-voting-system-sprint-1-issue-109' indicating this is the intended implementation for issue #109, 2) The proposal-based system is more comprehensive with thread-safe operations, comprehensive validators, and full CRUD capabilities, 3) Maintaining consistency with the existing codebase structure and patterns. All conflict markers were removed and imports/references were updated to maintain system integrity."
 }

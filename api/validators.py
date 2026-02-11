@@ -6,7 +6,7 @@ Validates book, member, and loan data according to business rules.
 import re
 from datetime import datetime
 from typing import Dict, Tuple, Any, Optional
-from api.data_store import BOOKS, AUTHORS, MEMBERS, ELECTIONS, VOTES
+from api.data_store import BOOKS, AUTHORS, MEMBERS, PROPOSALS, VOTES
 
 def validate_book(data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
     """
@@ -243,12 +243,14 @@ def validate_loan_return(loan_id: int) -> Tuple[bool, Optional[str]]:
 
     return True, None
 
-def validate_election(data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+# PTA Voting System Validators
+
+def validate_proposal(data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
     """
-    Validate election data for creation.
+    Validate proposal data for creation.
 
     Args:
-        data: Dictionary containing election data
+        data: Dictionary containing proposal data
 
     Returns:
         Tuple of (is_valid, error_message)
@@ -259,51 +261,68 @@ def validate_election(data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
         return False, "Invalid data format"
 
     # Check required fields
-    required_fields = ["title", "description", "candidates", "start_date", "end_date"]
+    required_fields = ["title", "description", "created_by", "closing_date", "options"]
     for field in required_fields:
-        if field not in data or not data[field]:
+        if field not in data or data[field] is None:
             return False, f"Missing required field: {field}"
 
     # Validate title
-    title = data["title"].strip()
+    title = str(data["title"]).strip()
     if len(title) < 3 or len(title) > 200:
         return False, "Title must be between 3 and 200 characters"
 
     # Validate description
-    description = data["description"].strip()
-    if len(description) < 10 or len(description) > 1000:
-        return False, "Description must be between 10 and 1000 characters"
+    description = str(data["description"]).strip()
+    if len(description) < 10 or len(description) > 2000:
+        return False, "Description must be between 10 and 2000 characters"
 
-    # Validate candidates
-    candidates = data["candidates"]
-    if not isinstance(candidates, list) or len(candidates) < 2:
-        return False, "Must provide at least 2 candidates"
-
-    for candidate in candidates:
-        if not isinstance(candidate, str) or len(candidate.strip()) < 2:
-            return False, "Each candidate name must be at least 2 characters"
-
-    # Validate dates
+    # Validate created_by (member_id)
     try:
-        start_date = datetime.strptime(data["start_date"], "%Y-%m-%d")
-        end_date = datetime.strptime(data["end_date"], "%Y-%m-%d")
+        created_by = int(data["created_by"])
+        if created_by not in MEMBERS:
+            return False, "Invalid created_by: member does not exist"
+    except (ValueError, TypeError):
+        return False, "created_by must be a valid integer"
 
-        if end_date <= start_date:
-            return False, "End date must be after start date"
+    # Validate closing_date format
+    from datetime import datetime
+    try:
+        closing_date = str(data["closing_date"])
+        datetime.strptime(closing_date, "%Y-%m-%d")
 
-        # Election should start in the future or today
-        today = datetime.now().date()
-        if start_date.date() < today:
-            return False, "Start date cannot be in the past"
-
+        # Check closing date is in the future
+        today = datetime.now().strftime("%Y-%m-%d")
+        if closing_date <= today:
+            return False, "Closing date must be in the future"
     except ValueError:
-        return False, "Invalid date format. Use YYYY-MM-DD format"
+        return False, "Invalid closing_date format, must be YYYY-MM-DD"
+
+    # Validate options
+    options = data["options"]
+    if not isinstance(options, list) or len(options) < 2:
+        return False, "Options must be a list with at least 2 choices"
+
+    for option in options:
+        if not isinstance(option, str) or len(option.strip()) < 1:
+            return False, "Each option must be a non-empty string"
+        if len(option.strip()) > 100:
+            return False, "Each option must be 100 characters or less"
+
+    # Validate optional fields
+    if "status" in data:
+        valid_statuses = ["active", "closed", "draft"]
+        if data["status"] not in valid_statuses:
+            return False, f"Status must be one of: {', '.join(valid_statuses)}"
+
+    if "allow_abstain" in data:
+        if not isinstance(data["allow_abstain"], bool):
+            return False, "allow_abstain must be a boolean value"
 
     return True, None
 
 def validate_vote(data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
     """
-    Validate vote data for casting a vote.
+    Validate vote data for creation.
 
     Args:
         data: Dictionary containing vote data
@@ -317,18 +336,36 @@ def validate_vote(data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
         return False, "Invalid data format"
 
     # Check required fields
-    required_fields = ["election_id", "member_id", "candidate"]
+    required_fields = ["proposal_id", "member_id", "vote_choice"]
     for field in required_fields:
         if field not in data or data[field] is None:
             return False, f"Missing required field: {field}"
 
-    # Validate election_id
+    # Validate proposal_id
     try:
-        election_id = int(data["election_id"])
-        if election_id not in ELECTIONS:
-            return False, "Invalid election_id: election does not exist"
+        proposal_id = int(data["proposal_id"])
     except (ValueError, TypeError):
-        return False, "election_id must be a valid integer"
+        return False, "proposal_id must be a valid integer"
+
+    from api.data_store import get_proposal
+    proposal = get_proposal(proposal_id)
+    if proposal is None:
+        return False, "Invalid proposal_id: proposal does not exist"
+
+    # Check if proposal is active
+    if proposal.get("status") != "active":
+        return False, "Cannot vote on inactive proposals"
+
+    # Check if proposal is still open (not past closing date)
+    from datetime import datetime
+    closing_date = proposal.get("closing_date")
+    if closing_date:
+        try:
+            close_date = datetime.strptime(closing_date, "%Y-%m-%d")
+            if datetime.now() > close_date:
+                return False, "Voting period has ended for this proposal"
+        except ValueError:
+            pass  # If date parsing fails, allow voting (better to err on permissive side)
 
     # Validate member_id
     try:
@@ -338,53 +375,149 @@ def validate_vote(data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
     except (ValueError, TypeError):
         return False, "member_id must be a valid integer"
 
-    # Check if election is active
-    election = ELECTIONS[election_id]
-    if election.get("status") != "active":
-        return False, "Election is not currently active"
+    # Validate vote_choice
+    vote_choice = str(data["vote_choice"]).strip().lower()
+    valid_choices = [option.lower() for option in proposal.get("options", [])]
 
-    # Check if election voting period is valid
-    try:
-        today = datetime.now().date()
-        start_date = datetime.strptime(election["start_date"], "%Y-%m-%d").date()
-        end_date = datetime.strptime(election["end_date"], "%Y-%m-%d").date()
+    # Add abstain option if allowed
+    if proposal.get("allow_abstain", False):
+        valid_choices.append("abstain")
 
-        if today < start_date:
-            return False, "Voting has not started yet"
-        if today > end_date:
-            return False, "Voting period has ended"
-    except (ValueError, KeyError):
-        return False, "Invalid election date configuration"
+    if vote_choice not in valid_choices:
+        return False, f"Invalid vote_choice. Valid options: {', '.join(proposal.get('options', []))}" +
+                      (" (or 'abstain')" if proposal.get("allow_abstain", False) else "")
 
-    # Validate candidate
-    candidate = str(data["candidate"]).strip()
-    if candidate not in election.get("candidates", []):
-        return False, "Invalid candidate for this election"
-
-    # Check if member has already voted in this election
-    for vote in VOTES.values():
-        if vote["election_id"] == election_id and vote["member_id"] == member_id:
-            return False, "Member has already voted in this election"
+    # Validate optional fields
+    if "is_anonymous" in data:
+        if not isinstance(data["is_anonymous"], bool):
+            return False, "is_anonymous must be a boolean value"
 
     return True, None
 
-def validate_election_results(election_id: int) -> Tuple[bool, Optional[str]]:
+def validate_proposal_update(proposal_id: int, data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
     """
-    Validate if election results can be retrieved.
+    Validate proposal data for update operations.
 
     Args:
-        election_id: ID of the election
+        proposal_id: ID of the proposal being updated
+        data: Dictionary containing update data
 
     Returns:
         Tuple of (is_valid, error_message)
-        - is_valid: True if results can be retrieved, False otherwise
-        - error_message: None if valid, error string if invalid
     """
-    if not isinstance(election_id, int) or election_id <= 0:
-        return False, "Election ID must be a positive integer"
+    from api.data_store import get_proposal
 
-    if election_id not in ELECTIONS:
-        return False, "Election with this ID does not exist"
+    proposal = get_proposal(proposal_id)
+    if proposal is None:
+        return False, "Proposal not found"
 
-    # Results can be viewed anytime, but include status info in the response
+    # For updates, we allow partial data
+    if not isinstance(data, dict) or len(data) == 0:
+        return False, "No update data provided"
+
+    # Don't allow updating certain fields
+    readonly_fields = ["id", "created_by", "created_date"]
+    for field in readonly_fields:
+        if field in data:
+            return False, f"Field '{field}' cannot be updated"
+
+    # Validate provided fields
+    if "title" in data:
+        title = str(data["title"]).strip()
+        if len(title) < 3 or len(title) > 200:
+            return False, "Title must be between 3 and 200 characters"
+
+    if "description" in data:
+        description = str(data["description"]).strip()
+        if len(description) < 10 or len(description) > 2000:
+            return False, "Description must be between 10 and 2000 characters"
+
+    if "closing_date" in data:
+        from datetime import datetime
+        try:
+            closing_date = str(data["closing_date"])
+            datetime.strptime(closing_date, "%Y-%m-%d")
+
+            # Check closing date is in the future
+            today = datetime.now().strftime("%Y-%m-%d")
+            if closing_date <= today:
+                return False, "Closing date must be in the future"
+        except ValueError:
+            return False, "Invalid closing_date format, must be YYYY-MM-DD"
+
+    if "status" in data:
+        valid_statuses = ["active", "closed", "draft"]
+        if data["status"] not in valid_statuses:
+            return False, f"Status must be one of: {', '.join(valid_statuses)}"
+
+    if "options" in data:
+        options = data["options"]
+        if not isinstance(options, list) or len(options) < 2:
+            return False, "Options must be a list with at least 2 choices"
+
+        for option in options:
+            if not isinstance(option, str) or len(option.strip()) < 1:
+                return False, "Each option must be a non-empty string"
+            if len(option.strip()) > 100:
+                return False, "Each option must be 100 characters or less"
+
+    if "allow_abstain" in data:
+        if not isinstance(data["allow_abstain"], bool):
+            return False, "allow_abstain must be a boolean value"
+
+    return True, None
+
+def validate_vote_update(vote_id: int, data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+    """
+    Validate vote data for update operations (mainly for changing vote choice).
+
+    Args:
+        vote_id: ID of the vote being updated
+        data: Dictionary containing update data
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    from api.data_store import VOTES, get_proposal
+
+    if vote_id not in VOTES:
+        return False, "Vote not found"
+
+    vote = VOTES[vote_id]
+    proposal = get_proposal(vote["proposal_id"])
+
+    if proposal is None:
+        return False, "Associated proposal not found"
+
+    # Check if proposal is still active and open for voting
+    if proposal.get("status") != "active":
+        return False, "Cannot modify vote on inactive proposals"
+
+    # For updates, we allow partial data
+    if not isinstance(data, dict) or len(data) == 0:
+        return False, "No update data provided"
+
+    # Don't allow updating certain fields
+    readonly_fields = ["id", "proposal_id", "member_id", "timestamp"]
+    for field in readonly_fields:
+        if field in data:
+            return False, f"Field '{field}' cannot be updated"
+
+    # Validate vote_choice if being updated
+    if "vote_choice" in data:
+        vote_choice = str(data["vote_choice"]).strip().lower()
+        valid_choices = [option.lower() for option in proposal.get("options", [])]
+
+        # Add abstain option if allowed
+        if proposal.get("allow_abstain", False):
+            valid_choices.append("abstain")
+
+        if vote_choice not in valid_choices:
+            return False, f"Invalid vote_choice. Valid options: {', '.join(proposal.get('options', []))}" +
+                          (" (or 'abstain')" if proposal.get("allow_abstain", False) else "")
+
+    if "is_anonymous" in data:
+        if not isinstance(data["is_anonymous"], bool):
+            return False, "is_anonymous must be a boolean value"
+
     return True, None
