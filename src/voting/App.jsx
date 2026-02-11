@@ -6,6 +6,7 @@
 import React from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import VoterLogin from './pages/VoterLogin';
+import Dashboard from './pages/admin/Dashboard';
 
 /**
  * Authenticated voting dashboard (placeholder for now)
@@ -56,22 +57,34 @@ function VotingDashboard() {
  * Main voting app component
  */
 function VotingAppContent() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isAdmin } = useAuth();
 
   const handleLoginSuccess = () => {
     // Could navigate to specific page or just rely on re-render
     console.log('Login successful!');
   };
 
+  // Check if we're on admin route
+  const isAdminRoute = window.location.pathname === '/voting/admin';
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        {isAuthenticated ? (
-          <VotingDashboard />
+      {isAuthenticated ? (
+        // Show admin dashboard if authenticated admin on admin route
+        isAdmin() && isAdminRoute ? (
+          <Dashboard />
         ) : (
+          // Show voting dashboard for regular voters or admins not on admin route
+          <div className="container mx-auto px-4 py-8">
+            <VotingDashboard />
+          </div>
+        )
+      ) : (
+        // Show login if not authenticated
+        <div className="container mx-auto px-4 py-8">
           <VoterLogin onLoginSuccess={handleLoginSuccess} />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
