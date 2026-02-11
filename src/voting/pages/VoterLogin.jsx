@@ -357,7 +357,7 @@ const VoterLogin = () => {
         )}
 
         {/* Debug Info (Development Only) */}
-        {debugInfo && process.env.NODE_ENV === 'development' && (
+        {debugInfo && import.meta.env.DEV && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mt-6">
             <h4 className="text-sm font-medium text-yellow-800 mb-2">Debug Info (Development)</h4>
             <p className="text-xs text-yellow-700">

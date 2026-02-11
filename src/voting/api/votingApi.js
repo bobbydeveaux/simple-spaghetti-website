@@ -5,61 +5,13 @@
 
 // Base configuration
 const API_BASE_URL = 'http://localhost:5000/api/voting';
-const FASTAPI_BASE_URL = 'http://localhost:8000/voting';
 
 // Detect available HTTP client and use appropriate approach
 let httpClient;
 let useAxios = false;
 
-// Try to use axios if available (FastAPI approach)
-try {
-    const axios = require('axios');
-    httpClient = axios.create({
-        baseURL: FASTAPI_BASE_URL,
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        timeout: 10000,
-    });
-
-    // Add request interceptor to include auth token
-    httpClient.interceptors.request.use(
-        (config) => {
-            const token = localStorage.getItem('voter_token') || localStorage.getItem('voting_auth_token');
-            if (token) {
-                config.headers.Authorization = `Bearer ${token}`;
-            }
-            return config;
-        },
-        (error) => Promise.reject(error)
-    );
-
-    // Add response interceptor for error handling
-    httpClient.interceptors.response.use(
-        (response) => response,
-        (error) => {
-            if (error.response?.status === 401) {
-                // Token expired or invalid
-                localStorage.removeItem('voter_token');
-                localStorage.removeItem('voter_id');
-                localStorage.removeItem('voting_auth_token');
-                localStorage.removeItem('voting_voter_id');
-            }
-
-            const errorMessage = error.response?.data?.detail ||
-                                error.response?.data?.error?.detail ||
-                                error.message ||
-                                'An unexpected error occurred';
-
-            return Promise.reject(new Error(errorMessage));
-        }
-    );
-
-    useAxios = true;
-} catch (e) {
-    // Fall back to fetch (Flask approach)
-    useAxios = false;
-}
+// Use fetch API for browser environment
+useAxios = false;
 
 // Fetch-based API helper (Flask approach)
 const fetchAPI = {

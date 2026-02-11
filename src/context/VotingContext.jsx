@@ -35,7 +35,7 @@ export const VotingProvider = ({ children }) => {
   const API_BASE_URL = 'http://localhost:5000';
 
   // Helper function to make authenticated API calls
-  const makeAuthenticatedRequest = async (url, options = {}) => {
+  const makeAuthenticatedRequest = useCallback(async (url, options = {}) => {
     const headers = {
       'Content-Type': 'application/json',
       ...(authToken && { Authorization: `Bearer ${authToken}` }),
@@ -53,7 +53,7 @@ export const VotingProvider = ({ children }) => {
     }
 
     return response.json();
-  };
+  }, [authToken]);
 
   // Function to load ballots
   const loadBallots = useCallback(async () => {
@@ -68,7 +68,7 @@ export const VotingProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [authToken]);
+  }, [makeAuthenticatedRequest]);
 
   // Function to load user's votes
   const loadMyVotes = useCallback(async () => {
@@ -81,7 +81,7 @@ export const VotingProvider = ({ children }) => {
       console.error('Error loading user votes:', err);
       // Don't set error for this as it's not critical
     }
-  }, [isAuthenticated, authToken]);
+  }, [isAuthenticated, makeAuthenticatedRequest]);
 
   // Function to submit a vote
   const submitVote = async (ballotId, optionId) => {
