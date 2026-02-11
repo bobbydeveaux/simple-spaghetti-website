@@ -6,6 +6,7 @@ Authentication endpoints for voter code-based authentication with FastAPI legacy
 from flask import Blueprint, request, jsonify
 from typing import Dict, Any, Tuple
 import re
+from datetime import datetime
 
 # Import existing JWT utilities
 from api.utils.jwt_manager import JWTManager
