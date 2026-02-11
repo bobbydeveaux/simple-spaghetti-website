@@ -13,10 +13,13 @@ from datetime import datetime
 
 # Import our modules
 from api.data_store import (
-    BOOKS, AUTHORS, MEMBERS, LOANS,
-    get_next_book_id, get_next_loan_id, get_next_member_id
+    BOOKS, AUTHORS, MEMBERS, LOANS, ELECTIONS, VOTES,
+    get_next_book_id, get_next_loan_id, get_next_member_id, get_next_election_id, get_next_vote_id
 )
-from api.validators import validate_book, validate_book_update, validate_loan, validate_loan_return, validate_member
+from api.validators import (
+    validate_book, validate_book_update, validate_loan, validate_loan_return, validate_member,
+    validate_election, validate_vote, validate_election_results
+)
 from api.auth import token_required, authenticate_member, generate_token
 
 # Import voting system
@@ -567,6 +570,218 @@ def get_loan_details(loan_id: int) -> Tuple[Dict[str, Any], int]:
         return {"error": "Failed to retrieve loan details"}, 500
 
 
+# ===============================
+# VOTING AND ELECTION ENDPOINTS
+# ===============================
+
+@app.route("/elections", methods=["GET"])
+def list_elections():
+    """Get all elections"""
+    try:
+        elections = []
+        for election_id, election in ELECTIONS.items():
+            elections.append({
+                "id": election_id,
+                "title": election["title"],
+                "description": election["description"],
+                "candidates": election["candidates"],
+                "start_date": election["start_date"],
+                "end_date": election["end_date"],
+                "status": election["status"],
+                "created_date": election["created_date"]
+            })
+
+        return {"elections": elections}, 200
+    except Exception as e:
+        print(f"List elections error: {str(e)}")
+        return {"error": "Failed to retrieve elections"}, 500
+
+
+@app.route("/elections", methods=["POST"])
+@token_required
+def create_election():
+    """Create a new election (auth required)"""
+    try:
+        data = request.get_json()
+        if not data:
+            return {"error": "No data provided"}, 400
+
+        # Validate election data
+        is_valid, error_msg = validate_election(data)
+        if not is_valid:
+            return {"error": error_msg}, 400
+
+        # Create new election
+        election_id = get_next_election_id()
+        election = {
+            "id": election_id,
+            "title": data["title"].strip(),
+            "description": data["description"].strip(),
+            "candidates": [candidate.strip() for candidate in data["candidates"]],
+            "start_date": data["start_date"],
+            "end_date": data["end_date"],
+            "status": "active",
+            "created_date": datetime.now().strftime("%Y-%m-%d")
+        }
+
+        ELECTIONS[election_id] = election
+
+        return {
+            "id": election_id,
+            "title": election["title"],
+            "description": election["description"],
+            "candidates": election["candidates"],
+            "start_date": election["start_date"],
+            "end_date": election["end_date"],
+            "status": election["status"],
+            "created_date": election["created_date"]
+        }, 201
+
+    except Exception as e:
+        print(f"Create election error: {str(e)}")
+        return {"error": "Failed to create election"}, 500
+
+
+@app.route("/elections/<int:election_id>", methods=["GET"])
+def get_election(election_id):
+    """Get a specific election by ID"""
+    try:
+        if election_id not in ELECTIONS:
+            return {"error": "Election not found"}, 404
+
+        election = ELECTIONS[election_id]
+        return {
+            "id": election_id,
+            "title": election["title"],
+            "description": election["description"],
+            "candidates": election["candidates"],
+            "start_date": election["start_date"],
+            "end_date": election["end_date"],
+            "status": election["status"],
+            "created_date": election["created_date"]
+        }, 200
+
+    except Exception as e:
+        print(f"Get election error: {str(e)}")
+        return {"error": "Failed to retrieve election"}, 500
+
+
+@app.route("/votes/cast", methods=["POST"])
+@token_required
+def cast_vote():
+    """Cast a vote in an election (auth required)"""
+    try:
+        data = request.get_json()
+        if not data:
+            return {"error": "No data provided"}, 400
+
+        # Validate vote data
+        is_valid, error_msg = validate_vote(data)
+        if not is_valid:
+            return {"error": error_msg}, 400
+
+        # Create new vote
+        vote_id = get_next_vote_id()
+        vote_date = datetime.now().strftime("%Y-%m-%d")
+        timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        vote = {
+            "id": vote_id,
+            "election_id": int(data["election_id"]),
+            "member_id": int(data["member_id"]),
+            "candidate": data["candidate"].strip(),
+            "vote_date": vote_date,
+            "timestamp": timestamp
+        }
+
+        VOTES[vote_id] = vote
+
+        # Get election and member details for response
+        election = ELECTIONS[vote["election_id"]]
+        member = MEMBERS[vote["member_id"]]
+
+        return {
+            "id": vote_id,
+            "election_id": vote["election_id"],
+            "election_title": election["title"],
+            "member_id": vote["member_id"],
+            "member_name": member["name"],
+            "candidate": vote["candidate"],
+            "vote_date": vote["vote_date"],
+            "timestamp": vote["timestamp"]
+        }, 201
+
+    except KeyError as e:
+        return {"error": f"Related resource not found: {str(e)}"}, 404
+    except Exception as e:
+        print(f"Cast vote error: {str(e)}")
+        return {"error": "Failed to cast vote"}, 500
+
+
+@app.route("/elections/<int:election_id>/results", methods=["GET"])
+def get_election_results(election_id):
+    """Get results for a specific election"""
+    try:
+        # Validate election exists
+        is_valid, error_msg = validate_election_results(election_id)
+        if not is_valid:
+            return {"error": error_msg}, 400
+
+        election = ELECTIONS[election_id]
+
+        # Count votes for each candidate
+        vote_counts = {}
+        total_votes = 0
+
+        # Initialize counts for all candidates
+        for candidate in election["candidates"]:
+            vote_counts[candidate] = 0
+
+        # Count actual votes
+        for vote in VOTES.values():
+            if vote["election_id"] == election_id:
+                candidate = vote["candidate"]
+                if candidate in vote_counts:
+                    vote_counts[candidate] += 1
+                    total_votes += 1
+
+        # Calculate percentages
+        results = []
+        for candidate in election["candidates"]:
+            count = vote_counts[candidate]
+            percentage = (count / total_votes * 100) if total_votes > 0 else 0
+            results.append({
+                "candidate": candidate,
+                "votes": count,
+                "percentage": round(percentage, 2)
+            })
+
+        # Sort by vote count (descending)
+        results.sort(key=lambda x: x["votes"], reverse=True)
+
+        # Determine election status for results context
+        today = datetime.now().date()
+        try:
+            end_date = datetime.strptime(election["end_date"], "%Y-%m-%d").date()
+            is_ended = today > end_date
+        except:
+            is_ended = False
+
+        return {
+            "election_id": election_id,
+            "election_title": election["title"],
+            "total_votes": total_votes,
+            "results": results,
+            "election_status": election["status"],
+            "is_ended": is_ended,
+            "end_date": election["end_date"]
+        }, 200
+
+    except Exception as e:
+        print(f"Get election results error: {str(e)}")
+        return {"error": "Failed to retrieve election results"}, 500
+
+
 # Health check endpoint
 @app.route("/health", methods=["GET"])
 def health_check():
@@ -578,7 +793,7 @@ def health_check():
 def root():
     """Root endpoint with API information"""
     return {
-        "service": "Library Management API + PTA Voting System",
+        "service": "Library Management API with PTA Voting System",
         "version": "1.0",
         "endpoints": {
             # Library API endpoints
@@ -589,14 +804,19 @@ def root():
             "borrow_book": "/loans/borrow",
             "return_book": "/loans/return",
             "loan_details": "/loans/{id}",
-            "health": "/health",
-            # PTA Voting System endpoints
+            # PTA Voting System - Authentication endpoints
             "voting_request_code": "/api/voting/auth/request-code",
             "voting_verify_code": "/api/voting/auth/verify",
             "voting_admin_login": "/api/voting/auth/admin-login",
             "voting_logout": "/api/voting/auth/logout",
             "voting_session_info": "/api/voting/auth/session",
-            "voting_election_info": "/api/voting/election/info"
+            "voting_election_info": "/api/voting/election/info",
+            # PTA Voting System - Election and voting endpoints
+            "elections": "/elections",
+            "election_detail": "/elections/{id}",
+            "cast_vote": "/votes/cast",
+            "election_results": "/elections/{id}/results",
+            "health": "/health"
         }
     }, 200
 

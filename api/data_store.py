@@ -11,6 +11,8 @@ BOOK_ID_COUNTER = 5
 AUTHOR_ID_COUNTER = 3
 MEMBER_ID_COUNTER = 2
 LOAN_ID_COUNTER = 1
+ELECTION_ID_COUNTER = 2
+VOTE_ID_COUNTER = 2
 
 # In-memory data dictionaries
 BOOKS = {
@@ -102,6 +104,48 @@ LOANS = {
     }
 }
 
+ELECTIONS = {
+    1: {
+        "id": 1,
+        "title": "PTA President Election 2024",
+        "description": "Annual election for Parent Teacher Association President position",
+        "candidates": ["Sarah Johnson", "Michael Chen", "Emily Rodriguez"],
+        "start_date": "2024-02-01",
+        "end_date": "2024-02-15",
+        "status": "active",
+        "created_date": "2024-01-20"
+    },
+    2: {
+        "id": 2,
+        "title": "School Budget Proposal Vote",
+        "description": "Vote on the proposed school budget increase for 2024-2025",
+        "candidates": ["Yes - Approve Budget", "No - Reject Budget"],
+        "start_date": "2024-02-10",
+        "end_date": "2024-02-20",
+        "status": "active",
+        "created_date": "2024-01-25"
+    }
+}
+
+VOTES = {
+    1: {
+        "id": 1,
+        "election_id": 1,
+        "member_id": 1,
+        "candidate": "Sarah Johnson",
+        "vote_date": "2024-02-05",
+        "timestamp": "2024-02-05T14:30:00Z"
+    },
+    2: {
+        "id": 2,
+        "election_id": 2,
+        "member_id": 2,
+        "candidate": "Yes - Approve Budget",
+        "vote_date": "2024-02-11",
+        "timestamp": "2024-02-11T09:15:00Z"
+    }
+}
+
 def get_next_book_id():
     """Generate next auto-increment ID for books"""
     global BOOK_ID_COUNTER
@@ -126,15 +170,29 @@ def get_next_loan_id():
     LOAN_ID_COUNTER += 1
     return LOAN_ID_COUNTER
 
+def get_next_election_id():
+    """Generate next auto-increment ID for elections"""
+    global ELECTION_ID_COUNTER
+    ELECTION_ID_COUNTER += 1
+    return ELECTION_ID_COUNTER
+
+def get_next_vote_id():
+    """Generate next auto-increment ID for votes"""
+    global VOTE_ID_COUNTER
+    VOTE_ID_COUNTER += 1
+    return VOTE_ID_COUNTER
+
 def reset_data_store():
     """Reset data store to initial state (useful for testing)"""
-    global BOOK_ID_COUNTER, AUTHOR_ID_COUNTER, MEMBER_ID_COUNTER, LOAN_ID_COUNTER
-    global BOOKS, AUTHORS, MEMBERS, LOANS
+    global BOOK_ID_COUNTER, AUTHOR_ID_COUNTER, MEMBER_ID_COUNTER, LOAN_ID_COUNTER, ELECTION_ID_COUNTER, VOTE_ID_COUNTER
+    global BOOKS, AUTHORS, MEMBERS, LOANS, ELECTIONS, VOTES
 
     BOOK_ID_COUNTER = 5
     AUTHOR_ID_COUNTER = 3
     MEMBER_ID_COUNTER = 2
     LOAN_ID_COUNTER = 1
+    ELECTION_ID_COUNTER = 2
+    VOTE_ID_COUNTER = 2
 
     # Reset to original sample data
     BOOKS.clear()
@@ -162,4 +220,16 @@ def reset_data_store():
     LOANS.clear()
     LOANS.update({
         1: {"id": 1, "book_id": 3, "member_id": 1, "borrow_date": "2024-02-01", "return_date": None, "status": "borrowed"}
+    })
+
+    ELECTIONS.clear()
+    ELECTIONS.update({
+        1: {"id": 1, "title": "PTA President Election 2024", "description": "Annual election for Parent Teacher Association President position", "candidates": ["Sarah Johnson", "Michael Chen", "Emily Rodriguez"], "start_date": "2024-02-01", "end_date": "2024-02-15", "status": "active", "created_date": "2024-01-20"},
+        2: {"id": 2, "title": "School Budget Proposal Vote", "description": "Vote on the proposed school budget increase for 2024-2025", "candidates": ["Yes - Approve Budget", "No - Reject Budget"], "start_date": "2024-02-10", "end_date": "2024-02-20", "status": "active", "created_date": "2024-01-25"}
+    })
+
+    VOTES.clear()
+    VOTES.update({
+        1: {"id": 1, "election_id": 1, "member_id": 1, "candidate": "Sarah Johnson", "vote_date": "2024-02-05", "timestamp": "2024-02-05T14:30:00Z"},
+        2: {"id": 2, "election_id": 2, "member_id": 2, "candidate": "Yes - Approve Budget", "vote_date": "2024-02-11", "timestamp": "2024-02-11T09:15:00Z"}
     })

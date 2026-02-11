@@ -1,7 +1,7 @@
 {
-  "prNumber": 107,
+  "prNumber": 123,
   "baseBranch": "main",
-  "headBranch": "feature/101-library-api-sprint-2-issue-101",
+  "headBranch": "feature/110-pta-voting-system-sprint-1-issue-110",
   "conflictedFiles": [
     ".claude-output.json",
     "api/app.py"
