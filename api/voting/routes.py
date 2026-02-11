@@ -10,6 +10,9 @@ from datetime import datetime
 
 # Import existing JWT utilities
 from api.utils.jwt_manager import JWTManager
+from api.utils.password import verify_password
+from api.utils.rate_limiter import auth_rate_limit, admin_rate_limit, code_request_limit
+from api.config import settings
 from .data_store import voting_data_store
 
 # FastAPI legacy support
@@ -34,11 +37,6 @@ voting_bp = Blueprint('voting', __name__, url_prefix='/api/voting')
 # Initialize JWT manager
 jwt_manager = JWTManager()
 
-# Mock admin credentials for Sprint 1 (hardcoded for prototype)
-ADMIN_CREDENTIALS = {
-    "admin@pta.school": "admin123"  # In production, this would be properly secured
-}
-
 
 def validate_email(email: str) -> bool:
     """Validate email format."""
@@ -50,6 +48,7 @@ def validate_email(email: str) -> bool:
 
 
 @voting_bp.route('/auth/request-code', methods=['POST'])
+@code_request_limit
 def request_verification_code() -> Tuple[Dict[str, Any], int]:
     """
     Request a verification code for voter authentication.
@@ -88,9 +87,11 @@ def request_verification_code() -> Tuple[Dict[str, Any], int]:
             "voter_id": voter.voter_id,  # For testing purposes
         }
 
-        # Include code in response for development/testing
-        # In production, this would be sent via email and not returned
-        response["code"] = verification_code.code
+        # Only include code in response for development/testing
+        # In production, this code would be sent via email and not returned
+        if settings.DEBUG and settings.ENVIRONMENT == "development":
+            response["code"] = verification_code.code
+            response["debug_message"] = "Code included for development only"
 
         return response, 200
 
@@ -100,6 +101,7 @@ def request_verification_code() -> Tuple[Dict[str, Any], int]:
 
 
 @voting_bp.route('/auth/verify', methods=['POST'])
+@auth_rate_limit
 def verify_code() -> Tuple[Dict[str, Any], int]:
     """
     Verify authentication code and create session.
@@ -139,8 +141,8 @@ def verify_code() -> Tuple[Dict[str, Any], int]:
         if not voter or voter.email != email.lower():
             return {"error": "Verification code does not match email"}, 401
 
-        # Create JWT token with voter_id
-        token = jwt_manager.create_access_token(voter_id)
+        # Create JWT token with voter email
+        token = jwt_manager.create_access_token(voter.email)
 
         # Create session
         session = voting_data_store.create_session(voter_id, token)
@@ -162,56 +164,79 @@ def verify_code() -> Tuple[Dict[str, Any], int]:
 
 
 @voting_bp.route('/auth/admin-login', methods=['POST'])
+@admin_rate_limit
 def admin_login() -> Tuple[Dict[str, Any], int]:
     """
-    Admin authentication endpoint (mock implementation for Sprint 1).
+    Secure admin authentication endpoint.
 
     Request body:
         {
-            "username": "admin@pta.school",
-            "password": "admin123"
+            "email": "admin@pta.school",
+            "password": "securePassword123"
         }
 
     Returns:
-        200: {"token": "jwt_token", "voter_id": "admin_id", "session_id": "session_id", "is_admin": true}
+        200: {"token": "jwt_token", "admin_id": "admin_id", "session_id": "session_id", "is_admin": true}
         401: {"error": "Invalid credentials"}
+        423: {"error": "Account temporarily locked"}
     """
     try:
         data = request.get_json()
         if not data:
             return {"error": "Request body required"}, 400
 
-        username = data.get("username", "").strip()
+        email = data.get("email", "").strip().lower()
         password = data.get("password", "").strip()
 
-        if not username or not password:
-            return {"error": "Username and password are required"}, 400
+        if not email or not password:
+            return {"error": "Email and password are required"}, 400
 
-        # Check admin credentials (mock implementation)
-        if username not in ADMIN_CREDENTIALS or ADMIN_CREDENTIALS[username] != password:
+        if not validate_email(email):
+            return {"error": "Invalid email format"}, 400
+
+        # Get admin from database
+        admin = voting_data_store.get_admin_by_email(email)
+        if not admin:
             return {"error": "Invalid admin credentials"}, 401
 
-        # Create or get admin "voter" (special case)
-        admin_voter = voting_data_store.create_or_get_voter(username)
+        # Check if account is active
+        if not admin.is_active:
+            return {"error": "Account is disabled"}, 401
 
-        # Create JWT token
-        token = jwt_manager.create_access_token(admin_voter.voter_id)
+        # Check if account is temporarily locked
+        if voting_data_store.is_admin_locked(admin.admin_id):
+            return {"error": "Account temporarily locked due to failed login attempts"}, 423
 
-        # Create admin session
-        session = voting_data_store.create_session(admin_voter.voter_id, token, is_admin=True)
+        # Verify password
+        if not verify_password(password, admin.password_hash):
+            # Update failed login attempts
+            voting_data_store.update_admin_login(admin.admin_id, success=False)
+            return {"error": "Invalid admin credentials"}, 401
+
+        # Successful login - update admin record
+        voting_data_store.update_admin_login(admin.admin_id, success=True)
+
+        # Create JWT token with admin email
+        token = jwt_manager.create_access_token(admin.email)
+
+        # Create admin session (use admin_id as voter_id for compatibility)
+        session = voting_data_store.create_session(admin.admin_id, token, is_admin=True)
 
         return {
             "token": token,
-            "voter_id": admin_voter.voter_id,
+            "admin_id": admin.admin_id,
+            "voter_id": admin.admin_id,  # For compatibility with frontend
             "session_id": session.session_id,
             "is_admin": True,
+            "email": admin.email,
+            "full_name": admin.full_name,
             "expires_at": session.expires_at.isoformat(),
             "message": "Admin authentication successful"
         }, 200
 
     except Exception as e:
         print(f"Admin login error: {str(e)}")
-        return {"error": "Failed to authenticate admin"}, 500
+        return {"error": "Failed to process admin login"}, 500
 
 
 # ============================================================================
@@ -220,20 +245,50 @@ def admin_login() -> Tuple[Dict[str, Any], int]:
 
 def require_admin_session():
     """Helper to validate admin session for protected routes"""
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        return None, ({"error": "Authorization header missing or invalid"}, 401)
+    try:
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return None, ({"error": "Authorization header missing or invalid"}, 401)
 
-    token = auth_header.split(' ')[1]
-    voter_id = jwt_manager.get_user_id_from_token(token)
-    if not voter_id:
-        return None, ({"error": "Invalid or expired token"}, 401)
+        # Safely extract token
+        header_parts = auth_header.split(' ')
+        if len(header_parts) != 2:
+            return None, ({"error": "Invalid Authorization header format"}, 401)
 
-    session = voting_data_store.get_session_by_voter(voter_id)
-    if not session or not session.is_admin:
-        return None, ({"error": "Admin access required"}, 403)
+        token = header_parts[1]
 
-    return session, None
+        # Extract email from JWT token
+        email = jwt_manager.get_email_from_token(token)
+        if not email:
+            return None, ({"error": "Invalid or expired token"}, 401)
+
+        # Get admin by email to validate admin status
+        admin = voting_data_store.get_admin_by_email(email)
+        if not admin or not admin.is_active:
+            return None, ({"error": "Admin access required"}, 403)
+
+        # Check if admin is locked
+        if voting_data_store.is_admin_locked(admin.admin_id):
+            return None, ({"error": "Account temporarily locked"}, 423)
+
+        # Get session by admin_id (used as voter_id for compatibility)
+        session = voting_data_store.get_session_by_voter(admin.admin_id)
+        if not session or not session.is_admin:
+            return None, ({"error": "Admin session required"}, 403)
+
+        # Check if session token matches
+        if session.token != token:
+            return None, ({"error": "Session token mismatch"}, 401)
+
+        # Check if session has expired
+        if datetime.now() > session.expires_at:
+            return None, ({"error": "Session expired"}, 401)
+
+        return session, None
+
+    except Exception as e:
+        print(f"Admin session validation error: {str(e)}")
+        return None, ({"error": "Failed to validate admin session"}, 500)
 
 @voting_bp.route('/admin/election', methods=['GET'])
 def get_election_config():
