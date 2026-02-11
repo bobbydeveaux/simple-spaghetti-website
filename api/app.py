@@ -19,11 +19,17 @@ from api.data_store import (
 from api.validators import validate_book, validate_book_update, validate_loan, validate_loan_return, validate_member
 from api.auth import token_required, authenticate_member, generate_token
 
+# Import voting system
+from api.voting.routes import voting_bp
+
 # Create Flask application
 app = Flask(__name__)
 
 # Enable CORS for development
 CORS(app)
+
+# Register voting system blueprint
+app.register_blueprint(voting_bp)
 
 # Global error handler
 @app.errorhandler(Exception)
@@ -572,9 +578,10 @@ def health_check():
 def root():
     """Root endpoint with API information"""
     return {
-        "service": "Library Management API",
+        "service": "Library Management API + PTA Voting System",
         "version": "1.0",
         "endpoints": {
+            # Library API endpoints
             "authentication": "/auth/login",
             "member_registration": "/members",
             "books": "/books",
@@ -582,7 +589,14 @@ def root():
             "borrow_book": "/loans/borrow",
             "return_book": "/loans/return",
             "loan_details": "/loans/{id}",
-            "health": "/health"
+            "health": "/health",
+            # PTA Voting System endpoints
+            "voting_request_code": "/api/voting/auth/request-code",
+            "voting_verify_code": "/api/voting/auth/verify",
+            "voting_admin_login": "/api/voting/auth/admin-login",
+            "voting_logout": "/api/voting/auth/logout",
+            "voting_session_info": "/api/voting/auth/session",
+            "voting_election_info": "/api/voting/election/info"
         }
     }, 200
 
