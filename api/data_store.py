@@ -1,9 +1,11 @@
 """
-In-memory data store with dictionaries for books, authors, members, and loans.
+In-memory data store with dictionaries for books, authors, members, loans, and PTA voting data.
 Pre-populated with sample data for development and testing.
+Includes thread-safe operations for concurrent access to voting data.
 """
 
-from datetime import datetime
+import threading
+from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash
 
 # Auto-increment ID generators
@@ -12,7 +14,13 @@ AUTHOR_ID_COUNTER = 3
 MEMBER_ID_COUNTER = 2
 LOAN_ID_COUNTER = 1
 BALLOT_ID_COUNTER = 2
-VOTE_ID_COUNTER = 1
+PROPOSAL_ID_COUNTER = 2
+VOTE_ID_COUNTER = 3
+
+# Thread-safety locks for concurrent access
+DATA_LOCK = threading.RLock()
+PROPOSAL_LOCK = threading.RLock()
+VOTE_LOCK = threading.RLock()
 
 # In-memory data dictionaries
 BOOKS = {
@@ -104,6 +112,7 @@ LOANS = {
     }
 }
 
+# Ballot-based voting system (for elections with multiple candidate options)
 BALLOTS = {
     1: {
         "id": 1,
@@ -137,13 +146,63 @@ BALLOTS = {
     }
 }
 
+# Proposal-based voting system (for yes/no decisions and simple choices)
+PROPOSALS = {
+    1: {
+        "id": 1,
+        "title": "Increase School Library Budget",
+        "description": "Proposal to increase the annual library budget by $5,000 to purchase new books and educational materials.",
+        "created_by": 1,  # member_id
+        "created_date": "2024-02-10",
+        "closing_date": "2024-02-24",
+        "status": "active",  # active, closed, draft
+        "options": ["yes", "no"],
+        "allow_abstain": True
+    },
+    2: {
+        "id": 2,
+        "title": "New Playground Equipment Installation",
+        "description": "Vote on installing new playground equipment including swing sets, slides, and safety surfacing. Total estimated cost: $15,000.",
+        "created_by": 2,  # member_id
+        "created_date": "2024-02-11",
+        "closing_date": "2024-02-25",
+        "status": "active",
+        "options": ["approve", "reject"],
+        "allow_abstain": False
+    }
+}
+
 VOTES = {
     1: {
         "id": 1,
-        "ballot_id": 2,
+        "ballot_id": 2,  # Ballot vote
         "member_id": 1,
         "option_id": 6,
         "timestamp": "2024-02-16T10:30:00"
+    },
+    2: {
+        "id": 2,
+        "proposal_id": 1,  # Proposal vote
+        "member_id": 1,
+        "vote_choice": "yes",
+        "timestamp": "2024-02-11T10:30:00",
+        "is_anonymous": False
+    },
+    3: {
+        "id": 3,
+        "proposal_id": 1,
+        "member_id": 2,
+        "vote_choice": "no",
+        "timestamp": "2024-02-11T11:15:00",
+        "is_anonymous": False
+    },
+    4: {
+        "id": 4,
+        "proposal_id": 2,
+        "member_id": 1,
+        "vote_choice": "approve",
+        "timestamp": "2024-02-11T14:20:00",
+        "is_anonymous": False
     }
 }
 
@@ -177,23 +236,97 @@ def get_next_ballot_id():
     BALLOT_ID_COUNTER += 1
     return BALLOT_ID_COUNTER
 
+def get_next_proposal_id():
+    """Generate next auto-increment ID for proposals (thread-safe)"""
+    with DATA_LOCK:
+        global PROPOSAL_ID_COUNTER
+        PROPOSAL_ID_COUNTER += 1
+        return PROPOSAL_ID_COUNTER
+
 def get_next_vote_id():
-    """Generate next auto-increment ID for votes"""
-    global VOTE_ID_COUNTER
-    VOTE_ID_COUNTER += 1
-    return VOTE_ID_COUNTER
+    """Generate next auto-increment ID for votes (thread-safe)"""
+    with DATA_LOCK:
+        global VOTE_ID_COUNTER
+        VOTE_ID_COUNTER += 1
+        return VOTE_ID_COUNTER
+
+# Thread-safe voting data access functions
+def create_proposal(proposal_data):
+    """Create a new proposal (thread-safe)"""
+    with PROPOSAL_LOCK:
+        proposal_id = get_next_proposal_id()
+        proposal_data["id"] = proposal_id
+        PROPOSALS[proposal_id] = proposal_data.copy()
+        return proposal_id
+
+def update_proposal(proposal_id, update_data):
+    """Update an existing proposal (thread-safe)"""
+    with PROPOSAL_LOCK:
+        if proposal_id in PROPOSALS:
+            PROPOSALS[proposal_id].update(update_data)
+            return True
+        return False
+
+def get_proposal(proposal_id):
+    """Get a proposal by ID (thread-safe read)"""
+    with PROPOSAL_LOCK:
+        return PROPOSALS.get(proposal_id, {}).copy() if proposal_id in PROPOSALS else None
+
+def get_all_proposals():
+    """Get all proposals (thread-safe read)"""
+    with PROPOSAL_LOCK:
+        return {pid: proposal.copy() for pid, proposal in PROPOSALS.items()}
+
+def create_vote(vote_data):
+    """Create a new vote (thread-safe)"""
+    with VOTE_LOCK:
+        vote_id = get_next_vote_id()
+        vote_data["id"] = vote_id
+        VOTES[vote_id] = vote_data.copy()
+        return vote_id
+
+def get_vote_by_member_and_proposal(member_id, proposal_id):
+    """Get existing vote by member and proposal (thread-safe)"""
+    with VOTE_LOCK:
+        for vote in VOTES.values():
+            if vote.get("member_id") == member_id and vote.get("proposal_id") == proposal_id:
+                return vote.copy()
+        return None
+
+def get_votes_for_proposal(proposal_id):
+    """Get all votes for a specific proposal (thread-safe)"""
+    with VOTE_LOCK:
+        return [vote.copy() for vote in VOTES.values() if vote.get("proposal_id") == proposal_id]
+
+def update_vote(vote_id, update_data):
+    """Update an existing vote (thread-safe)"""
+    with VOTE_LOCK:
+        if vote_id in VOTES:
+            VOTES[vote_id].update(update_data)
+            return True
+        return False
+
+def delete_vote(vote_id):
+    """Delete a vote (thread-safe)"""
+    with VOTE_LOCK:
+        if vote_id in VOTES:
+            del VOTES[vote_id]
+            return True
+        return False
 
 def reset_data_store():
     """Reset data store to initial state (useful for testing)"""
-    global BOOK_ID_COUNTER, AUTHOR_ID_COUNTER, MEMBER_ID_COUNTER, LOAN_ID_COUNTER, BALLOT_ID_COUNTER, VOTE_ID_COUNTER
-    global BOOKS, AUTHORS, MEMBERS, LOANS, BALLOTS, VOTES
+    global BOOK_ID_COUNTER, AUTHOR_ID_COUNTER, MEMBER_ID_COUNTER, LOAN_ID_COUNTER, BALLOT_ID_COUNTER
+    global PROPOSAL_ID_COUNTER, VOTE_ID_COUNTER
+    global BOOKS, AUTHORS, MEMBERS, LOANS, BALLOTS, PROPOSALS, VOTES
 
     BOOK_ID_COUNTER = 5
     AUTHOR_ID_COUNTER = 3
     MEMBER_ID_COUNTER = 2
     LOAN_ID_COUNTER = 1
     BALLOT_ID_COUNTER = 2
-    VOTE_ID_COUNTER = 1
+    PROPOSAL_ID_COUNTER = 2
+    VOTE_ID_COUNTER = 4
 
     # Reset to original sample data
     BOOKS.clear()
@@ -257,7 +390,57 @@ def reset_data_store():
         }
     })
 
+    PROPOSALS.clear()
+    PROPOSALS.update({
+        1: {
+            "id": 1,
+            "title": "Increase School Library Budget",
+            "description": "Proposal to increase the annual library budget by $5,000 to purchase new books and educational materials.",
+            "created_by": 1,
+            "created_date": "2024-02-10",
+            "closing_date": "2024-02-24",
+            "status": "active",
+            "options": ["yes", "no"],
+            "allow_abstain": True
+        },
+        2: {
+            "id": 2,
+            "title": "New Playground Equipment Installation",
+            "description": "Vote on installing new playground equipment including swing sets, slides, and safety surfacing. Total estimated cost: $15,000.",
+            "created_by": 2,
+            "created_date": "2024-02-11",
+            "closing_date": "2024-02-25",
+            "status": "active",
+            "options": ["approve", "reject"],
+            "allow_abstain": False
+        }
+    })
+
     VOTES.clear()
     VOTES.update({
-        1: {"id": 1, "ballot_id": 2, "member_id": 1, "option_id": 6, "timestamp": "2024-02-16T10:30:00"}
+        1: {"id": 1, "ballot_id": 2, "member_id": 1, "option_id": 6, "timestamp": "2024-02-16T10:30:00"},
+        2: {
+            "id": 2,
+            "proposal_id": 1,
+            "member_id": 1,
+            "vote_choice": "yes",
+            "timestamp": "2024-02-11T10:30:00",
+            "is_anonymous": False
+        },
+        3: {
+            "id": 3,
+            "proposal_id": 1,
+            "member_id": 2,
+            "vote_choice": "no",
+            "timestamp": "2024-02-11T11:15:00",
+            "is_anonymous": False
+        },
+        4: {
+            "id": 4,
+            "proposal_id": 2,
+            "member_id": 1,
+            "vote_choice": "approve",
+            "timestamp": "2024-02-11T14:20:00",
+            "is_anonymous": False
+        }
     })
