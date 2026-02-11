@@ -213,6 +213,159 @@ def admin_login() -> Tuple[Dict[str, Any], int]:
         return {"error": "Failed to authenticate admin"}, 500
 
 
+# ============================================================================
+# Admin Election Management Routes
+# ============================================================================
+
+def require_admin_session():
+    """Helper to validate admin session for protected routes"""
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return None, ({"error": "Authorization header missing or invalid"}, 401)
+
+    token = auth_header.split(' ')[1]
+    voter_id = jwt_manager.get_user_id_from_token(token)
+    if not voter_id:
+        return None, ({"error": "Invalid or expired token"}, 401)
+
+    session = voting_data_store.get_session_by_voter(voter_id)
+    if not session or not session.is_admin:
+        return None, ({"error": "Admin access required"}, 403)
+
+    return session, None
+
+@voting_bp.route('/admin/election', methods=['GET'])
+def get_election_config():
+    """Get current election configuration"""
+    session, error_response = require_admin_session()
+    if error_response:
+        return error_response
+
+    try:
+        election = voting_data_store.get_active_election()
+        if not election:
+            return {"error": "No active election found"}, 404
+
+        # Convert to dict for JSON response
+        election_data = {
+            "election_id": election.election_id,
+            "name": election.name,
+            "description": election.description,
+            "positions": list(election.positions) if hasattr(election, 'positions') else [],
+            "status": getattr(election, 'status', 'SETUP'),
+            "start_time": election.start_time.isoformat() if election.start_time else None,
+            "end_time": election.end_time.isoformat() if election.end_time else None,
+            "is_active": election.is_active,
+            "created_at": election.created_at.isoformat() if election.created_at else None
+        }
+
+        return {"election": election_data}, 200
+
+    except Exception as e:
+        return {"error": f"Failed to get election configuration: {str(e)}"}, 500
+
+@voting_bp.route('/admin/election/status', methods=['PUT'])
+def update_election_status():
+    """Update election status (SETUP/ACTIVE/CLOSED)"""
+    session, error_response = require_admin_session()
+    if error_response:
+        return error_response
+
+    try:
+        data = request.get_json()
+        new_status = data.get('status')
+
+        if new_status not in ['SETUP', 'ACTIVE', 'CLOSED']:
+            return {"error": "Invalid status. Must be SETUP, ACTIVE, or CLOSED"}, 400
+
+        election = voting_data_store.get_active_election()
+        if not election:
+            return {"error": "No active election found"}, 404
+
+        # Update election status
+        if hasattr(election, 'status'):
+            election.status = new_status
+
+        # Set start time when moving to ACTIVE
+        if new_status == 'ACTIVE' and not election.start_time:
+            election.start_time = datetime.utcnow()
+
+        # Set end time when moving to CLOSED
+        if new_status == 'CLOSED' and not election.end_time:
+            election.end_time = datetime.utcnow()
+            election.is_active = False
+
+        return {
+            "message": f"Election status updated to {new_status}",
+            "election": {
+                "election_id": election.election_id,
+                "status": new_status,
+                "start_time": election.start_time.isoformat() if election.start_time else None,
+                "end_time": election.end_time.isoformat() if election.end_time else None
+            }
+        }, 200
+
+    except Exception as e:
+        return {"error": f"Failed to update election status: {str(e)}"}, 500
+
+@voting_bp.route('/admin/election/positions', methods=['POST'])
+def add_election_position():
+    """Add a new position to the election"""
+    session, error_response = require_admin_session()
+    if error_response:
+        return error_response
+
+    try:
+        data = request.get_json()
+        position = data.get('position', '').strip()
+
+        if not position:
+            return {"error": "Position name is required"}, 400
+
+        election = voting_data_store.get_active_election()
+        if not election:
+            return {"error": "No active election found"}, 404
+
+        # Add position to election
+        election.add_position(position)
+
+        return {
+            "message": f"Position '{position}' added successfully",
+            "positions": list(election.positions)
+        }, 200
+
+    except Exception as e:
+        return {"error": f"Failed to add position: {str(e)}"}, 500
+
+@voting_bp.route('/admin/election/positions/<position>', methods=['DELETE'])
+def remove_election_position(position: str):
+    """Remove a position from the election"""
+    session, error_response = require_admin_session()
+    if error_response:
+        return error_response
+
+    try:
+        election = voting_data_store.get_active_election()
+        if not election:
+            return {"error": "No active election found"}, 404
+
+        # Remove position from election
+        if hasattr(election, 'positions'):
+            if isinstance(election.positions, set):
+                election.positions.discard(position)
+            elif isinstance(election.positions, list):
+                if position in election.positions:
+                    election.positions.remove(position)
+
+        return {
+            "message": f"Position '{position}' removed successfully",
+            "positions": list(election.positions)
+        }, 200
+
+    except Exception as e:
+        return {"error": f"Failed to remove position: {str(e)}"}, 500
+
+
 @voting_bp.route('/auth/logout', methods=['POST'])
 def logout() -> Tuple[Dict[str, str], int]:
     """
