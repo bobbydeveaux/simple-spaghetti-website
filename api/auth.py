@@ -20,7 +20,7 @@ def get_secret_key() -> str:
 
 def generate_token(member_id: int) -> str:
     """
-    Generate JWT token for authenticated member.
+    Generate JWT token for authenticated member with role information.
 
     Args:
         member_id: ID of the authenticated member
@@ -28,8 +28,16 @@ def generate_token(member_id: int) -> str:
     Returns:
         JWT token string
     """
+    from api.data_store import MEMBERS
+
+    member = MEMBERS.get(member_id)
+    if not member:
+        raise ValueError(f"Member with ID {member_id} not found")
+
     payload = {
         "member_id": member_id,
+        "email": member["email"],
+        "role": member["role"],
         "exp": datetime.now(timezone.utc) + timedelta(hours=1),  # 1-hour expiration
         "iat": datetime.now(timezone.utc)
     }
@@ -88,8 +96,37 @@ def token_required(f: Callable) -> Callable:
         if payload is None:
             return jsonify({"error": "Invalid or expired token"}), 401
 
-        # Add member_id to request context for use in route handlers
+        # Add member info to request context for use in route handlers
         request.current_member_id = payload["member_id"]
+        request.current_member_email = payload.get("email")
+        request.current_member_role = payload.get("role")
+
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+def admin_required(f: Callable) -> Callable:
+    """
+    Decorator to require admin role on routes.
+
+    Must be used after token_required decorator.
+    Checks if the authenticated member has admin role.
+
+    Args:
+        f: Route function to protect
+
+    Returns:
+        Decorated function
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Check if member info exists from token_required
+        if not hasattr(request, 'current_member_role'):
+            return jsonify({"error": "Authentication required"}), 401
+
+        # Check admin role
+        if request.current_member_role != "admin":
+            return jsonify({"error": "Admin access required"}), 403
 
         return f(*args, **kwargs)
 

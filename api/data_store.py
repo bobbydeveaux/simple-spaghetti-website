@@ -11,7 +11,7 @@ from werkzeug.security import generate_password_hash
 # Auto-increment ID generators
 BOOK_ID_COUNTER = 5
 AUTHOR_ID_COUNTER = 3
-MEMBER_ID_COUNTER = 2
+MEMBER_ID_COUNTER = 3
 LOAN_ID_COUNTER = 1
 BALLOT_ID_COUNTER = 2
 PROPOSAL_ID_COUNTER = 2
@@ -90,14 +90,27 @@ MEMBERS = {
         "name": "John Doe",
         "email": "john.doe@email.com",
         "password_hash": generate_password_hash("password123"),
-        "registration_date": "2024-01-15"
+        "registration_date": "2024-01-15",
+        "role": "user",
+        "status": "active"
     },
     2: {
         "id": 2,
         "name": "Jane Smith",
         "email": "jane.smith@email.com",
         "password_hash": generate_password_hash("securepass456"),
-        "registration_date": "2024-01-20"
+        "registration_date": "2024-01-20",
+        "role": "user",
+        "status": "active"
+    },
+    3: {
+        "id": 3,
+        "name": "Admin User",
+        "email": "admin@library.com",
+        "password_hash": generate_password_hash("admin123"),
+        "registration_date": "2024-01-01",
+        "role": "admin",
+        "status": "active"
     }
 }
 
@@ -322,7 +335,7 @@ def reset_data_store():
 
     BOOK_ID_COUNTER = 5
     AUTHOR_ID_COUNTER = 3
-    MEMBER_ID_COUNTER = 2
+    MEMBER_ID_COUNTER = 3
     LOAN_ID_COUNTER = 1
     BALLOT_ID_COUNTER = 2
     PROPOSAL_ID_COUNTER = 2
@@ -347,8 +360,9 @@ def reset_data_store():
 
     MEMBERS.clear()
     MEMBERS.update({
-        1: {"id": 1, "name": "John Doe", "email": "john.doe@email.com", "password_hash": generate_password_hash("password123"), "registration_date": "2024-01-15"},
-        2: {"id": 2, "name": "Jane Smith", "email": "jane.smith@email.com", "password_hash": generate_password_hash("securepass456"), "registration_date": "2024-01-20"}
+        1: {"id": 1, "name": "John Doe", "email": "john.doe@email.com", "password_hash": generate_password_hash("password123"), "registration_date": "2024-01-15", "role": "user", "status": "active"},
+        2: {"id": 2, "name": "Jane Smith", "email": "jane.smith@email.com", "password_hash": generate_password_hash("securepass456"), "registration_date": "2024-01-20", "role": "user", "status": "active"},
+        3: {"id": 3, "name": "Admin User", "email": "admin@library.com", "password_hash": generate_password_hash("admin123"), "registration_date": "2024-01-01", "role": "admin", "status": "active"}
     })
 
     LOANS.clear()

@@ -236,7 +236,6 @@ def validate_loan_return(loan_id: int) -> Tuple[bool, Optional[str]]:
     if loan_id not in LOANS:
         return False, "Loan with this ID does not exist"
 
-    from api.data_store import LOANS
     loan = LOANS[loan_id]
     if loan.get("status") == "returned":
         return False, "Loan has already been returned"

@@ -824,85 +824,6 @@ def create_new_proposal() -> Tuple[Dict[str, Any], int]:
         if not member_id:
             return {"error": "Authentication required"}, 401
 
-        # Validate vote data
-        is_valid, error_msg = validate_vote(data, member_id)
-        if not is_valid:
-            return {"error": error_msg}, 400
-
-        ballot_id = int(data["ballot_id"])
-        option_id = int(data["option_id"])
-        ballot = BALLOTS[ballot_id]  # We know it exists from validation
-
-        # Create the vote
-        vote_id = get_next_vote_id()
-        new_vote = {
-            "id": vote_id,
-            "ballot_id": ballot_id,
-            "member_id": member_id,
-            "option_id": option_id,
-            "timestamp": datetime.now().isoformat()
-        }
-
-        VOTES[vote_id] = new_vote
-
-        # Get option title for response
-        option_title = next((opt["title"] for opt in ballot["options"] if opt["id"] == option_id), "Unknown option")
-
-        return {
-            "vote_id": vote_id,
-            "ballot_id": ballot_id,
-            "ballot_title": ballot["title"],
-            "option_id": option_id,
-            "option_title": option_title,
-            "timestamp": new_vote["timestamp"],
-            "message": f"Vote successfully submitted for '{option_title}'"
-        }, 201
-
-    except ValueError as e:
-        return {"error": f"Invalid data format: {str(e)}"}, 400
-    except Exception as e:
-        print(f"Submit vote error: {str(e)}")
-        return {"error": "Failed to submit vote"}, 500
-
-
-@app.route("/votes/my-votes", methods=["GET"])
-@token_required
-def get_my_votes() -> Tuple[List[Dict[str, Any]], int]:
-    """
-    Get all votes submitted by the current user.
-
-    Returns:
-        200: List of user's votes with ballot and option details
-        401: Authentication required
-    """
-    try:
-        # Get current user ID from the token
-        member_id = getattr(request, 'current_member_id', None)
-        if not member_id:
-            return {"error": "Authentication required"}, 401
-
-        user_votes = []
-        for vote in VOTES.values():
-            if vote["member_id"] == member_id:
-                # Get ballot and option details
-                ballot = BALLOTS.get(vote["ballot_id"])
-                if ballot:
-                    option = next((opt for opt in ballot["options"] if opt["id"] == vote["option_id"]), None)
-
-                    vote_details = {
-                        "vote_id": vote["id"],
-                        "ballot_id": vote["ballot_id"],
-                        "ballot_title": ballot["title"],
-                        "option_id": vote["option_id"],
-                        "option_title": option["title"] if option else "Unknown option",
-                        "timestamp": vote["timestamp"]
-                    }
-                    user_votes.append(vote_details)
-
-        # Sort by timestamp (newest first)
-        user_votes.sort(key=lambda x: x["timestamp"], reverse=True)
-
-        return user_votes, 200
         # Add created_by from authentication token
         data["created_by"] = request.current_member_id
         data["created_date"] = datetime.now().strftime("%Y-%m-%d")
@@ -1264,66 +1185,6 @@ def get_my_votes() -> Tuple[Dict[str, Any], int]:
         print(f"Get my votes error: {str(e)}")
         return {"error": "Failed to retrieve votes"}, 500
 
-
-@app.route("/ballots/<int:ballot_id>/results", methods=["GET"])
-def get_ballot_results(ballot_id: int) -> Tuple[Dict[str, Any], int]:
-    """
-    Get voting results for a specific ballot.
-
-    Returns:
-        200: Ballot results with vote counts
-        404: Ballot not found
-    """
-    try:
-        ballot = BALLOTS.get(ballot_id)
-        if not ballot:
-            return {"error": "Ballot not found"}, 404
-
-        # Count votes for each option
-        vote_counts = {}
-        total_votes = 0
-
-        for vote in VOTES.values():
-            if vote["ballot_id"] == ballot_id:
-                option_id = vote["option_id"]
-                vote_counts[option_id] = vote_counts.get(option_id, 0) + 1
-                total_votes += 1
-
-        # Build results with option details
-        results = []
-        for option in ballot["options"]:
-            option_id = option["id"]
-            vote_count = vote_counts.get(option_id, 0)
-            percentage = (vote_count / total_votes * 100) if total_votes > 0 else 0
-
-            results.append({
-                "option_id": option_id,
-                "option_title": option["title"],
-                "option_description": option["description"],
-                "vote_count": vote_count,
-                "percentage": round(percentage, 1)
-            })
-
-        # Sort by vote count (highest first)
-        results.sort(key=lambda x: x["vote_count"], reverse=True)
-
-        return {
-            "ballot_id": ballot_id,
-            "ballot_title": ballot["title"],
-            "ballot_description": ballot["description"],
-            "total_votes": total_votes,
-            "results": results,
-            "voting_period": {
-                "start_date": ballot["start_date"],
-                "end_date": ballot["end_date"]
-            }
-        }, 200
-
-    except Exception as e:
-        print(f"Get ballot results error: {str(e)}")
-        return {"error": "Failed to retrieve ballot results"}, 500
-
-
 # Health check endpoint
 @app.route("/health", methods=["GET"])
 def health_check():
@@ -1361,7 +1222,13 @@ def root():
             "delete_proposal_vote": "/proposals/{id}/votes",
             "my_votes": "/votes/my-votes",
             "health": "/health"
-        }
+        },
+        "new_features": [
+            "PTA voting system with ballots and proposals",
+            "Dual voting mechanisms for elections and decisions",
+            "Thread-safe voting operations",
+            "Anonymous voting with audit trails"
+        ]
     }, 200
 
 if __name__ == "__main__":
