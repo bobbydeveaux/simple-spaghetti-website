@@ -4,6 +4,7 @@ import { RecipeProvider } from './context/RecipeContext';
 import Navigation from './components/Navigation';
 import RecipeList from './components/RecipeList';
 import RecipeDetail from './components/RecipeDetail';
+import VotingApp from './voting/App';
 
 // Simple About component
 const About = () => (
@@ -42,6 +43,7 @@ function App() {
               <Route path="/" element={<RecipeList />} />
               <Route path="/recipe/:id" element={<RecipeDetail />} />
               <Route path="/about" element={<About />} />
+              <Route path="/voting/*" element={<VotingApp />} />
             </Routes>
           </main>
         </div>
