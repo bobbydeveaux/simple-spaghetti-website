@@ -6,15 +6,17 @@ Provides REST API for managing books, authors, members, and loans.
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import traceback
+from datetime import datetime
+from werkzeug.security import generate_password_hash
 from typing import Dict, List, Any, Tuple
 from datetime import datetime
 
 # Import our modules
 from api.data_store import (
     BOOKS, AUTHORS, MEMBERS, LOANS,
-    get_next_book_id, get_next_loan_id
+    get_next_book_id, get_next_loan_id, get_next_member_id
 )
-from api.validators import validate_book, validate_book_update, validate_loan, validate_loan_return
+from api.validators import validate_book, validate_book_update, validate_loan, validate_loan_return, validate_member
 from api.auth import token_required, authenticate_member, generate_token
 
 # Create Flask application
@@ -83,6 +85,60 @@ def login() -> Tuple[Dict[str, Any], int]:
     except Exception as e:
         print(f"Login error: {str(e)}")
         return {"error": "Login failed"}, 500
+
+# Member endpoints
+@app.route("/members", methods=["POST"])
+def register_member() -> Tuple[Dict[str, Any], int]:
+    """
+    Register a new member.
+
+    Request body:
+        {
+            "name": "string",
+            "email": "string",
+            "password": "string"
+        }
+
+    Returns:
+        201: {"id": int, "name": "string", "email": "string", "registration_date": "string"}
+        400: {"error": "string"} - Validation error
+        500: {"error": "string"} - Server error
+    """
+    try:
+        data = request.get_json()
+        if not data:
+            return {"error": "Request body required"}, 400
+
+        # Validate input
+        is_valid, error_msg = validate_member(data)
+        if not is_valid:
+            return {"error": error_msg}, 400
+
+        # Create new member
+        member_id = get_next_member_id()
+        new_member = {
+            "id": member_id,
+            "name": data["name"].strip(),
+            "email": data["email"].strip().lower(),
+            "password_hash": generate_password_hash(data["password"]),
+            "registration_date": datetime.now().strftime("%Y-%m-%d")
+        }
+
+        MEMBERS[member_id] = new_member
+
+        # Return member data without password_hash
+        response_data = {
+            "id": new_member["id"],
+            "name": new_member["name"],
+            "email": new_member["email"],
+            "registration_date": new_member["registration_date"]
+        }
+
+        return response_data, 201
+
+    except Exception as e:
+        print(f"Register member error: {str(e)}")
+        return {"error": "Failed to register member"}, 500
 
 # Book endpoints
 @app.route("/books", methods=["GET"])
@@ -520,6 +576,7 @@ def root():
         "version": "1.0",
         "endpoints": {
             "authentication": "/auth/login",
+            "member_registration": "/members",
             "books": "/books",
             "book_detail": "/books/{id}",
             "borrow_book": "/loans/borrow",
