@@ -1,11 +1,13 @@
 /**
  * PTA Voting System - Main Voting App
- * Entry point for the voting system with authentication flow
+ * Entry point for the voting system with authentication flow and routing
  */
 
 import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import VoterLogin from './pages/VoterLogin';
+import AdminDashboard from './pages/admin/Dashboard';
 
 /**
  * Authenticated voting dashboard (placeholder for now)
@@ -53,26 +55,52 @@ function VotingDashboard() {
 }
 
 /**
- * Main voting app component
+ * Main voting app component with routing
  */
 function VotingAppContent() {
-  const { isAuthenticated } = useAuth();
-
-  const handleLoginSuccess = () => {
-    // Could navigate to specific page or just rely on re-render
-    console.log('Login successful!');
-  };
+  const { isAuthenticated, isAdmin } = useAuth();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        {isAuthenticated ? (
-          <VotingDashboard />
-        ) : (
-          <VoterLogin onLoginSuccess={handleLoginSuccess} />
-        )}
-      </div>
-    </div>
+    <Routes>
+      {/* Login route - accessible to all unauthenticated users */}
+      <Route
+        path="/login"
+        element={
+          isAuthenticated ? (
+            <Navigate to={isAdmin() ? '/admin' : '/'} replace />
+          ) : (
+            <VoterLogin />
+          )
+        }
+      />
+
+      {/* Admin dashboard route - requires admin authentication */}
+      <Route path="/admin" element={<AdminDashboard />} />
+
+      {/* Main voting dashboard route - requires voter authentication */}
+      <Route
+        path="/"
+        element={
+          isAuthenticated ? (
+            isAdmin() ? (
+              <Navigate to="/admin" replace />
+            ) : (
+              <VotingDashboard />
+            )
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+
+      {/* Catch-all redirect to appropriate dashboard */}
+      <Route
+        path="*"
+        element={
+          <Navigate to={isAuthenticated ? (isAdmin() ? '/admin' : '/') : '/login'} replace />
+        }
+      />
+    </Routes>
   );
 }
 
