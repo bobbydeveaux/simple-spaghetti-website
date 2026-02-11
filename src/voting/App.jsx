@@ -3,7 +3,7 @@
  * Entry point for the voting system with authentication flow
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import VoterLogin from './pages/VoterLogin';
 

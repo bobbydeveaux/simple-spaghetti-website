@@ -191,7 +191,7 @@ function VoterLogin({ onLoginSuccess }) {
           Enter Verification Code
         </h1>
         <p className="text-gray-600 mb-2">
-          We've sent a 6-digit code to:
+          We&apos;ve sent a 6-digit code to:
         </p>
         <p className="font-medium text-gray-900">
           {savedEmail || email}
