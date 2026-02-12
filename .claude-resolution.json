@@ -1,6 +1,15 @@
 {
   "method": "ai-assisted",
-  "filesResolved": 2,
-  "summary": "Successfully resolved merge conflicts in 2 files by combining functionality from both branches. For .claude-output.json, created a comprehensive PR description that encompasses all implemented features from both Issue #121 (candidate management and audit logs) and Issues #118/119 (admin dashboard integration). For test_admin_endpoints.py, preserved the HTTP-based API testing approach which is more appropriate for testing actual API endpoints, while expanding it to cover all admin endpoints including dashboard, voter management, election management, and results analysis.",
-  "strategyUsed": "preserved and combined both changes - merged PR descriptions to cover all implemented features, kept comprehensive HTTP-based testing approach for better API endpoint validation"
+  "filesResolved": 7,
+  "summary": "Successfully resolved merge conflicts by combining features from both branches. Preserved comprehensive validation and enhanced UI from HEAD branch while integrating audit log functionality, statistics endpoints, and additional admin features from origin/main. Updated PR metadata to reflect combined scope covering both candidate management UI enhancements and complete admin interface implementation.",
+  "strategyUsed": "preserved and combined both changes with intelligent merging - kept comprehensive validation and enhanced UI components from HEAD, integrated audit logs and statistics functionality from origin/main, unified admin routing and API endpoints, and consolidated PR descriptions to reflect complete feature set",
+  "conflictResolution": {
+    ".claude-output.json": "Combined PR titles and descriptions to reflect both candidate management enhancements and complete admin interface implementation",
+    "api/voting/admin_routes.py": "Merged comprehensive validation from HEAD with audit logging and statistics endpoints from origin/main",
+    "api/voting/data_store.py": "Kept HEAD implementation for CRUD methods with proper error handling",
+    "dist/index.html": "Used origin/main asset references as they are more recent",
+    "src/voting/App.jsx": "Combined enhanced navigation from HEAD with comprehensive routing from origin/main",
+    "src/voting/api/votingApi.js": "Merged both admin API function sets while maintaining compatibility",
+    "src/voting/pages/admin/CandidateManagement.jsx": "Used HEAD version with enhanced UI, validation, and user experience features"
+  }
 }

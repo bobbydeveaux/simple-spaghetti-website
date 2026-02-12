@@ -4,9 +4,10 @@ Administrative endpoints for candidate management and audit log access.
 """
 
 from flask import Blueprint, request, jsonify
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, List
 import uuid
 from datetime import datetime
+import re
 
 from .data_store import voting_data_store
 from .middleware import admin_required
@@ -16,6 +17,49 @@ from .models import Candidate
 admin_bp = Blueprint('admin', __name__, url_prefix='/api/voting/admin')
 
 
+def validate_candidate_data(data: Dict[str, Any], is_update: bool = False) -> Tuple[List[str], bool]:
+    """
+    Validate candidate form data with comprehensive validation.
+
+    Args:
+        data: Candidate data dict
+        is_update: Whether this is an update operation
+
+    Returns:
+        Tuple of (error_messages, is_valid)
+    """
+    errors = []
+
+    # Required fields
+    if not data.get('name', '').strip():
+        errors.append("Name is required")
+    elif len(data['name'].strip()) < 2:
+        errors.append("Name must be at least 2 characters")
+    elif len(data['name'].strip()) > 100:
+        errors.append("Name must be less than 100 characters")
+
+    if not data.get('position', '').strip():
+        errors.append("Position is required")
+    elif data['position'] not in ["President", "Vice President", "Secretary", "Treasurer"]:
+        errors.append("Invalid position. Must be one of: President, Vice President, Secretary, Treasurer")
+
+    if not data.get('bio', '').strip():
+        errors.append("Bio is required")
+    elif len(data['bio'].strip()) < 10:
+        errors.append("Bio must be at least 10 characters")
+    elif len(data['bio'].strip()) > 500:
+        errors.append("Bio must be less than 500 characters")
+
+    # Optional photo URL validation
+    photo_url = data.get('photo_url', '').strip()
+    if photo_url:
+        url_pattern = r'^https?://[^\s/$.?#].[^\s]*$'
+        if not re.match(url_pattern, photo_url):
+            errors.append("Photo URL must be a valid HTTP/HTTPS URL")
+
+    return errors, len(errors) == 0
+
+
 @admin_bp.route('/candidates', methods=['GET'])
 @admin_required
 def get_all_candidates() -> Tuple[Dict[str, Any], int]:
@@ -23,16 +67,38 @@ def get_all_candidates() -> Tuple[Dict[str, Any], int]:
     Get all candidates in the system.
 
     Returns:
-        200: {"candidates": [list of candidate objects]}
+        200: {
+            "candidates": [list of candidate objects],
+            "candidates_by_position": {position: [candidates]},
+            "total_count": number
+        }
         500: {"error": "error message"}
     """
     try:
-        candidates = voting_data_store.get_all_candidates()
-        candidates_data = [candidate.to_dict() for candidate in candidates]
+        all_candidates = voting_data_store.get_all_candidates()
+
+        # Group candidates by position for enhanced UI support
+        candidates_by_position = {
+            "President": [],
+            "Vice President": [],
+            "Secretary": [],
+            "Treasurer": []
+        }
+
+        candidate_dicts = []
+        for candidate in all_candidates:
+            candidate_dict = candidate.to_dict()
+            candidate_dicts.append(candidate_dict)
+
+            position = candidate.position
+            if position in candidates_by_position:
+                candidates_by_position[position].append(candidate_dict)
 
         return {
-            "candidates": candidates_data,
-            "total": len(candidates_data)
+            "candidates": candidate_dicts,
+            "candidates_by_position": candidates_by_position,
+            "total": len(candidate_dicts),
+            "total_count": len(candidate_dicts)
         }, 200
 
     except Exception as e:
@@ -56,7 +122,7 @@ def create_candidate() -> Tuple[Dict[str, Any], int]:
 
     Returns:
         201: {"candidate": candidate_object, "message": "success message"}
-        400: {"error": "validation message"}
+        400: {"error": "validation message", "errors": ["field errors"]}
         500: {"error": "error message"}
     """
     try:
@@ -64,7 +130,12 @@ def create_candidate() -> Tuple[Dict[str, Any], int]:
         if not data:
             return {"error": "Request body required"}, 400
 
-        # Validate required fields
+        # Enhanced validation using comprehensive validation function
+        errors, is_valid = validate_candidate_data(data)
+        if not is_valid:
+            return {"error": "Validation failed", "errors": errors}, 400
+
+        # Validate required fields with fallback to basic validation
         name = data.get("name", "").strip()
         position = data.get("position", "").strip()
         bio = data.get("bio", "").strip()
@@ -140,7 +211,7 @@ def update_candidate(candidate_id: str) -> Tuple[Dict[str, Any], int]:
 
     Returns:
         200: {"candidate": candidate_object, "message": "success message"}
-        400: {"error": "validation message"}
+        400: {"error": "validation message", "errors": ["field errors"]}
         404: {"error": "Candidate not found"}
         500: {"error": "error message"}
     """
@@ -154,7 +225,12 @@ def update_candidate(candidate_id: str) -> Tuple[Dict[str, Any], int]:
         if not data:
             return {"error": "Request body required"}, 400
 
-        # Validate fields if provided
+        # Enhanced validation using comprehensive validation function
+        errors, is_valid = validate_candidate_data(data, is_update=True)
+        if not is_valid:
+            return {"error": "Validation failed", "errors": errors}, 400
+
+        # Validate fields if provided with fallback to basic validation
         name = data.get("name", "").strip() if "name" in data else existing_candidate.name
         position = data.get("position", "").strip() if "position" in data else existing_candidate.position
         bio = data.get("bio", "").strip() if "bio" in data else existing_candidate.bio

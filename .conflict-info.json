@@ -1,10 +1,15 @@
 {
-  "prNumber": 132,
+  "prNumber": 134,
   "baseBranch": "main",
-  "headBranch": "feature/121-pta-voting-system-sprint-2-issue-121",
+  "headBranch": "feature/117-pta-voting-system-sprint-2-issue-117",
   "conflictedFiles": [
     ".claude-output.json",
-    "test_admin_endpoints.py"
+    "api/voting/admin_routes.py",
+    "api/voting/data_store.py",
+    "dist/index.html",
+    "src/voting/App.jsx",
+    "src/voting/api/votingApi.js",
+    "src/voting/pages/admin/CandidateManagement.jsx"
   ],
-  "conflictCount": 2
+  "conflictCount": 7
 }
