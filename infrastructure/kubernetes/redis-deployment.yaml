@@ -56,6 +56,10 @@ spec:
         component: cache
         role: master
     spec:
+      securityContext:
+        fsGroup: 999
+        runAsNonRoot: true
+
       containers:
       - name: redis
         image: redis:7-alpine
@@ -135,6 +139,10 @@ spec:
         component: cache
         role: replica
     spec:
+      securityContext:
+        fsGroup: 999
+        runAsNonRoot: true
+
       containers:
       - name: redis
         image: redis:7-alpine
@@ -211,6 +219,10 @@ spec:
         component: cache
         role: sentinel
     spec:
+      securityContext:
+        fsGroup: 999
+        runAsNonRoot: true
+
       containers:
       - name: sentinel
         image: redis:7-alpine

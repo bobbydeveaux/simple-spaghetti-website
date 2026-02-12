@@ -134,6 +134,10 @@ spec:
         app: airflow-webserver
         component: webserver
     spec:
+      securityContext:
+        fsGroup: 50000
+        runAsNonRoot: true
+
       initContainers:
       - name: airflow-init
         image: f1-analytics/airflow:latest
@@ -249,11 +253,17 @@ spec:
           mountPath: /opt/airflow/dags
         - name: logs-volume
           mountPath: /opt/airflow/logs
+        - name: tmp
+          mountPath: /tmp
 
         securityContext:
           runAsUser: 50000
           runAsGroup: 50000
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false  # Airflow needs write access for temporary files
+          capabilities:
+            drop:
+            - ALL
 
       volumes:
       - name: airflow-config
@@ -265,9 +275,12 @@ spec:
       - name: logs-volume
         persistentVolumeClaim:
           claimName: airflow-logs-pvc
+      - name: tmp
+        emptyDir: {}
 
       securityContext:
         fsGroup: 50000
+        runAsNonRoot: true
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -353,11 +366,17 @@ spec:
           mountPath: /opt/airflow/dags
         - name: logs-volume
           mountPath: /opt/airflow/logs
+        - name: tmp
+          mountPath: /tmp
 
         securityContext:
           runAsUser: 50000
           runAsGroup: 50000
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false  # Airflow needs write access for temporary files
+          capabilities:
+            drop:
+            - ALL
 
       volumes:
       - name: airflow-config
@@ -369,9 +388,12 @@ spec:
       - name: logs-volume
         persistentVolumeClaim:
           claimName: airflow-logs-pvc
+      - name: tmp
+        emptyDir: {}
 
       securityContext:
         fsGroup: 50000
+        runAsNonRoot: true
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -434,11 +456,17 @@ spec:
           mountPath: /opt/airflow/dags
         - name: logs-volume
           mountPath: /opt/airflow/logs
+        - name: tmp
+          mountPath: /tmp
 
         securityContext:
           runAsUser: 50000
           runAsGroup: 50000
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false  # Airflow needs write access for temporary files
+          capabilities:
+            drop:
+            - ALL
 
       volumes:
       - name: airflow-config
@@ -450,9 +478,12 @@ spec:
       - name: logs-volume
         persistentVolumeClaim:
           claimName: airflow-logs-pvc
+      - name: tmp
+        emptyDir: {}
 
       securityContext:
         fsGroup: 50000
+        runAsNonRoot: true
 ---
 # Persistent Volume Claims for Airflow
 apiVersion: v1

@@ -1,0 +1,358 @@
+# Network Policies for F1 Analytics
+# These policies implement micro-segmentation and defense-in-depth
+# for the F1 Analytics application stack
+
+---
+# Default Deny All Ingress
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all-ingress
+  namespace: f1-analytics
+  labels:
+    app: f1-analytics
+    component: security
+spec:
+  podSelector: {}  # Applies to all pods in the namespace
+  policyTypes:
+  - Ingress
+
+---
+# Allow ingress from NGINX ingress controller
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-frontend
+  namespace: f1-analytics
+  labels:
+    app: f1-analytics
+    component: security
+spec:
+  podSelector:
+    matchLabels:
+      app: frontend
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 80
+    - protocol: TCP
+      port: 443
+
+---
+# Allow frontend to API gateway
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontend-to-api
+  namespace: f1-analytics
+  labels:
+    app: f1-analytics
+    component: security
+spec:
+  podSelector:
+    matchLabels:
+      app: api-gateway
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: frontend
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx  # Allow direct access from ingress for API endpoints
+    ports:
+    - protocol: TCP
+      port: 8000
+
+---
+# Allow API gateway to prediction service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-api-to-prediction
+  namespace: f1-analytics
+  labels:
+    app: f1-analytics
+    component: security
+spec:
+  podSelector:
+    matchLabels:
+      app: prediction-service
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: api-gateway
+    ports:
+    - protocol: TCP
+      port: 8001
+
+---
+# Allow API gateway and prediction service to PostgreSQL
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-apps-to-postgres
+  namespace: f1-analytics
+  labels:
+    app: f1-analytics
+    component: security
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: api-gateway
+    - podSelector:
+        matchLabels:
+          app: prediction-service
+    - podSelector:
+        matchLabels:
+          app: airflow-webserver
+    - podSelector:
+        matchLabels:
+          app: airflow-scheduler
+    - podSelector:
+        matchLabels:
+          app: airflow-worker
+    ports:
+    - protocol: TCP
+      port: 5432
+
+---
+# Allow applications to Redis
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-apps-to-redis
+  namespace: f1-analytics
+  labels:
+    app: f1-analytics
+    component: security
+spec:
+  podSelector:
+    matchLabels:
+      app: redis
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: api-gateway
+    - podSelector:
+        matchLabels:
+          app: prediction-service
+    - podSelector:
+        matchLabels:
+          app: airflow-webserver
+    - podSelector:
+        matchLabels:
+          app: airflow-scheduler
+    - podSelector:
+        matchLabels:
+          app: airflow-worker
+    ports:
+    - protocol: TCP
+      port: 6379
+
+---
+# Allow Airflow components to communicate with each other
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-airflow-internal
+  namespace: f1-analytics
+  labels:
+    app: f1-analytics
+    component: security
+spec:
+  podSelector:
+    matchLabels:
+      component: webserver
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx  # Allow access from ingress controller
+    - podSelector:
+        matchLabels:
+          component: scheduler
+    - podSelector:
+        matchLabels:
+          component: worker
+    ports:
+    - protocol: TCP
+      port: 8080
+
+---
+# Allow scheduler access
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-airflow-scheduler
+  namespace: f1-analytics
+  labels:
+    app: f1-analytics
+    component: security
+spec:
+  podSelector:
+    matchLabels:
+      app: airflow-scheduler
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          component: webserver
+    - podSelector:
+        matchLabels:
+          component: worker
+    ports:
+    - protocol: TCP
+      port: 8793
+
+---
+# Allow monitoring access to all pods
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-monitoring
+  namespace: f1-analytics
+  labels:
+    app: f1-analytics
+    component: security
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 9090  # API Gateway metrics
+    - protocol: TCP
+      port: 9091  # Prediction Service metrics
+    - protocol: TCP
+      port: 9125  # Airflow StatsD
+    - protocol: TCP
+      port: 5432  # PostgreSQL metrics
+    - protocol: TCP
+      port: 6379  # Redis metrics
+
+---
+# Allow DNS resolution from all pods
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: f1-analytics
+  labels:
+    app: f1-analytics
+    component: security
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+
+---
+# Allow external API access (HTTPS only)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-external-apis
+  namespace: f1-analytics
+  labels:
+    app: f1-analytics
+    component: security
+spec:
+  podSelector:
+    matchLabels:
+      tier: api
+  policyTypes:
+  - Egress
+  egress:
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443  # HTTPS for external APIs
+
+---
+# Redis internal communication (master-replica, sentinel)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-redis-internal
+  namespace: f1-analytics
+  labels:
+    app: f1-analytics
+    component: security
+spec:
+  podSelector:
+    matchLabels:
+      component: cache
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          component: cache
+    ports:
+    - protocol: TCP
+      port: 6379
+    - protocol: TCP
+      port: 26379  # Sentinel
+
+---
+# PostgreSQL internal replication
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-postgres-replication
+  namespace: f1-analytics
+  labels:
+    app: f1-analytics
+    component: security
+spec:
+  podSelector:
+    matchLabels:
+      component: database
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          component: database
+    ports:
+    - protocol: TCP
+      port: 5432
