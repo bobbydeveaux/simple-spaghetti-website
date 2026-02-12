@@ -1,32 +1,101 @@
-# F1 Prediction Analytics Backend
+# 🏎️ F1 Prediction Analytics Platform
 
-## Overview
+A comprehensive Formula One prediction analytics platform with Docker containerization for seamless development and deployment, combined with advanced ML-powered race predictions and database infrastructure.
 
-This is the backend system for Formula 1 prediction analytics, providing SQLAlchemy ORM models, database migrations, and data management infrastructure for F1 racing data analysis and machine learning predictions.
+## 🚀 Quick Start
 
-## Architecture
+### Prerequisites
+
+- Docker (>= 20.10)
+- Docker Compose (>= 2.0)
+- Git
+- 8GB+ RAM recommended
+
+### One-Command Setup
+
+```bash
+./scripts/init_dev.sh
+```
+
+This will:
+- Build all Docker containers
+- Start the complete development environment
+- Initialize the database with sample data
+- Verify all services are running
+
+### Access Points
+
+Once setup is complete, access the application at:
+
+- **Frontend Dashboard**: http://localhost:3000
+- **Backend API**: http://localhost:8000
+- **API Documentation**: http://localhost:8000/docs
+- **Task Monitor (Flower)**: http://localhost:5555
+- **Database**: localhost:5432
+- **Redis**: localhost:6379
+
+## 📊 Architecture Overview
+
+### System Architecture
+
+```mermaid
+graph TB
+    subgraph "Frontend Layer"
+        F[React Dashboard<br/>Port: 3000]
+    end
+
+    subgraph "API Gateway"
+        B[FastAPI Backend<br/>Port: 8000]
+    end
+
+    subgraph "Background Processing"
+        CW[Celery Worker]
+        CB[Celery Beat]
+        FL[Flower Monitor<br/>Port: 5555]
+    end
+
+    subgraph "Data Layer"
+        P[PostgreSQL<br/>Port: 5432]
+        R[Redis<br/>Port: 6379]
+    end
+
+    subgraph "External APIs"
+        E1[Ergast F1 API]
+        E2[Weather API]
+    end
+
+    F --> B
+    B --> P
+    B --> R
+    CW --> P
+    CW --> R
+    CB --> CW
+    CW --> E1
+    CW --> E2
+    FL --> R
+```
 
 ### Database Schema
 
-The system uses PostgreSQL with the following main entities:
+The system uses PostgreSQL with comprehensive F1 data modeling:
 
 #### Core Entities
-- **Teams**: F1 constructors with Elo ratings
-- **Drivers**: F1 drivers with team associations and Elo ratings
-- **Circuits**: Race tracks with characteristics (length, type)
-- **Races**: Race events with season/round information
+- **Teams**: F1 constructors with Elo ratings and performance tracking
+- **Drivers**: F1 drivers with team associations and detailed statistics
+- **Circuits**: Race tracks with characteristics (length, type, location)
+- **Races**: Race events with season/round information and status
 
 #### Results & Performance
-- **RaceResults**: Final race positions, points, and performance data
+- **RaceResults**: Final race positions, points, and performance data (partitioned by race_id)
 - **QualifyingResults**: Qualifying session times and grid positions
 - **WeatherData**: Race weather conditions affecting performance
 
 #### Predictions & Analysis
-- **Predictions**: ML-generated win probabilities by model version
+- **Predictions**: ML-generated win probabilities by model version (partitioned by race_id)
 - **PredictionAccuracy**: Post-race accuracy metrics (Brier score, log loss)
-- **Users**: Authentication for system access
+- **Users**: Authentication and role-based access control
 
-### Key Features
+### Key Database Features
 
 - **Comprehensive Constraints**: Check constraints for data validation
 - **Performance Indexes**: Optimized queries for race data and predictions
@@ -34,107 +103,17 @@ The system uses PostgreSQL with the following main entities:
 - **Table Partitioning**: Ready for partitioning race_results and predictions by race_id
 - **Foreign Key Relationships**: Proper referential integrity across entities
 
-## Project Structure
-
-```
-f1-analytics/backend/
-├── app/
-│   ├── models/           # SQLAlchemy ORM models
-│   │   ├── __init__.py   # Model exports
-│   │   ├── driver.py     # Driver model
-│   │   ├── team.py       # Team/constructor model
-│   │   ├── circuit.py    # Circuit/track model
-│   │   ├── race.py       # Race event model
-│   │   ├── race_result.py     # Race results
-│   │   ├── qualifying_result.py # Qualifying results
-│   │   ├── weather_data.py    # Weather conditions
-│   │   ├── prediction.py      # ML predictions
-│   │   ├── prediction_accuracy.py # Accuracy metrics
-│   │   └── user.py       # User authentication
-│   ├── config.py         # Configuration settings
-│   ├── database.py       # Database connection & session
-│   └── dependencies.py   # FastAPI dependencies
-├── alembic/             # Database migrations
-│   ├── env.py           # Alembic environment
-│   └── versions/        # Migration scripts
-├── alembic.ini          # Alembic configuration
-├── requirements.txt     # Python dependencies
-└── test_models.py       # Model validation tests
-```
-
-## Database Schema Details
-
-### Core Tables
-
-**teams**
-- `team_id` (PK), `team_name` (unique), `nationality`
-- `current_elo_rating` (performance tracking)
-- Created/updated timestamps
-
-**drivers**
-- `driver_id` (PK), `driver_code` (3-char unique), `driver_name`
-- `current_team_id` (FK to teams), `current_elo_rating`
-- `date_of_birth`, nationality
-
-**circuits**
-- `circuit_id` (PK), `circuit_name` (unique), location, country
-- `track_length_km`, `track_type` (street/permanent)
-
-**races**
-- `race_id` (PK), `season_year`, `round_number`, `race_date`
-- `circuit_id` (FK), race_name, status
-- Unique constraint on (season_year, round_number)
-
-### Results Tables
-
-**race_results** (partitioned by race_id)
-- Result data: grid_position, final_position, points
-- Performance: fastest_lap_time, status
-- Foreign keys: race_id, driver_id, team_id
-
-**qualifying_results**
-- Session times: q1_time, q2_time, q3_time
-- final_grid_position
-
-**weather_data** (1:1 with races)
-- `temperature_celsius`, `precipitation_mm`, `wind_speed_kph`
-- `conditions` (dry/wet/mixed/overcast/sunny)
-
-### Prediction Tables
-
-**predictions** (partitioned by race_id)
-- `predicted_win_probability` (0-100%), `model_version`
-- `prediction_timestamp` for temporal analysis
-- Unique per (race_id, driver_id, model_version)
-
-**prediction_accuracy** (1:1 with completed races)
-- `brier_score`, `log_loss` (probabilistic accuracy)
-- `correct_winner`, `top_3_accuracy` (classification accuracy)
-
-### Authentication
-
-**users**
-- `email` (unique), `password_hash` (bcrypt)
-- `role` (user/admin), login tracking
-
-## Configuration
-
-### Environment Variables
-
-```bash
-# Database
-F1_DATABASE_URL=postgresql://f1_user:f1_password@localhost:5432/f1_analytics
-TEST_DATABASE_URL=postgresql://f1_user:f1_password@localhost:5432/f1_analytics_test
-
-# Connection Pool
-DATABASE_POOL_SIZE=10
-DATABASE_MAX_OVERFLOW=20
-DATABASE_POOL_TIMEOUT=30
-DATABASE_POOL_RECYCLE=3600
-
 # Application
 ENVIRONMENT=development
 DEBUG=true
+LOG_LEVEL=INFO
+```
+
+**Frontend:**
+```env
+VITE_API_URL=http://localhost:8000
+VITE_APP_NAME=F1 Analytics Dashboard
+VITE_ENVIRONMENT=development
 ```
 
 ## Setup Instructions
@@ -262,22 +241,83 @@ alembic upgrade head
 alembic downgrade -1
 ```
 
-## Next Steps (Sprint 2+)
+## 🚀 Production Deployment
 
-1. **FastAPI Routes**: REST API endpoints for data access
-2. **Authentication**: JWT token management and role-based access
-3. **Data Import**: Scripts to populate from F1 data sources
-4. **ML Pipeline**: Prediction model training and evaluation
-5. **Performance Optimization**: Query optimization and caching
+### 🔒 Production Security Checklist
+
+**⚠️ CRITICAL**: Read `PRODUCTION_SECURITY.md` before production deployment!
+
+```bash
+# 1. Generate secure credentials
+./scripts/generate_secrets.sh
+
+# 2. Create production environment
+cp .env.production.template .env.production
+# Edit with your secure values
+
+# 3. Validate security configuration
+python -c "from app.core.config import get_settings, validate_production_config; s = get_settings(); print(validate_production_config(s))"
+
+# 4. Deploy with production compose
+docker-compose -f infrastructure/docker-compose.prod.yml up -d
+```
+
+### Production Environment Variables
+
+**🔐 Security Requirements:**
+- JWT secret minimum 64 characters (use `openssl rand -base64 64`)
+- Database passwords minimum 16 characters
+- No localhost/development URLs in production
+- HTTPS-only CORS origins
+- Debug mode disabled (`DEBUG=false`)
+
+```env
+# Database (SECURE PASSWORDS REQUIRED)
+POSTGRES_DB=f1_analytics_prod
+POSTGRES_USER=f1user_prod
+POSTGRES_PASSWORD=GENERATE_SECURE_PASSWORD_MIN_16_CHARS
+
+# Redis (SECURE PASSWORDS REQUIRED)
+REDIS_PASSWORD=GENERATE_SECURE_REDIS_PASSWORD_MIN_16_CHARS
+
+# JWT (GENERATE WITH: openssl rand -base64 64)
+JWT_SECRET_KEY=CRYPTOGRAPHICALLY_SECURE_64_CHARACTER_MINIMUM
+
+# Security Configuration
+CORS_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
+ENVIRONMENT=production
+DEBUG=false
+
+# Rate Limiting
+RATE_LIMIT_PER_MINUTE=30
+RATE_LIMIT_BURST=60
+
+# External APIs
+WEATHER_API_KEY=your-production-weather-api-key
+
+# Monitoring
+GRAFANA_ADMIN_PASSWORD=SECURE_GRAFANA_PASSWORD
+ENABLE_METRICS=true
+
+# Connection Pool
+DATABASE_POOL_SIZE=10
+DATABASE_MAX_OVERFLOW=20
+DATABASE_POOL_TIMEOUT=30
+DATABASE_POOL_RECYCLE=3600
+```
 
 ## Dependencies
 
 - **SQLAlchemy 2.0+**: ORM and database toolkit
 - **Alembic**: Database migration management
 - **psycopg2**: PostgreSQL database adapter
-- **FastAPI**: Modern Python web framework (future)
-- **Pydantic**: Data validation and serialization (future)
+- **FastAPI**: Modern Python web framework for API endpoints
+- **Pydantic**: Data validation and serialization
+- **Redis**: Caching and session management
+- **Security**: JWT authentication, bcrypt password hashing
+- **Testing**: Comprehensive test suite with >80% coverage requirement
 
 ## Contributing
 
-This is Sprint 1 of the F1 prediction analytics system, focusing on database schema and models. Future sprints will add API endpoints, ML pipelines, and web interfaces.
+This is a comprehensive F1 prediction analytics system combining advanced database modeling with Docker containerization and enterprise security practices. Future development will focus on ML pipeline enhancements and advanced analytics features.

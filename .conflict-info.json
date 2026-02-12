@@ -1,9 +1,15 @@
 {
-  "prNumber": 158,
+  "prNumber": 160,
   "baseBranch": "main",
-  "headBranch": "feature/142-f1-prediction-analytics-sprint-1-issue-142",
+  "headBranch": "feature/141-f1-prediction-analytics-sprint-1-issue-141",
   "conflictedFiles": [
-    "README.md"
+    ".review-feedback.txt",
+    "f1-analytics/README.md",
+    "f1-analytics/backend/app/__init__.py",
+    "f1-analytics/backend/app/main.py",
+    "f1-analytics/backend/requirements.txt",
+    "f1-analytics/backend/tests/__init__.py",
+    "f1-analytics/backend/tests/conftest.py"
   ],
-  "conflictCount": 1
+  "conflictCount": 7
 }

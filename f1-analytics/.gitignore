@@ -1,0 +1,109 @@
+# F1 Analytics .gitignore
+
+# Environment files (contain sensitive credentials)
+.env
+.env.local
+.env.production
+.env.staging
+.env.test
+
+# Docker volumes and data
+volumes/
+data/
+
+# Logs
+*.log
+logs/
+backend/logs/
+nginx_logs/
+
+# Database dumps and backups
+*.sql
+*.dump
+backups/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.coverage
+.pytest_cache/
+htmlcov/
+
+# Models and cache
+models/
+*.pkl
+*.joblib
+cache/
+
+# SSL certificates
+*.pem
+*.key
+*.crt
+ssl/
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# MacOS
+.DS_Store?
+.Spotlight-V100
+.Trashes
+
+# Windows
+ehthumbs.db
+Desktop.ini
+
+# Redis dumps
+dump.rdb
+
+# Docker secrets
+secrets/
