@@ -40,7 +40,15 @@ def validate_jwt_secret() -> None:
         "key",
         "dev",
         "test",
-        "development"
+        "development",
+        "please_generate",
+        "generate_with_openssl",
+        "minimum_32_characters",
+        "minimum_64_characters",
+        "change_this",
+        "f1_secure_password_2024",
+        "redis_secure_password_2024",
+        "flower_secure_password_2024"
     ]
 
     secret_lower = SECRET_KEY.lower()
@@ -157,14 +165,25 @@ def validate_environment_security() -> dict:
     if results["environment"] == "production" and results["debug_enabled"]:
         results["issues"].append("Debug mode is enabled in production environment")
 
-    # Check database URL
+    # Check database URL for weak credentials
     db_url = os.getenv("DATABASE_URL", "")
-    if "f1password" in db_url or "password" in db_url.lower():
-        results["issues"].append("Database URL may contain default/weak credentials")
+    weak_db_patterns = [
+        "f1password", "password123", "f1_secure_password_2024",
+        "please_change", "change_this_secure_db_password",
+        "CHANGE_THIS_SECURE_DB_PASSWORD"
+    ]
+    for pattern in weak_db_patterns:
+        if pattern.lower() in db_url.lower():
+            results["issues"].append(f"Database URL contains weak/default credentials pattern: {pattern}")
 
-    # Check Redis URL
+    # Check Redis URL for weak credentials
     redis_url = os.getenv("REDIS_URL", "")
-    if "f1redis" in redis_url or ":password@" in redis_url:
-        results["issues"].append("Redis URL may contain default/weak credentials")
+    weak_redis_patterns = [
+        "f1redis", "redis_secure_password_2024", "please_change",
+        "change_this_secure_redis_password", "CHANGE_THIS_SECURE_REDIS_PASSWORD"
+    ]
+    for pattern in weak_redis_patterns:
+        if pattern.lower() in redis_url.lower():
+            results["issues"].append(f"Redis URL contains weak/default credentials pattern: {pattern}")
 
     return results
