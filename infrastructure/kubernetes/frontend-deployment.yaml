@@ -82,7 +82,7 @@ data:
         add_header X-Content-Type-Options "nosniff" always;
         add_header X-XSS-Protection "1; mode=block" always;
         add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://api.f1-analytics.example.com; frame-ancestors 'none';" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' $(CSP_CONNECT_SRC); frame-ancestors 'none';" always;
 
         # Rate Limiting
         limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
@@ -96,7 +96,7 @@ data:
 
         server {
             listen 80;
-            server_name f1-analytics.example.com www.f1-analytics.example.com;
+            server_name $(FRONTEND_DOMAIN) $(FRONTEND_WWW_DOMAIN);
             root /usr/share/nginx/html;
             index index.html;
 
@@ -192,7 +192,10 @@ spec:
         env:
         # React Build Configuration
         - name: REACT_APP_API_BASE_URL
-          value: "https://api.f1-analytics.example.com/api/v1"
+          valueFrom:
+            configMapKeyRef:
+              name: domain-config
+              key: API_BASE_URL
         - name: REACT_APP_ENVIRONMENT
           value: "production"
         - name: REACT_APP_VERSION
@@ -218,7 +221,10 @@ spec:
 
         # WebSocket Configuration
         - name: REACT_APP_WS_URL
-          value: "wss://ws.f1-analytics.example.com"
+          valueFrom:
+            configMapKeyRef:
+              name: domain-config
+              key: WS_URL
         - name: REACT_APP_WS_RECONNECT_INTERVAL
           value: "5000"
 

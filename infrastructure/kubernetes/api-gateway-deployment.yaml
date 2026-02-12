@@ -87,7 +87,10 @@ spec:
         - name: API_PREFIX
           value: "/api/v1"
         - name: CORS_ORIGINS
-          value: "https://f1-analytics.example.com,https://staging.f1-analytics.example.com"
+          valueFrom:
+            configMapKeyRef:
+              name: domain-config
+              key: CORS_ORIGINS
         - name: ENVIRONMENT
           value: "production"
         - name: LOG_LEVEL
