@@ -1,209 +1,147 @@
-# Product Requirements Document: A Formula One driver database with complicated analytical modeling to help predict the winner of the next race. The system should include:
+# Product Requirements Document: F1 Race Winner Prediction System
 
-1. **Data Import**: Ability to import data from online data sources (e.g., Ergast API, official F1 data feeds) including historical race results, driver statistics, qualifying times, weather conditions, and track characteristics.
-
-2. **Statistical Modeling**: Process data using statistical modeling techniques such as:
-   - Regression analysis for performance trends
-   - Machine learning models for prediction (e.g., Random Forest, XGBoost)
-   - ELO-style rating systems for drivers and teams
-   - Track-specific performance analysis
-   - Weather impact modeling
-
-3. **Website Dashboard**: A web interface that displays:
-   - Percentage chance of each driver winning the next Grand Prix
-   - Race calendar with upcoming events
-   - Historical prediction accuracy
-   - Driver and team rankings
-   - Interactive charts and visualizations
-
-The predictions should update based on the F1 calendar and incorporate recent race results to improve model accuracy over time.
-
-**Created:** 2026-02-12T15:10:49Z
+**Created:** 2026-02-12T22:41:59Z
 **Status:** Draft
 
 ## 1. Overview
 
-**Concept:** A Formula One driver database with complicated analytical modeling to help predict the winner of the next race. The system should include data import, statistical modeling, and a website dashboard.
+**Concept:** An analytics platform that predicts Formula One race winners using machine learning models trained on historical race data, driver statistics, and environmental factors.
 
-**Description:** An enterprise-grade Formula One prediction analytics platform that aggregates historical and real-time F1 data, applies machine learning models to predict race outcomes, and presents actionable insights through an interactive web dashboard. The system will continuously improve predictions by incorporating recent race results and track-specific performance data.
+**Description:** A web-based system that imports F1 data from public APIs, applies statistical modeling techniques to identify performance patterns, and presents win probability predictions through an interactive dashboard. The system automatically updates predictions as new race results become available.
 
 ---
 
 ## 2. Goals
 
-- Achieve 70%+ prediction accuracy for race winner predictions within the first season of operation
-- Ingest and process data from multiple F1 data sources (Ergast API, official feeds) with automated daily updates
-- Deliver a production-ready web dashboard with real-time prediction updates and interactive visualizations
-- Implement multiple statistical models (regression, ML ensembles, ELO ratings) to provide robust predictions
-- Track and display historical prediction accuracy to validate model performance over time
+- Deliver race winner predictions with quantified confidence intervals for upcoming Grand Prix events
+- Provide a comprehensive historical F1 database spanning multiple seasons with driver, team, and track performance metrics
+- Implement multiple prediction models (regression, ML ensemble methods, ELO ratings) to enable comparison and ensemble forecasting
+- Create an intuitive web dashboard displaying predictions, rankings, and model accuracy metrics
+- Establish an automated data pipeline that refreshes predictions within 24 hours of race completion
 
 ---
 
 ## 3. Non-Goals
 
-- Live race telemetry streaming or lap-by-lap updates during active races
+- Real-time race predictions during active Grand Prix sessions
+- Live telemetry data integration or lap-by-lap analysis
+- Mobile native applications (iOS/Android)
+- Social features including user accounts, commenting, or prediction sharing
 - Fantasy F1 league management or betting integration
-- Mobile native applications (iOS/Android) in initial release
-- Social features such as user comments, forums, or prediction competitions
-- Direct integration with F1 TV or video streaming services
 
 ---
 
 ## 4. User Stories
 
-- As an F1 enthusiast, I want to view the predicted win probability for each driver before the next race so that I can make informed predictions
-- As a data analyst, I want to access historical race data and driver statistics so that I can understand performance trends
-- As a casual fan, I want to see the upcoming race calendar with predictions so that I know which races to watch
-- As a user, I want to view interactive charts showing driver and team rankings so that I can compare performance visually
-- As a returning user, I want to see how accurate past predictions were so that I can trust the system's forecasts
-- As an API consumer, I want to query prediction data programmatically so that I can integrate it into my own applications
-- As a system administrator, I want automated data ingestion pipelines so that predictions stay current without manual intervention
-- As a power user, I want to filter predictions by track type or weather conditions so that I can analyze context-specific performance
+- As an F1 enthusiast, I want to see the predicted win probability for each driver before the next race so that I can make informed predictions
+- As a data analyst, I want to access historical prediction accuracy metrics so that I can evaluate model performance over time
+- As a casual fan, I want to view the upcoming race calendar with predictions so that I know which races to watch
+- As a team follower, I want to see constructor rankings and performance trends so that I can track my favorite team's trajectory
+- As a statistics enthusiast, I want to compare different prediction models (ELO vs ML) so that I can understand which approach works best
+- As a user, I want visualizations of driver performance across different track types so that I can identify specialist drivers
+- As a researcher, I want to see how weather conditions affect prediction confidence so that I can understand environmental impact
 
 ---
 
 ## 5. Acceptance Criteria
 
-**User Story: View predicted win probability**
-- Given the user navigates to the dashboard homepage
-- When the next scheduled race is within 14 days
-- Then the system displays win probabilities for all drivers summing to 100%
+**Data Import:**
+- Given the Ergast API is available, When the system runs a data sync, Then all historical race results from 2010-present are imported
+- Given new race results are published, When the sync runs post-race, Then the database updates within 24 hours
 
-**User Story: Access historical race data**
-- Given the user selects a specific season and race
-- When the race has been completed
-- Then the system displays race results, qualifying times, and weather conditions
+**Prediction Generation:**
+- Given sufficient historical data exists, When a prediction is requested for an upcoming race, Then all qualified drivers receive win probability percentages totaling 100%
+- Given multiple models are trained, When predictions are generated, Then each model produces independent forecasts
 
-**User Story: View upcoming race calendar**
-- Given the current date is during the F1 season
-- When the user accesses the calendar view
-- Then all upcoming races are listed with dates, circuits, and prediction summaries
-
-**User Story: View prediction accuracy**
-- Given at least 5 races have been completed in the current season
-- When the user navigates to the accuracy dashboard
-- Then historical prediction accuracy metrics are displayed with confidence intervals
-
-**User Story: Automated data ingestion**
-- Given a scheduled data ingestion job runs daily
-- When new race results are available from source APIs
-- Then the system updates the database and retrains prediction models automatically
+**Dashboard Display:**
+- Given predictions exist for the next race, When a user loads the homepage, Then win probabilities display for all drivers sorted by likelihood
+- Given historical predictions exist, When viewing model accuracy, Then overall accuracy percentage and per-race results are shown
+- Given the current F1 calendar, When viewing the schedule, Then all remaining races display with dates and prediction availability status
 
 ---
 
 ## 6. Functional Requirements
 
-**FR-001**: System shall ingest data from Ergast API including race results, qualifying times, driver standings, and constructor standings
-**FR-002**: System shall store historical F1 data dating back to at least 2010 in a relational database
-**FR-003**: System shall integrate weather data (temperature, precipitation, wind) for each race circuit
-**FR-004**: System shall implement Random Forest and XGBoost classification models for win prediction
-**FR-005**: System shall calculate and maintain ELO ratings for all active drivers and teams
-**FR-006**: System shall perform track-specific performance analysis using historical results at each circuit
-**FR-007**: System shall generate win probability percentages for all drivers in the next scheduled race
-**FR-008**: System shall display race calendar with circuit details and scheduling information
-**FR-009**: System shall provide interactive data visualizations (bar charts, line graphs, heatmaps) for driver/team performance
-**FR-010**: System shall track and display prediction accuracy metrics (precision, recall, Brier score)
-**FR-011**: System shall retrain ML models after each completed race using updated data
-**FR-012**: System shall expose RESTful API endpoints for programmatic access to predictions and data
-**FR-013**: System shall implement user authentication and authorization for dashboard access
-**FR-014**: System shall provide data export functionality (CSV, JSON) for race results and predictions
-**FR-015**: System shall display driver and constructor championship standings
+**FR-001:** System shall import race results, qualifying times, driver standings, and constructor standings from Ergast API
+**FR-002:** System shall import weather data (temperature, precipitation, wind) for each Grand Prix venue
+**FR-003:** System shall store track characteristics including circuit length, turn count, and elevation profile
+**FR-004:** System shall implement a regression model analyzing driver performance trends over rolling 10-race windows
+**FR-005:** System shall implement Random Forest and XGBoost models trained on historical race outcomes
+**FR-006:** System shall calculate ELO ratings for drivers and constructors updated after each race
+**FR-007:** System shall generate track-specific performance coefficients based on historical results at each circuit
+**FR-008:** System shall produce win probability predictions for all drivers entered in the next scheduled Grand Prix
+**FR-009:** Dashboard shall display a prediction table with driver name, team, and win percentage
+**FR-010:** Dashboard shall show the complete F1 calendar with race dates and circuit names
+**FR-011:** Dashboard shall present historical accuracy metrics including correct predictions and average confidence error
+**FR-012:** Dashboard shall provide interactive charts showing driver rating evolution over the season
+**FR-013:** System shall automatically trigger model retraining after each race when new results are available
+**FR-014:** System shall log all predictions with timestamps to enable retrospective accuracy analysis
+**FR-015:** Dashboard shall display current driver championship standings and constructor standings
 
 ---
 
 ## 7. Non-Functional Requirements
 
 ### Performance
-- Dashboard page load time shall not exceed 2 seconds for 95th percentile users
-- API response time for prediction queries shall be under 500ms
-- Data ingestion pipeline shall process a full race weekend dataset within 30 minutes
-- ML model inference shall generate predictions for all drivers in under 5 seconds
-- System shall support concurrent access by 1,000+ users without degradation
+- Prediction generation shall complete within 30 seconds for a single race
+- Dashboard page load time shall not exceed 3 seconds under normal load
+- Data import jobs shall process a full season (23 races) within 5 minutes
+- Model retraining shall complete within 2 hours of new data availability
 
 ### Security
-- All API endpoints shall require authentication via JWT tokens
-- User passwords shall be hashed using bcrypt with minimum 12 rounds
-- HTTPS/TLS 1.3 shall be enforced for all web traffic
-- API rate limiting shall prevent abuse (100 requests per minute per user)
-- Sensitive configuration and API keys shall be stored in encrypted vaults
-- Regular security audits and dependency vulnerability scanning shall be performed
+- API rate limiting shall prevent abuse of Ergast API integration (max 200 requests/hour)
+- All external API calls shall use HTTPS with certificate validation
+- Database credentials shall be stored in environment variables, not in source code
+- Web dashboard shall implement basic DDoS protection via rate limiting
 
 ### Scalability
-- Database architecture shall support horizontal scaling to handle 10M+ historical records
-- Prediction service shall scale horizontally to handle increased computational load
-- CDN integration shall distribute static assets globally for low-latency access
-- Caching layer shall reduce database queries for frequently accessed data
-- Message queue system shall decouple data ingestion from model training workflows
+- System shall support storage of 50+ years of historical F1 data (1000+ races)
+- Database schema shall accommodate up to 30 drivers per season
+- Dashboard shall handle 1000 concurrent users during race weekends
+- Architecture shall support adding new prediction models without system redesign
 
 ### Reliability
-- System uptime shall be 99.5% excluding planned maintenance windows
-- Automated backup of database shall occur daily with 30-day retention
-- Health monitoring and alerting shall detect service degradation within 2 minutes
-- Data ingestion failures shall trigger automatic retries with exponential backoff
-- Graceful degradation shall display cached predictions if live computation fails
+- Data import pipeline shall implement retry logic with exponential backoff for API failures
+- System shall gracefully handle missing data fields (e.g., incomplete weather records)
+- Prediction service shall return cached results if model inference fails
+- Dashboard shall display error messages for unavailable data rather than crashing
 
 ---
 
 ## 8. Dependencies
 
-**External APIs:**
-- Ergast Developer API (http://ergast.com/mrd/) for historical F1 race data
-- OpenWeatherMap API or Weather.com API for historical and forecast weather data
-- Official Formula 1 API (if accessible) for real-time race calendar updates
-
-**Technology Stack:**
-- Python 3.10+ with scikit-learn, XGBoost, pandas, NumPy for ML modeling
-- PostgreSQL or MySQL for relational data storage
-- Redis for caching and session management
-- React.js or Vue.js for frontend dashboard development
-- FastAPI or Flask for backend API services
-- Docker and Kubernetes for containerization and orchestration
-- Apache Airflow or Celery for scheduled data pipeline orchestration
-
-**Third-Party Libraries:**
-- Chart.js or D3.js for data visualizations
-- JWT libraries for authentication
-- SQLAlchemy or Django ORM for database abstraction
+- **Ergast Developer API:** Primary data source for historical and current F1 race results, driver info, and standings
+- **Weather API:** Service providing historical and forecast weather data for Grand Prix locations (e.g., OpenWeatherMap)
+- **Python Scientific Stack:** NumPy, Pandas for data processing; scikit-learn for ML models; XGBoost library
+- **Web Framework:** Backend framework (Django/Flask) and frontend framework (React/Vue)
+- **Database:** PostgreSQL or similar relational database for structured F1 data storage
+- **Charting Library:** D3.js, Chart.js, or Plotly for interactive visualizations
+- **Scheduler:** Cron or task queue system (Celery) for automated data import jobs
 
 ---
 
 ## 9. Out of Scope
 
-- Real-time lap timing and telemetry data during live races
-- Predictive modeling for qualifying session outcomes (focus is on race winner only)
-- Integration with sports betting platforms or odds providers
-- Multi-language localization and internationalization
-- Native mobile applications for iOS and Android
-- User-generated content such as comments, forums, or social feeds
-- Fantasy league scoring or team management features
-- Historical data prior to 2010 season
-- Predictions for sprint races or non-championship events
-- Video content hosting or streaming integration
-- Merchandise store or e-commerce functionality
+- Integration with betting platforms or odds comparison features
+- Predictive analytics for practice sessions, qualifying, or sprint races (focus on main race only)
+- Driver injury status, team personnel changes, or off-track news integration
+- User authentication, personalized dashboards, or saved prediction portfolios
+- API endpoints for third-party access to prediction data
+- Predictions for feeder series (F2, F3) or historical seasons prior to 2010
+- Advanced telemetry analysis including tire degradation, fuel load modeling, or pit stop strategy
+- Mobile-responsive design optimization (desktop-first approach acceptable)
 
 ---
 
 ## 10. Success Metrics
 
-**Prediction Accuracy:**
-- Achieve 70% correct winner predictions by end of first season
-- Maintain top-3 prediction accuracy of 85% or higher
-- Reduce Brier score below 0.15 for probabilistic predictions
-
-**User Engagement:**
-- Achieve 5,000 monthly active users within 6 months of launch
-- Average session duration of 5+ minutes per user visit
-- 40% user retention rate month-over-month
-
-**System Performance:**
-- 99.5% system uptime measured monthly
-- API response times under 500ms for 95th percentile
-- Zero data loss incidents during ingestion pipeline operations
-
-**Business Metrics:**
-- Complete data ingestion for 100% of scheduled races within 24 hours
-- Deploy ML model updates within 48 hours of race completion
-- Process and display predictions for upcoming race at least 7 days in advance
+- **Prediction Accuracy:** Achieve >25% top-3 finish accuracy (baseline: random chance ~13%)
+- **Model Performance:** Maintain Brier score <0.20 across all race predictions in a season
+- **Data Coverage:** Successfully import 100% of race results within 48 hours of each Grand Prix
+- **User Engagement:** Dashboard receives 500+ unique visitors per race weekend within 3 months of launch
+- **System Uptime:** Maintain 99% uptime for dashboard and prediction API during race weekends
+- **Model Diversity:** Deploy minimum 3 distinct prediction models with documented methodology
+- **Update Frequency:** Refresh predictions for next race within 24 hours of previous race completion
 
 ---
 
