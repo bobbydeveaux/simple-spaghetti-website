@@ -1,105 +1,163 @@
-# F1 Prediction Analytics Platform
+# Simple Spaghetti Website
+
+A multi-service web platform combining pasta recipe management, PTA voting systems, and F1 prediction analytics with comprehensive CI/CD automation.
+
+## 🏗️ Architecture
+
+This repository contains multiple integrated services:
+
+### Core Services
+- **Pasta Recipe App**: React-based recipe management system
+- **PTA Voting System**: Democratic voting platform for Parent-Teacher Association
+- **F1 Prediction Analytics**: Machine learning platform for Formula 1 race predictions
+
+### Infrastructure
+- **CI/CD Pipelines**: Automated testing, deployment, and monitoring with GitHub Actions
+- **Containerization**: Docker multi-service support with development and production configurations
+- **Database Management**: PostgreSQL with automated migrations and backups
+- **ML Operations**: Automated model training, validation, and deployment
+
+## 🚀 CI/CD Pipeline
+
+### Automated Workflows
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| **CI Pipeline** | PR to main/develop | Testing, security scanning, quality gates |
+| **Backend Deployment** | Push to main | Blue-green deployment with rollback |
+| **Frontend Deployment** | Frontend changes | S3/CloudFront deployment with CDN |
+| **Database Migration** | Schema changes | Safe migrations with automated backups |
+| **ML Model Training** | Weekly/new data | F1 prediction model training and deployment |
+| **Docker Build** | Code changes | Multi-service containerization |
+
+### Key Features
+- ✅ **Zero-downtime deployments** with blue-green strategy
+- ✅ **Automated rollback** on failure detection
+- ✅ **Security scanning** with Trivy and Snyk
+- ✅ **Performance monitoring** with Lighthouse CI
+- ✅ **ML pipeline automation** for F1 predictions
+- ✅ **Multi-environment support** (staging/production)
+
+## 🔧 Development Setup
+
+### Quick Start with Docker
+```bash
+# Clone the repository
+git clone https://github.com/bobbydeveaux/simple-spaghetti-website.git
+cd simple-spaghetti-website
+
+# Start all services
+docker-compose up -d
+
+# Check service status
+docker-compose ps
+```
+
+### Manual Setup
+```bash
+# Backend setup
+cd api
+pip install -r requirements.txt
+python app.py
+
+# Frontend setup
+npm install
+npm run dev
+
+# F1 Analytics setup
+cd f1-analytics/backend
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8001
+```
+
+## 🌐 Service Endpoints
+
+| Service | Local URL | Production URL | Purpose |
+|---------|-----------|---------------|---------|
+| **Main App** | http://localhost:3000 | https://f1-analytics.example.com | Recipe management UI |
+| **API Service** | http://localhost:5000 | https://api.f1-analytics.example.com | Backend API |
+| **F1 Analytics** | http://localhost:8001 | https://api.f1-analytics.example.com/api/v1 | ML prediction API |
+| **F1 Dashboard** | http://localhost:3001 | https://f1-analytics.example.com/f1-analytics | Prediction dashboard |
+
+## 🧪 Testing
+
+### Automated Testing
+```bash
+# Run all tests
+npm test
+python -m pytest
+
+# Integration tests
+python test_voting_implementation.py
+
+# F1 Analytics tests
+python test_f1_models.py
+
+# Performance tests
+locust -f tests/performance/test_load.py
+```
+
+### CI/CD Testing
+- **Unit Tests**: Component and service level validation
+- **Integration Tests**: API and database interaction testing
+- **E2E Tests**: Full user workflow validation
+- **Security Tests**: Vulnerability and dependency scanning
+- **Performance Tests**: Load testing and metrics validation
+
+## 📊 F1 Prediction Analytics
 
 A comprehensive Formula One race prediction system built with modern microservices architecture and machine learning. This platform aggregates F1 data from multiple sources, applies statistical models, and provides real-time race winner predictions through an interactive web dashboard.
 
-## 🏎️ Features
+### 🏎️ Features
 
-### Core Functionality
+#### Core Functionality
 - **Real-time Predictions**: ML-powered race winner probability calculations
 - **Interactive Dashboard**: React-based web interface with live data visualizations
 - **Historical Analysis**: Track prediction accuracy and model performance over time
 - **Data Export**: CSV/JSON export functionality for analysis
 - **Multi-Model Ensemble**: Random Forest, XGBoost, and ELO rating systems
 
-### Technical Capabilities
+#### Technical Capabilities
 - **Cloud-Native Architecture**: Kubernetes-ready microservices deployment
 - **High Availability**: Redis clustering, PostgreSQL replication, auto-scaling
 - **Real-time Analytics**: Live prediction updates and performance monitoring
 - **ML Pipeline**: Apache Airflow orchestration for automated model training
 - **Comprehensive Monitoring**: Prometheus, Grafana, and custom metrics
 
-## 🏗️ Architecture
+### Database Models
 
-### Microservices Components
-- **API Gateway**: FastAPI service with authentication and rate limiting
-- **Prediction Service**: ML inference engine with model ensemble capabilities
-- **Data Ingestion**: Automated ETL pipeline for F1 and weather data
-- **Web Dashboard**: React 18 SPA with real-time updates
-- **ML Training**: Scheduled model training and feature engineering
+#### Core F1 Models
+- `Driver`: F1 drivers with ELO ratings and team associations
+- `Team`: Constructor teams with performance metrics
+- `Circuit`: Race circuits with technical specifications
+- `Race`: Individual races with scheduling and status
+- `RaceResult`: Race finish positions and points
+- `QualifyingResult`: Qualifying session results
+- `WeatherData`: Weather conditions for each race
 
-### Infrastructure
-- **Database**: PostgreSQL with read replicas for analytics workloads
-- **Cache**: Redis cluster with sentinel for high availability
-- **Orchestration**: Apache Airflow for ML pipeline automation
-- **Monitoring**: Full observability stack with custom dashboards
-- **Security**: TLS termination, JWT authentication, network policies
+#### Prediction Models
+- `Prediction`: ML-generated win probability predictions
+- `PredictionAccuracy`: Model performance tracking and metrics
 
-## 🚀 Quick Start
+#### Authentication
+- `User`: User accounts with role-based permissions
 
-### Prerequisites
-- Kubernetes 1.25+ cluster
-- kubectl configured
-- cert-manager installed
-- nginx-ingress-controller deployed
+### ML Pipeline
+1. **Data Ingestion**: Automated collection from Ergast API and weather services
+2. **Feature Engineering**: ELO ratings, recent form, track performance
+3. **Model Training**: Random Forest + XGBoost ensemble
+4. **Validation**: Staging environment testing
+5. **Deployment**: Production model updates with A/B testing
 
-### Secure Production Deployment
+### Technical Architecture
+The F1 analytics system follows a layered architecture:
+- **Models Layer**: SQLAlchemy ORM models with relationships
+- **Database Layer**: PostgreSQL with connection pooling
+- **API Layer**: FastAPI REST endpoints
+- **ML Layer**: Scikit-learn and XGBoost models
+- **Cache Layer**: Redis for performance optimization
 
-**⚠️ Important:** This platform now uses secure external secret management. Before deployment:
-
-1. **Configure AWS Secrets Manager** (see [External Secrets Setup](infrastructure/kubernetes/external-secrets/README.md))
-2. **Set up environment-specific domains** (see [Environment Configuration](infrastructure/kubernetes/environments/))
-3. **Deploy with proper security configurations**
-
-```bash
-# Clone repository
-git clone <repository-url>
-cd simple-spaghetti-website
-
-# 1. Configure secrets in AWS Secrets Manager
-# See infrastructure/kubernetes/external-secrets/README.md
-
-# 2. Update domain configuration
-# Edit infrastructure/kubernetes/environments/production/domains.yaml
-
-# 3. Deploy External Secrets Operator first
-kubectl apply -f infrastructure/kubernetes/external-secrets/
-
-# 4. Deploy application with environment-specific config
-kubectl apply -f infrastructure/kubernetes/environments/production/
-kubectl apply -f infrastructure/kubernetes/
-```
-
-### Local Development
-
-```bash
-# Deploy to development environment
-./scripts/deploy.sh development
-
-# Port forward services for local access
-kubectl port-forward svc/frontend-service 8080:80 -n f1-analytics-development
-kubectl port-forward svc/api-gateway-service 8000:8000 -n f1-analytics-development
-```
-
-Visit http://localhost:8080 to access the application.
-
-## 📖 Documentation
-
-### Deployment Guides
-- [**🔒 Secure Kubernetes Deployment**](docs/SECURE_DEPLOYMENT.md) - Complete production deployment with enterprise security
-- [**📋 Security Implementation Checklist**](docs/SECURITY_CHECKLIST.md) - Verification and compliance guide
-- [**🔐 External Secrets Setup**](infrastructure/kubernetes/external-secrets/README.md) - AWS Secrets Manager integration
-- [**🛡️ Security Validation**](scripts/validate-security.sh) - Automated security compliance checking
-- [**💻 Local Development Setup**](docs/concepts/f1-prediction-analytics/LLD.md) - Development environment configuration
-
-### Architecture Documentation
-- [**Product Requirements**](docs/concepts/f1-prediction-analytics/PRD.md) - Business requirements and feature specifications
-- [**High-Level Design**](docs/concepts/f1-prediction-analytics/HLD.md) - System architecture and component design
-- [**Low-Level Design**](docs/concepts/f1-prediction-analytics/LLD.md) - Implementation details and database schema
-- [**Project Timeline**](docs/concepts/f1-prediction-analytics/timeline.md) - Development milestones and sprint planning
-
-## 🔒 Security Features
-
-### Enterprise Security Standards
+### 🔒 Enterprise Security Standards
 - **🔐 External Secret Management**: AWS Secrets Manager integration with External Secrets Operator
 - **🛡️ Zero Hardcoded Secrets**: No credentials stored in version control
 - **🔑 Modern Authentication**: SCRAM-SHA-256 PostgreSQL authentication
@@ -109,133 +167,156 @@ Visit http://localhost:8080 to access the application.
 - **📜 SSL/TLS**: Encrypted connections for all database and Redis communications
 - **🔄 Secret Rotation**: Automated secret rotation support via AWS
 
-### Compliance & Auditing
-- **📊 Audit Logging**: AWS CloudTrail integration for secret access
-- **🎯 Fine-Grained Access Control**: IAM roles with minimal permissions
-- **📋 Security Monitoring**: Prometheus metrics for security events
+### Production Deployment
 
-## 🔧 Configuration
+**⚠️ Important:** For F1 Analytics production deployment with secure external secret management:
 
-### Secure Secret Management
-
-**No longer using environment variables!** All secrets are managed through AWS Secrets Manager:
+1. **Configure AWS Secrets Manager** (see [External Secrets Setup](infrastructure/kubernetes/external-secrets/README.md))
+2. **Set up environment-specific domains** (see [Environment Configuration](infrastructure/kubernetes/environments/))
+3. **Deploy with proper security configurations**
 
 ```bash
-# Create secrets in AWS (see external-secrets/README.md for full guide)
-aws secretsmanager create-secret --name f1-analytics/postgres --secret-string '{
-  "username": "f1_analytics",
-  "password": "GENERATED_SECURE_PASSWORD",
-  "replication_password": "GENERATED_REPLICATION_PASSWORD"
-}'
+# F1 Analytics Kubernetes deployment
+# 1. Configure secrets in AWS Secrets Manager
+# See infrastructure/kubernetes/external-secrets/README.md
+
+# 2. Update domain configuration
+# Edit infrastructure/kubernetes/environments/production/domains.yaml
+
+# 3. Deploy External Secrets Operator first
+kubectl apply -f infrastructure/kubernetes/external-secrets/
+
+# 4. Deploy F1 Analytics with environment-specific config
+kubectl apply -f infrastructure/kubernetes/environments/production/
+kubectl apply -f infrastructure/kubernetes/
 ```
 
-### Domain Configuration
+### F1 Analytics Setup
+```bash
+# Set Environment Variables
+export DATABASE_URL="postgresql://user:pass@localhost:5432/f1_analytics"
+export JWT_SECRET_KEY="your-secret-key"
 
-Update environment-specific domain configuration:
+# Initialize Database
+python -c "from api.migrations.001_initial_schema import create_initial_schema; create_initial_schema()"
 
-```yaml
-# infrastructure/kubernetes/environments/production/domains.yaml
-data:
-  PRIMARY_DOMAIN: "your-domain.com"              # REPLACE with actual domain
-  FRONTEND_DOMAIN: "your-domain.com"
-  API_DOMAIN: "api.your-domain.com"
-  CONTACT_EMAIL: "admin@your-domain.com"         # REPLACE with actual email
+# Configuration
+# Key settings in api/config.py:
+# - Database connection settings
+# - JWT authentication parameters
+# - External API endpoints (Ergast, Weather)
+# - ML model configuration
+# - Rate limiting settings
 ```
 
+## 🛠️ Operations
+
+### Deployment
+```bash
+# Deploy to staging
+git push origin develop
+
+# Deploy to production (requires approval)
+git push origin main
+
+# Manual deployment
+gh workflow run deploy-backend.yml -f environment=production
 ```
 
-## 📊 Monitoring
+### Database Management
+```bash
+# Run migrations
+alembic upgrade head
 
-### Dashboards
-- **System Overview**: Infrastructure health and performance metrics
-- **ML Performance**: Model accuracy, inference latency, prediction trends
-- **Business Metrics**: User engagement, prediction accuracy, data quality
+# Create migration
+alembic revision -m "description"
 
-### Key Metrics
-- API response time (p95 < 2s)
-- Prediction accuracy (target >70%)
-- Database query performance
-- Cache hit rates (target >80%)
-- ML inference latency (<5s)
+# Rollback
+alembic downgrade -1
+```
 
-### Alerting
-- Critical: Service downtime, high error rates
-- Warning: Performance degradation, data staleness
-- Notification channels: Slack, PagerDuty, email
+### Monitoring
+- **Health Checks**: Automated service monitoring
+- **Metrics**: DataDog integration for performance tracking
+- **Alerts**: PagerDuty/Slack notifications on failures
+- **Logs**: Centralized logging with search capabilities
+
+## 📁 Project Structure
+
+```
+├── api/                        # Backend API services
+│   ├── app.py                  # Flask application
+│   ├── main.py                 # FastAPI service
+│   ├── models/                 # SQLAlchemy ORM models
+│   ├── migrations/             # Database migration scripts
+│   └── voting/                 # PTA voting system
+├── src/                        # Frontend React application
+│   ├── components/             # Reusable UI components
+│   ├── voting/                 # Voting system UI
+│   └── utils/                  # Helper functions
+├── f1-analytics/               # F1 prediction platform
+│   ├── backend/                # Python ML services
+│   │   ├── app/                # FastAPI application
+│   │   │   ├── models/         # F1 data models
+│   │   │   ├── repositories/   # Data access layer
+│   │   │   ├── routes/         # API endpoints
+│   │   │   └── utils/          # Authentication and utilities
+│   │   ├── alembic/            # Database migrations
+│   │   └── tests/              # Test suites
+│   └── frontend/               # React dashboard
+├── .github/workflows/          # CI/CD pipeline definitions
+├── docs/                       # Documentation
+└── docker-compose.yml         # Multi-service container setup
+```
 
 ## 🔐 Security
 
-### Production Security Features
-- TLS encryption for all external communications
-- JWT-based authentication with role-based access
-- Network policies for pod-to-pod communication
-- Pod security contexts with minimal privileges
-- Secrets encrypted at rest in etcd
-- Regular security scanning of container images
+### Implemented Measures
+- **Authentication**: JWT-based with secure session management
+- **Input Validation**: Comprehensive sanitization and validation
+- **Database Security**: Parameterized queries, connection encryption
+- **Container Security**: Minimal base images, vulnerability scanning
+- **Network Security**: VPC isolation, security groups
+- **Secrets Management**: GitHub Secrets, environment-based configuration
 
 ### Compliance
-- GDPR-compliant user data handling
-- SOC 2 Type II security controls
-- Regular penetration testing
-- Audit logging for all administrative actions
+- **Vulnerability Scanning**: Automated with Trivy and Snyk
+- **SBOM Generation**: Software Bill of Materials for compliance
+- **Audit Logging**: All authentication and admin actions logged
+- **Access Controls**: Role-based permissions and approval workflows
 
-## 🧪 Testing
+## 📈 Metrics and Performance
 
-### Test Coverage
-- Unit tests: >90% coverage for core logic
-- Integration tests: API endpoints and database operations
-- Load tests: 1000+ concurrent users, <2s response time
-- ML model validation: Cross-validation, backtesting
+### Key Performance Indicators
+- **Deployment Frequency**: Multiple deployments per day
+- **Lead Time**: <30 minutes from commit to production
+- **Mean Time to Recovery**: <5 minutes
+- **Change Failure Rate**: <5%
+- **Test Coverage**: >80%
+- **Prediction Accuracy**: >70% (F1 race winners)
 
-### Quality Assurance
-- Automated testing in CI/CD pipeline
-- Code quality gates with SonarQube
-- Performance regression testing
-- Security vulnerability scanning
-
-## 🚢 Deployment Environments
-
-### Development
-- Local Kubernetes cluster (minikube/kind)
-- Reduced resource requirements
-- Debug logging enabled
-- Hot reloading for development
-
-### Staging
-- Production-like environment
-- Basic authentication for access control
-- Automated testing against real data
-- Performance monitoring
-
-### Production
-- Multi-zone deployment for high availability
-- Auto-scaling based on demand
-- Full monitoring and alerting
-- Disaster recovery procedures
-
-## 📈 Performance
-
-### Scalability
-- **Horizontal scaling**: 3-10 replicas per service
-- **Database**: Read replicas for analytics queries
-- **Cache**: Redis clustering for high throughput
-- **Load testing**: Validated for 10,000+ concurrent users
-
-### Optimization
-- CDN for static asset delivery
-- Database query optimization with indexes
-- Model caching for fast inference
-- Connection pooling for database efficiency
+### Performance Targets
+- **API Response Time**: <500ms (95th percentile)
+- **Frontend Load Time**: <2 seconds
+- **Database Query Time**: <100ms average
+- **Model Inference**: <5 seconds
+- **System Uptime**: 99.5%
 
 ## 🤝 Contributing
 
 ### Development Workflow
 1. Fork the repository
 2. Create feature branch: `git checkout -b feature/amazing-feature`
-3. Run tests: `./scripts/test.sh`
-4. Commit changes: `git commit -m 'Add amazing feature'`
-5. Push branch: `git push origin feature/amazing-feature`
-6. Create Pull Request
+3. Commit changes: `git commit -m 'Add amazing feature'`
+4. Push to branch: `git push origin feature/amazing-feature`
+5. Open Pull Request
+
+### Pull Request Process
+- All PRs require passing CI checks
+- Code review required for production deployments
+- Automated security and quality scanning
+- Integration tests must pass
+- Documentation updates required for new features
 
 ### Code Standards
 - Python: Black formatting, flake8 linting, type hints
@@ -243,18 +324,27 @@ data:
 - Documentation: Comprehensive README and inline comments
 - Testing: Minimum 90% test coverage required
 
+## 📚 Documentation
+
+- [CI/CD Implementation Guide](docs/CI-CD-IMPLEMENTATION.md)
+- [Docker Deployment Guide](DOCKER_DEPLOYMENT.md) (auto-generated)
+- [F1 Analytics Architecture](docs/concepts/f1-prediction-analytics/)
+- [F1 Database Models](docs/F1_DATABASE_MODELS.md)
+- [PTA Voting System](docs/concepts/pta-voting-system/)
+
+### F1 Analytics Documentation
+- [**🔒 Secure Kubernetes Deployment**](docs/SECURE_DEPLOYMENT.md) - Complete production deployment with enterprise security
+- [**📋 Security Implementation Checklist**](docs/SECURITY_CHECKLIST.md) - Verification and compliance guide
+- [**🔐 External Secrets Setup**](infrastructure/kubernetes/external-secrets/README.md) - AWS Secrets Manager integration
+- [**🛡️ Security Validation**](scripts/validate-security.sh) - Automated security compliance checking
+- [**💻 Local Development Setup**](docs/concepts/f1-prediction-analytics/LLD.md) - Development environment configuration
+
 ## 📧 Support
 
-### Contact Information
+For questions, issues, or contributions:
 - **Issues**: GitHub Issues for bug reports and feature requests
-- **Documentation**: Comprehensive guides in `/docs` directory
-- **DevOps Support**: devops@f1-analytics.example.com
-- **Security Issues**: security@f1-analytics.example.com
-
-### Community
-- **Discussions**: GitHub Discussions for questions and ideas
-- **Slack**: #f1-analytics for real-time chat
-- **Office Hours**: Weekly Thursday 2-3 PM PST
+- **Discussions**: GitHub Discussions for general questions
+- **Security**: Email security@example.com for security-related issues
 
 ## 📄 License
 

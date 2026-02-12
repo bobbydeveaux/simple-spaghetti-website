@@ -1,0 +1,83 @@
+# Example Terraform variables file for F1 Prediction Analytics Infrastructure
+# Copy this file to terraform.tfvars and customize the values
+
+# Environment Configuration
+aws_region  = "us-west-2"
+environment = "dev"
+
+# VPC Configuration
+vpc_cidr_block     = "10.0.0.0/16"
+availability_zones = ["us-west-2a", "us-west-2b", "us-west-2c"]
+
+# EKS Configuration
+eks_cluster_version = "1.28"
+
+# Example node groups for different environments
+eks_node_groups = {
+  general = {
+    instance_types = ["t3.medium"]
+    scaling_config = {
+      desired_size = 2
+      max_size     = 5
+      min_size     = 1
+    }
+    disk_size     = 50
+    capacity_type = "ON_DEMAND"
+  }
+  ml_workload = {
+    instance_types = ["m5.large"]
+    scaling_config = {
+      desired_size = 1
+      max_size     = 3
+      min_size     = 0
+    }
+    disk_size     = 100
+    capacity_type = "SPOT"
+  }
+}
+
+# RDS Configuration
+rds_instance_class         = "db.r5.large"
+rds_allocated_storage      = 100
+rds_max_allocated_storage  = 1000
+rds_database_name          = "f1_analytics"
+rds_database_username      = "f1admin"
+rds_database_password      = "change-me-in-production" # Use AWS Secrets Manager in production
+rds_backup_retention_period = 7
+rds_multi_az              = false # Set to true for production
+
+# Redis Configuration
+redis_node_type            = "cache.r5.large"
+redis_num_cache_clusters   = 3
+redis_parameter_group_name = "default.redis7"
+
+# S3 Configuration
+s3_enable_versioning = true
+
+# Environment-specific overrides for production
+# environment_overrides = {
+#   rds_instance_class = "db.r5.2xlarge"
+#   redis_node_type   = "cache.r5.2xlarge"
+#   eks_node_groups = {
+#     general = {
+#       instance_types = ["m5.xlarge"]
+#       scaling_config = {
+#         desired_size = 3
+#         max_size     = 10
+#         min_size     = 2
+#       }
+#       disk_size     = 100
+#       capacity_type = "ON_DEMAND"
+#     }
+#     ml_workload = {
+#       instance_types = ["c5.2xlarge"]
+#       scaling_config = {
+#         desired_size = 2
+#         max_size     = 8
+#         min_size     = 1
+#       }
+#       disk_size     = 200
+#       capacity_type = "ON_DEMAND"
+#     }
+#   }
+# }
