@@ -33,6 +33,25 @@ class Settings:
     DEBUG: bool = os.getenv("DEBUG", "true").lower() == "true"
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
 
+    # F1 Prediction Analytics Configuration
+    DATABASE_URL: str = os.getenv(
+        "DATABASE_URL",
+        "postgresql://postgres:password@localhost:5432/f1_analytics"
+    )
+    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379")
+
+    # External APIs for F1 data
+    ERGAST_API_BASE_URL: str = "http://ergast.com/api/f1"
+    WEATHER_API_KEY: Optional[str] = os.getenv("WEATHER_API_KEY")
+
+    # ML Configuration
+    MODEL_S3_BUCKET: str = os.getenv("MODEL_S3_BUCKET", "f1-analytics-models")
+    MODEL_VERSION: str = os.getenv("MODEL_VERSION", "v1.0.0")
+
+    # Rate Limiting
+    RATE_LIMIT_REQUESTS: int = 100
+    RATE_LIMIT_WINDOW: int = 60  # seconds
+
     def is_production(self) -> bool:
         """Check if running in production environment."""
         return self.ENVIRONMENT.lower() == "production"
