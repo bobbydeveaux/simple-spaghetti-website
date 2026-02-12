@@ -41,6 +41,10 @@ This checklist documents the security fixes implemented to address the code revi
 - [x] **Removed PostgreSQL init container** running as root (UID 0)
 - [x] **Implemented proper fsGroup configuration** for volume ownership
 - [x] **Added non-root security contexts** to all containers
+- [x] **Enhanced Airflow security contexts** with capabilities dropped
+- [x] **Added runAsNonRoot to all pod specifications**
+- [x] **Configured read-only root filesystems** where appropriate
+- [x] **Dropped ALL capabilities** and added only required ones
 - [x] **Verified no containers run as root** across the platform
 
 **Impact**: All services run with minimal privileges, following least privilege principle.
@@ -49,10 +53,13 @@ This checklist documents the security fixes implemented to address the code revi
 
 - [x] **Enabled Redis Sentinel protected mode**
 - [x] **Restricted PostgreSQL CIDR ranges** from broad networks to specific pod CIDRs
-- [x] **Added network policies** for ingress controller
+- [x] **Added comprehensive network policies** for micro-segmentation
+- [x] **Implemented default-deny-all-ingress policy**
+- [x] **Created service-specific ingress rules**
+- [x] **Added monitoring access controls**
 - [x] **Configured proper SSL/TLS** for all database connections
 
-**Impact**: Network access is now restricted and properly secured.
+**Impact**: Network access is now restricted with defense-in-depth via network policies.
 
 ### 🏷️ Image Management (BLOCKING ISSUE #6)
 
@@ -81,31 +88,49 @@ This checklist documents the security fixes implemented to address the code revi
 - [ ] Image tags specified (no `:latest` in production)
 - [ ] OIDC identity provider configured (for EKS)
 
-### Post-Deployment Verification
+### Automated Security Validation
+
+Use the provided security validation script to verify all security configurations:
+
+```bash
+# Run comprehensive security validation
+./scripts/validate-security.sh
+```
+
+This script automatically checks:
+- ✅ All required manifest files are present
+- ✅ No hardcoded secrets in version control
+- ✅ Security contexts are properly configured
+- ✅ External Secrets uses IRSA (not access keys)
+- ✅ Network policies are implemented
+- ✅ Resource limits are configured
+- ✅ No deprecated Kubernetes APIs
+
+### Manual Post-Deployment Verification
 
 Run these commands to verify security implementation:
 
 ```bash
-# 1. Verify no hardcoded secrets
-grep -r "password.*=" infrastructure/kubernetes/ || echo "✅ No hardcoded passwords"
-
-# 2. Verify External Secrets are syncing
+# 1. Verify External Secrets are syncing
 kubectl get externalsecret -n f1-analytics
 
-# 3. Verify no containers run as root
+# 2. Verify no containers run as root
 kubectl get pods -n f1-analytics -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.containers[*].securityContext.runAsUser}{"\n"}{end}' | grep -v "999\|1000\|101" || echo "✅ No root containers"
 
-# 4. Verify PostgreSQL authentication
+# 3. Verify PostgreSQL authentication
 kubectl exec -it postgres-0 -n f1-analytics -- psql -h localhost -U f1_analytics -c "\conninfo"
 
-# 5. Verify Redis protected mode
+# 4. Verify Redis protected mode
 kubectl exec -it redis-master-0 -n f1-analytics -- redis-cli CONFIG GET protected-mode
 
-# 6. Verify SSL connections
+# 5. Verify SSL connections
 kubectl logs postgres-0 -n f1-analytics | grep -i "ssl"
 
-# 7. Check certificate status
+# 6. Check certificate status
 kubectl get certificates -n f1-analytics
+
+# 7. Verify network policies
+kubectl get networkpolicy -n f1-analytics
 ```
 
 ## 📊 Security Metrics
@@ -145,8 +170,11 @@ kubectl get certificates -n f1-analytics
 - **Minimal IAM permissions** with least privilege
 
 ### Network Security
+- **Comprehensive network policies** with default-deny-all
+- **Micro-segmentation** between application tiers
 - **Restricted CIDR ranges** for database access
-- **Network policies** for ingress control
+- **Service-specific ingress rules** for fine-grained control
+- **Monitoring access controls** for observability
 - **Protected mode enabled** for Redis
 - **SSL termination** at ingress
 - **Service mesh ready** architecture

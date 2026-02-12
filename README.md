@@ -88,6 +88,7 @@ Visit http://localhost:8080 to access the application.
 - [**🔒 Secure Kubernetes Deployment**](docs/SECURE_DEPLOYMENT.md) - Complete production deployment with enterprise security
 - [**📋 Security Implementation Checklist**](docs/SECURITY_CHECKLIST.md) - Verification and compliance guide
 - [**🔐 External Secrets Setup**](infrastructure/kubernetes/external-secrets/README.md) - AWS Secrets Manager integration
+- [**🛡️ Security Validation**](scripts/validate-security.sh) - Automated security compliance checking
 - [**💻 Local Development Setup**](docs/concepts/f1-prediction-analytics/LLD.md) - Development environment configuration
 
 ### Architecture Documentation
@@ -104,7 +105,7 @@ Visit http://localhost:8080 to access the application.
 - **🔑 Modern Authentication**: SCRAM-SHA-256 PostgreSQL authentication
 - **🌐 Environment-Specific Configuration**: Separate configs for production/staging/development
 - **🚫 Non-Root Containers**: All services run with minimal privileges
-- **🛂 Network Security**: Restricted CIDR ranges and network policies
+- **🛂 Network Security**: Comprehensive network policies with micro-segmentation and default-deny-all
 - **📜 SSL/TLS**: Encrypted connections for all database and Redis communications
 - **🔄 Secret Rotation**: Automated secret rotation support via AWS
 
