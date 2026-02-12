@@ -89,6 +89,24 @@ class JWTManager:
         """
         return payload.get("type") == expected_type
 
+    def get_email_from_token(self, token: str) -> Optional[str]:
+        """
+        Extract email from JWT token.
+
+        Args:
+            token: JWT token string
+
+        Returns:
+            Email from token payload, or None if invalid/expired
+        """
+        try:
+            payload = self.decode_token(token)
+            if self.verify_token_type(payload, "access"):
+                return payload.get("email")
+            return None
+        except Exception:
+            return None
+
 
 # Global JWT manager instance
 jwt_manager = JWTManager()

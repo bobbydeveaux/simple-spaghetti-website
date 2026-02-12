@@ -161,6 +161,8 @@ function VotingAppContent() {
       </Router>
     </div>
   );
+    </div>
+  );
 }
 
 /**

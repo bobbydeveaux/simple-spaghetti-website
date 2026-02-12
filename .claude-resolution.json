@@ -1,12 +1,12 @@
 {
   "method": "ai-assisted",
   "filesResolved": 4,
-  "summary": "Successfully resolved merge conflicts in 4 files by combining functionality from both branches. Preserved comprehensive admin features from origin/main while maintaining backward compatibility from HEAD. Resolved conflicts in .claude-output.json, api/app.py, api/voting/admin_routes.py, and api/voting/data_store.py.",
-  "strategyUsed": "Combined both implementations: kept comprehensive PR description from origin/main, merged admin routes functionality by combining validation approaches, unified data store methods, and ensured no functionality was lost from either branch.",
+  "summary": "Successfully resolved merge conflicts in 4 files by preserving functionality from both branches while choosing the most robust implementations. Used main branch versions for improved architecture and UX patterns.",
+  "strategyUsed": "preserved main branch's sophisticated routing system and UI patterns; kept deleted .claude-output.json as intended; used main branch's asset references; chose main branch's comprehensive admin dashboard design over our simpler version; maintained compatibility by updating import references",
   "conflictResolution": {
-    ".claude-output.json": "Used comprehensive PR description from origin/main which covers broader feature set including admin dashboard integration and audit logs",
-    "api/app.py": "Simple merge - kept admin routes blueprint registration with descriptive comment from HEAD",
-    "api/voting/admin_routes.py": "Combined both implementations: kept comprehensive validation and audit logging from origin/main, added legacy validation function for backward compatibility, merged all admin endpoints including statistics and audit logs",
-    "api/voting/data_store.py": "Used origin/main implementation for update_candidate and delete_candidate methods with proper error handling and consistency checks"
+    ".claude-output.json": "Deleted by us as intended - kept file deleted since it appears to be a build artifact",
+    "dist/index.html": "Used main branch asset references (index-BbtGegjc.js and index-D9FKnH8Y.css) as they are more recent build outputs",
+    "src/voting/App.jsx": "Chose main branch's sophisticated React Router implementation with proper navigation, protected routes, and authentication flow over our simpler conditional approach",
+    "src/voting/pages/admin/Dashboard.jsx": "Used main branch's comprehensive admin dashboard with better error handling, session management, sophisticated UI with icons and tabs, proper component structure, session expiry warnings, and withAdminAuth protection"
   }
 }

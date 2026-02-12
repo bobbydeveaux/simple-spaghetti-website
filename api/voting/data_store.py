@@ -8,11 +8,11 @@ but is specifically designed for the voting system with anonymity guarantees.
 
 import threading
 from typing import Dict, List, Optional, Set
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from .models import (
-    Voter, Session, VerificationCode, Candidate, Vote, AuditLog, Election,
-    generate_voter_id, generate_session_id, generate_verification_code,
+    Voter, Session, Admin, VerificationCode, Candidate, Vote, AuditLog, Election,
+    generate_voter_id, generate_session_id, generate_admin_id, generate_verification_code,
     generate_candidate_id, generate_vote_id, generate_audit_log_id,
     generate_election_id
 )
@@ -63,6 +63,7 @@ class VotingDataStore:
         # Core data collections
         self._voters: Dict[str, Voter] = {}
         self._sessions: Dict[str, Session] = {}
+        self._admins: Dict[str, Admin] = {}
         self._verification_codes: Dict[str, VerificationCode] = {}
         self._candidates: Dict[str, Candidate] = {}
         self._votes: Dict[str, Vote] = {}
@@ -71,6 +72,9 @@ class VotingDataStore:
 
         # Email-to-voter-id mapping for quick lookup
         self._email_to_voter_id: Dict[str, str] = {}
+
+        # Email-to-admin-id mapping for quick admin lookup
+        self._email_to_admin_id: Dict[str, str] = {}
 
         # Legacy support: verification codes by email (from original HEAD implementation)
         self._verification_codes_by_email: Dict[str, str] = {}
@@ -198,6 +202,72 @@ class VotingDataStore:
             voter.mark_voted_for_position(position)
             self._create_audit_log(voter_id, "vote_cast", position=position)
             return True
+
+    # Admin operations
+
+    def create_admin(self, email: str, password_hash: str, full_name: str) -> Admin:
+        """Create a new admin user."""
+        email = email.lower().strip()
+        with self._data_lock:
+            # Check if admin already exists
+            if email in self._email_to_admin_id:
+                raise ValueError(f"Admin with email {email} already exists")
+
+            admin_id = generate_admin_id()
+            admin = Admin(
+                admin_id=admin_id,
+                email=email,
+                password_hash=password_hash,
+                full_name=full_name
+            )
+            self._admins[admin_id] = admin
+            self._email_to_admin_id[email] = admin_id
+
+            # Log admin creation
+            self._create_audit_log("system", "admin_created", email=email)
+            return admin
+
+    def get_admin_by_email(self, email: str) -> Optional[Admin]:
+        """Get admin by email address."""
+        email = email.lower().strip()
+        with self._data_lock:
+            admin_id = self._email_to_admin_id.get(email)
+            return self._admins.get(admin_id) if admin_id else None
+
+    def get_admin_by_id(self, admin_id: str) -> Optional[Admin]:
+        """Get admin by admin_id."""
+        with self._data_lock:
+            return self._admins.get(admin_id)
+
+    def update_admin_login(self, admin_id: str, success: bool) -> None:
+        """Update admin login information (last login, failed attempts, lockout)."""
+        with self._data_lock:
+            admin = self._admins.get(admin_id)
+            if not admin:
+                return
+
+            if success:
+                admin.last_login = datetime.now()
+                admin.failed_login_attempts = 0
+                admin.locked_until = None
+            else:
+                admin.failed_login_attempts += 1
+                # Lock account for 30 minutes after 5 failed attempts
+                if admin.failed_login_attempts >= 5:
+                    admin.locked_until = datetime.now() + timedelta(minutes=30)
+
+    def is_admin_locked(self, admin_id: str) -> bool:
+        """Check if admin account is currently locked."""
+        with self._data_lock:
+            admin = self._admins.get(admin_id)
+            if not admin or not admin.locked_until:
+                return False
+            return datetime.now() < admin.locked_until
+
+    def list_admins(self) -> List[Admin]:
+        """Get all admin accounts (for management purposes)."""
+        with self._data_lock:
+            return list(self._admins.values())
 
     # Session operations
 

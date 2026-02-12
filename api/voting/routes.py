@@ -6,9 +6,18 @@ Authentication endpoints for voter code-based authentication with FastAPI legacy
 from flask import Blueprint, request, jsonify
 from typing import Dict, Any, Tuple
 import re
+from datetime import datetime
 
 # Import existing JWT utilities
 from api.utils.jwt_manager import JWTManager
+from api.utils.password import verify_password
+from api.utils.rate_limiter import auth_rate_limit, admin_rate_limit, code_request_limit
+from api.utils.csrf_protection import csrf_required, get_csrf_token
+from api.utils.sanitizer import (
+    sanitize_email, sanitize_password, sanitize_verification_code,
+    sanitize_position_name, sanitize_text_input
+)
+from api.config import settings
 from .data_store import voting_data_store
 
 # FastAPI legacy support
@@ -33,22 +42,11 @@ voting_bp = Blueprint('voting', __name__, url_prefix='/api/voting')
 # Initialize JWT manager
 jwt_manager = JWTManager()
 
-# Mock admin credentials for Sprint 1 (hardcoded for prototype)
-ADMIN_CREDENTIALS = {
-    "admin@pta.school": "admin123"  # In production, this would be properly secured
-}
 
-
-def validate_email(email: str) -> bool:
-    """Validate email format."""
-    if not email or len(email) > 254:
-        return False
-
-    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return bool(re.match(email_pattern, email))
 
 
 @voting_bp.route('/auth/request-code', methods=['POST'])
+@code_request_limit
 def request_verification_code() -> Tuple[Dict[str, Any], int]:
     """
     Request a verification code for voter authentication.
@@ -67,12 +65,13 @@ def request_verification_code() -> Tuple[Dict[str, Any], int]:
         if not data:
             return {"error": "Request body required"}, 400
 
-        email = data.get("email", "").strip()
-        if not email:
-            return {"error": "Email is required"}, 400
+        raw_email = data.get("email", "")
 
-        if not validate_email(email):
-            return {"error": "Invalid email format"}, 400
+        # Sanitize and validate email
+        try:
+            email = sanitize_email(raw_email)
+        except ValueError as e:
+            return {"error": str(e)}, 400
 
         # Create or get voter
         voter = voting_data_store.create_or_get_voter(email)
@@ -87,9 +86,11 @@ def request_verification_code() -> Tuple[Dict[str, Any], int]:
             "voter_id": voter.voter_id,  # For testing purposes
         }
 
-        # Include code in response for development/testing
-        # In production, this would be sent via email and not returned
-        response["code"] = verification_code.code
+        # Only include code in response for development/testing
+        # In production, this code would be sent via email and not returned
+        if settings.DEBUG and settings.ENVIRONMENT == "development":
+            response["code"] = verification_code.code
+            response["debug_message"] = "Code included for development only"
 
         return response, 200
 
@@ -99,6 +100,7 @@ def request_verification_code() -> Tuple[Dict[str, Any], int]:
 
 
 @voting_bp.route('/auth/verify', methods=['POST'])
+@auth_rate_limit
 def verify_code() -> Tuple[Dict[str, Any], int]:
     """
     Verify authentication code and create session.
@@ -119,14 +121,20 @@ def verify_code() -> Tuple[Dict[str, Any], int]:
         if not data:
             return {"error": "Request body required"}, 400
 
-        email = data.get("email", "").strip()
-        code = data.get("code", "").strip()
+        raw_email = data.get("email", "")
+        raw_code = data.get("code", "")
 
-        if not email or not code:
-            return {"error": "Email and code are required"}, 400
+        # Sanitize and validate email
+        try:
+            email = sanitize_email(raw_email)
+        except ValueError as e:
+            return {"error": str(e)}, 400
 
-        if not validate_email(email):
-            return {"error": "Invalid email format"}, 400
+        # Sanitize and validate verification code
+        try:
+            code = sanitize_verification_code(raw_code)
+        except ValueError as e:
+            return {"error": str(e)}, 400
 
         # Get and use verification code
         voter_id = voting_data_store.use_verification_code(code)
@@ -138,8 +146,8 @@ def verify_code() -> Tuple[Dict[str, Any], int]:
         if not voter or voter.email != email.lower():
             return {"error": "Verification code does not match email"}, 401
 
-        # Create JWT token with voter_id
-        token = jwt_manager.create_access_token(voter_id)
+        # Create JWT token with voter email
+        token = jwt_manager.create_access_token(voter.email)
 
         # Create session
         session = voting_data_store.create_session(voter_id, token)
@@ -161,56 +169,304 @@ def verify_code() -> Tuple[Dict[str, Any], int]:
 
 
 @voting_bp.route('/auth/admin-login', methods=['POST'])
+@admin_rate_limit
 def admin_login() -> Tuple[Dict[str, Any], int]:
     """
-    Admin authentication endpoint (mock implementation for Sprint 1).
+    Secure admin authentication endpoint.
 
     Request body:
         {
-            "username": "admin@pta.school",
-            "password": "admin123"
+            "email": "admin@example.com",
+            "password": "your_admin_password"
         }
 
     Returns:
-        200: {"token": "jwt_token", "voter_id": "admin_id", "session_id": "session_id", "is_admin": true}
+        200: {"token": "jwt_token", "admin_id": "admin_id", "session_id": "session_id", "is_admin": true}
         401: {"error": "Invalid credentials"}
+        423: {"error": "Account temporarily locked"}
     """
     try:
         data = request.get_json()
         if not data:
             return {"error": "Request body required"}, 400
 
-        username = data.get("username", "").strip()
-        password = data.get("password", "").strip()
+        raw_email = data.get("email", "")
+        raw_password = data.get("password", "")
 
-        if not username or not password:
-            return {"error": "Username and password are required"}, 400
+        # Sanitize and validate email
+        try:
+            email = sanitize_email(raw_email)
+        except ValueError as e:
+            return {"error": str(e)}, 400
 
-        # Check admin credentials (mock implementation)
-        if username not in ADMIN_CREDENTIALS or ADMIN_CREDENTIALS[username] != password:
+        # Sanitize password (basic validation only)
+        try:
+            password = sanitize_password(raw_password)
+        except ValueError as e:
+            return {"error": str(e)}, 400
+
+        # Get admin from database
+        admin = voting_data_store.get_admin_by_email(email)
+        if not admin:
             return {"error": "Invalid admin credentials"}, 401
 
-        # Create or get admin "voter" (special case)
-        admin_voter = voting_data_store.create_or_get_voter(username)
+        # Check if account is active
+        if not admin.is_active:
+            return {"error": "Account is disabled"}, 401
 
-        # Create JWT token
-        token = jwt_manager.create_access_token(admin_voter.voter_id)
+        # Check if account is temporarily locked
+        if voting_data_store.is_admin_locked(admin.admin_id):
+            return {"error": "Account temporarily locked due to failed login attempts"}, 423
 
-        # Create admin session
-        session = voting_data_store.create_session(admin_voter.voter_id, token, is_admin=True)
+        # Verify password
+        if not verify_password(password, admin.password_hash):
+            # Update failed login attempts
+            voting_data_store.update_admin_login(admin.admin_id, success=False)
+            return {"error": "Invalid admin credentials"}, 401
+
+        # Successful login - update admin record
+        voting_data_store.update_admin_login(admin.admin_id, success=True)
+
+        # Create JWT token with admin email
+        token = jwt_manager.create_access_token(admin.email)
+
+        # Create admin session (use admin_id as voter_id for compatibility)
+        session = voting_data_store.create_session(admin.admin_id, token, is_admin=True)
 
         return {
             "token": token,
-            "voter_id": admin_voter.voter_id,
+            "admin_id": admin.admin_id,
+            "voter_id": admin.admin_id,  # For compatibility with frontend
             "session_id": session.session_id,
             "is_admin": True,
+            "email": admin.email,
+            "full_name": admin.full_name,
             "expires_at": session.expires_at.isoformat(),
             "message": "Admin authentication successful"
         }, 200
 
     except Exception as e:
         print(f"Admin login error: {str(e)}")
-        return {"error": "Failed to authenticate admin"}, 500
+        return {"error": "Failed to process admin login"}, 500
+
+
+# ============================================================================
+# Admin Election Management Routes
+# ============================================================================
+
+def require_admin_session():
+    """Helper to validate admin session for protected routes"""
+    try:
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return None, ({"error": "Authorization header missing or invalid"}, 401)
+
+        # Safely extract token
+        header_parts = auth_header.split(' ')
+        if len(header_parts) != 2:
+            return None, ({"error": "Invalid Authorization header format"}, 401)
+
+        token = header_parts[1]
+
+        # Extract email from JWT token
+        email = jwt_manager.get_email_from_token(token)
+        if not email:
+            return None, ({"error": "Invalid or expired token"}, 401)
+
+        # Get admin by email to validate admin status
+        admin = voting_data_store.get_admin_by_email(email)
+        if not admin or not admin.is_active:
+            return None, ({"error": "Admin access required"}, 403)
+
+        # Check if admin is locked
+        if voting_data_store.is_admin_locked(admin.admin_id):
+            return None, ({"error": "Account temporarily locked"}, 423)
+
+        # Get session by admin_id (used as voter_id for compatibility)
+        session = voting_data_store.get_session_by_voter(admin.admin_id)
+        if not session or not session.is_admin:
+            return None, ({"error": "Admin session required"}, 403)
+
+        # Check if session token matches
+        if session.token != token:
+            return None, ({"error": "Session token mismatch"}, 401)
+
+        # Check if session has expired
+        if datetime.now() > session.expires_at:
+            return None, ({"error": "Session expired"}, 401)
+
+        return session, None
+
+    except Exception as e:
+        print(f"Admin session validation error: {str(e)}")
+        return None, ({"error": "Failed to validate admin session"}, 500)
+
+@voting_bp.route('/admin/csrf-token', methods=['GET'])
+def get_csrf_token_endpoint():
+    """Get CSRF token for admin operations"""
+    session, error_response = require_admin_session()
+    if error_response:
+        return error_response
+
+    try:
+        token = get_csrf_token()
+        return {"csrf_token": token}, 200
+    except Exception as e:
+        return {"error": f"Failed to generate CSRF token: {str(e)}"}, 500
+
+@voting_bp.route('/admin/election', methods=['GET'])
+def get_election_config():
+    """Get current election configuration"""
+    session, error_response = require_admin_session()
+    if error_response:
+        return error_response
+
+    try:
+        election = voting_data_store.get_active_election()
+        if not election:
+            return {"error": "No active election found"}, 404
+
+        # Convert to dict for JSON response
+        election_data = {
+            "election_id": election.election_id,
+            "name": election.name,
+            "description": election.description,
+            "positions": list(election.positions) if hasattr(election, 'positions') else [],
+            "status": getattr(election, 'status', 'SETUP'),
+            "start_time": election.start_time.isoformat() if election.start_time else None,
+            "end_time": election.end_time.isoformat() if election.end_time else None,
+            "is_active": election.is_active,
+            "created_at": election.created_at.isoformat() if election.created_at else None
+        }
+
+        return {"election": election_data}, 200
+
+    except Exception as e:
+        return {"error": f"Failed to get election configuration: {str(e)}"}, 500
+
+@voting_bp.route('/admin/election/status', methods=['PUT'])
+@csrf_required
+def update_election_status():
+    """Update election status (SETUP/ACTIVE/CLOSED)"""
+    session, error_response = require_admin_session()
+    if error_response:
+        return error_response
+
+    try:
+        data = request.get_json()
+        new_status = data.get('status')
+
+        if new_status not in ['SETUP', 'ACTIVE', 'CLOSED']:
+            return {"error": "Invalid status. Must be SETUP, ACTIVE, or CLOSED"}, 400
+
+        election = voting_data_store.get_active_election()
+        if not election:
+            return {"error": "No active election found"}, 404
+
+        # Update election status
+        if hasattr(election, 'status'):
+            election.status = new_status
+
+        # Set start time when moving to ACTIVE
+        if new_status == 'ACTIVE' and not election.start_time:
+            election.start_time = datetime.utcnow()
+
+        # Set end time when moving to CLOSED
+        if new_status == 'CLOSED' and not election.end_time:
+            election.end_time = datetime.utcnow()
+            election.is_active = False
+
+        return {
+            "message": f"Election status updated to {new_status}",
+            "election": {
+                "election_id": election.election_id,
+                "status": new_status,
+                "start_time": election.start_time.isoformat() if election.start_time else None,
+                "end_time": election.end_time.isoformat() if election.end_time else None
+            }
+        }, 200
+
+    except Exception as e:
+        return {"error": f"Failed to update election status: {str(e)}"}, 500
+
+@voting_bp.route('/admin/election/positions', methods=['POST'])
+@csrf_required
+def add_election_position():
+    """Add a new position to the election"""
+    session, error_response = require_admin_session()
+    if error_response:
+        return error_response
+
+    try:
+        data = request.get_json()
+        raw_position = data.get('position', '')
+
+        if not raw_position:
+            return {"error": "Position name is required"}, 400
+
+        # Sanitize position name to prevent XSS and validate format
+        try:
+            position = sanitize_position_name(raw_position)
+        except ValueError as e:
+            return {"error": f"Invalid position name: {str(e)}"}, 400
+
+        election = voting_data_store.get_active_election()
+        if not election:
+            return {"error": "No active election found"}, 404
+
+        # Check if position already exists
+        if position in election.positions:
+            return {"error": f"Position '{position}' already exists"}, 409
+
+        # Add position to election
+        election.add_position(position)
+
+        return {
+            "message": f"Position '{position}' added successfully",
+            "positions": list(election.positions)
+        }, 200
+
+    except Exception as e:
+        return {"error": f"Failed to add position: {str(e)}"}, 500
+
+@voting_bp.route('/admin/election/positions/<position>', methods=['DELETE'])
+@csrf_required
+def remove_election_position(position: str):
+    """Remove a position from the election"""
+    session, error_response = require_admin_session()
+    if error_response:
+        return error_response
+
+    try:
+        # Sanitize position parameter from URL
+        try:
+            sanitized_position = sanitize_position_name(position)
+        except ValueError as e:
+            return {"error": f"Invalid position name: {str(e)}"}, 400
+
+        election = voting_data_store.get_active_election()
+        if not election:
+            return {"error": "No active election found"}, 404
+
+        # Check if position exists
+        if sanitized_position not in election.positions:
+            return {"error": f"Position '{sanitized_position}' not found"}, 404
+
+        # Remove position from election
+        if hasattr(election, 'positions'):
+            if isinstance(election.positions, set):
+                election.positions.discard(sanitized_position)
+            elif isinstance(election.positions, list):
+                if sanitized_position in election.positions:
+                    election.positions.remove(sanitized_position)
+
+        return {
+            "message": f"Position '{sanitized_position}' removed successfully",
+            "positions": list(election.positions)
+        }, 200
+
+    except Exception as e:
+        return {"error": f"Failed to remove position: {str(e)}"}, 500
 
 
 @voting_bp.route('/auth/logout', methods=['POST'])

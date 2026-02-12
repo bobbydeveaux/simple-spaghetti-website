@@ -137,6 +137,22 @@ if PYDANTIC_AVAILABLE:
             arbitrary_types_allowed = True
 
 
+    class Admin(BaseModel):
+        """Pydantic admin model for secure admin management."""
+        admin_id: str = Field(default_factory=lambda: str(uuid4()))
+        email: EmailStr
+        password_hash: str
+        full_name: str
+        created_at: datetime = Field(default_factory=datetime.utcnow)
+        last_login: Optional[datetime] = None
+        is_active: bool = True
+        failed_login_attempts: int = 0
+        locked_until: Optional[datetime] = None
+
+        class Config:
+            arbitrary_types_allowed = True
+
+
     class Candidate(BaseModel):
         """Pydantic candidate model for FastAPI applications."""
         candidate_id: str = Field(default_factory=lambda: str(uuid4()))
@@ -330,6 +346,24 @@ if DATACLASSES_AVAILABLE:
 
 
     @dataclass
+    class AdminDataclass:
+        """Dataclass version of Admin for Flask applications."""
+        admin_id: str
+        email: str
+        password_hash: str
+        full_name: str
+        created_at: datetime = field(default_factory=datetime.now)
+        last_login: Optional[datetime] = None
+        is_active: bool = True
+        failed_login_attempts: int = 0
+        locked_until: Optional[datetime] = None
+
+        def __post_init__(self):
+            """Ensure email is lowercase for consistency."""
+            self.email = self.email.lower().strip()
+
+
+    @dataclass
     class CandidateDataclass:
         """Dataclass version of Candidate for Flask applications."""
         candidate_id: str
@@ -426,6 +460,7 @@ elif DATACLASSES_AVAILABLE:
     # Use dataclasses as fallback
     Voter = VoterDataclass
     Session = SessionDataclass
+    Admin = AdminDataclass
     Candidate = CandidateDataclass
     Vote = VoteDataclass
     AuditLog = AuditLogDataclass
@@ -444,6 +479,11 @@ def generate_voter_id() -> str:
 def generate_session_id() -> str:
     """Generate a unique session ID."""
     return f"session_{uuid4().hex[:16]}"
+
+
+def generate_admin_id() -> str:
+    """Generate a unique admin ID."""
+    return f"admin_{uuid4().hex[:12]}"
 
 
 def generate_verification_code() -> str:

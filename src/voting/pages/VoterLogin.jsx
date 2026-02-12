@@ -14,7 +14,7 @@ const VoterLogin = () => {
   const [step, setStep] = useState('email'); // 'email', 'code', 'admin'
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
-  const [adminUsername, setAdminUsername] = useState('');
+  const [adminEmail, setAdminEmail] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
 
   // UI state
@@ -135,7 +135,7 @@ const VoterLogin = () => {
     setError('');
 
     try {
-      const authData = await adminLogin(adminUsername.trim(), adminPassword);
+      const authData = await adminLogin(adminEmail.trim(), adminPassword);
       const loginResult = await login(authData);
 
       if (loginResult.success) {
@@ -298,17 +298,17 @@ const VoterLogin = () => {
           <form className="mt-8 space-y-6" onSubmit={handleAdminLogin}>
             <div className="space-y-4">
               <div>
-                <label htmlFor="admin-username" className="sr-only">Username</label>
+                <label htmlFor="admin-email" className="sr-only">Email</label>
                 <input
-                  id="admin-username"
-                  name="username"
-                  type="text"
-                  autoComplete="username"
+                  id="admin-email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
                   required
-                  value={adminUsername}
-                  onChange={(e) => setAdminUsername(e.target.value)}
+                  value={adminEmail}
+                  onChange={(e) => setAdminEmail(e.target.value)}
                   className="relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                  placeholder="Admin username"
+                  placeholder="Admin email address"
                   disabled={isSubmitting}
                 />
               </div>
@@ -343,7 +343,7 @@ const VoterLogin = () => {
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting || !adminUsername.trim() || !adminPassword.trim()}
+                disabled={isSubmitting || !adminEmail.trim() || !adminPassword.trim()}
                 className="flex-1 py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? 'Signing In...' : 'Sign In'}
@@ -351,13 +351,14 @@ const VoterLogin = () => {
             </div>
 
             <div className="text-center text-xs text-gray-500">
-              <p>For testing: admin@pta.school / admin123</p>
+              <p>Admin accounts must be created by system administrators.</p>
+              <p>Contact your PTA IT administrator for access.</p>
             </div>
           </form>
         )}
 
         {/* Debug Info (Development Only) */}
-        {debugInfo && process.env.NODE_ENV === 'development' && (
+        {debugInfo && import.meta.env.DEV && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mt-6">
             <h4 className="text-sm font-medium text-yellow-800 mb-2">Debug Info (Development)</h4>
             <p className="text-xs text-yellow-700">
