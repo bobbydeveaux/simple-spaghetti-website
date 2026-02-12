@@ -91,7 +91,7 @@ SECURITY_CHECKS=(
     "readOnlyRootFilesystem"
     "runAsUser"
     "runAsGroup"
-    "- ALL"
+    "\- ALL"
 )
 
 for check in "${SECURITY_CHECKS[@]}"; do
