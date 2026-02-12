@@ -260,6 +260,113 @@ export const healthCheck = async () => {
 };
 
 // ============================================================================
+// Admin API functions
+// ============================================================================
+
+/**
+ * Get all candidates (admin only)
+ */
+export const getAllCandidates = async () => {
+    if (useAxios) {
+        throw new Error('Admin endpoints not supported in FastAPI mode');
+    } else {
+        return fetchAPI.request('/admin/candidates', {
+            method: 'GET',
+        });
+    }
+};
+
+/**
+ * Create a new candidate (admin only)
+ */
+export const createCandidate = async (candidateData) => {
+    if (useAxios) {
+        throw new Error('Admin endpoints not supported in FastAPI mode');
+    } else {
+        return fetchAPI.request('/admin/candidates', {
+            method: 'POST',
+            body: candidateData,
+        });
+    }
+};
+
+/**
+ * Update an existing candidate (admin only)
+ */
+export const updateCandidate = async (candidateId, candidateData) => {
+    if (useAxios) {
+        throw new Error('Admin endpoints not supported in FastAPI mode');
+    } else {
+        return fetchAPI.request(`/admin/candidates/${candidateId}`, {
+            method: 'PUT',
+            body: candidateData,
+        });
+    }
+};
+
+/**
+ * Delete a candidate (admin only)
+ */
+export const deleteCandidate = async (candidateId) => {
+    if (useAxios) {
+        throw new Error('Admin endpoints not supported in FastAPI mode');
+    } else {
+        return fetchAPI.request(`/admin/candidates/${candidateId}`, {
+            method: 'DELETE',
+        });
+    }
+};
+
+/**
+ * Get a specific candidate by ID (admin only)
+ */
+export const getCandidate = async (candidateId) => {
+    if (useAxios) {
+        throw new Error('Admin endpoints not supported in FastAPI mode');
+    } else {
+        return fetchAPI.request(`/admin/candidates/${candidateId}`, {
+            method: 'GET',
+        });
+    }
+};
+
+/**
+ * Get audit logs with pagination and filtering (admin only)
+ */
+export const getAuditLogs = async (params = {}) => {
+    if (useAxios) {
+        throw new Error('Admin endpoints not supported in FastAPI mode');
+    } else {
+        const queryParams = new URLSearchParams();
+        Object.entries(params).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== '') {
+                queryParams.append(key, value);
+            }
+        });
+
+        const queryString = queryParams.toString();
+        const endpoint = `/admin/audit${queryString ? `?${queryString}` : ''}`;
+
+        return fetchAPI.request(endpoint, {
+            method: 'GET',
+        });
+    }
+};
+
+/**
+ * Get admin statistics (admin only)
+ */
+export const getAdminStatistics = async () => {
+    if (useAxios) {
+        throw new Error('Admin endpoints not supported in FastAPI mode');
+    } else {
+        return fetchAPI.request('/admin/statistics', {
+            method: 'GET',
+        });
+    }
+};
+
+// ============================================================================
 // Local storage utilities
 // ============================================================================
 
@@ -408,6 +515,17 @@ export const tokenUtils = {
     isAuthenticated: () => authUtils.isAuthenticated(),
 };
 
+//Admin API exports
+export const adminAPI = {
+    getAllCandidates,
+    createCandidate,
+    updateCandidate,
+    deleteCandidate,
+    getCandidate,
+    getAuditLogs,
+    getAdminStatistics,
+};
+
 // Default export
 export default {
     requestVerificationCode,
@@ -420,6 +538,14 @@ export default {
     getVoterStatus,
     castVotes,
     healthCheck,
+    // Admin functions
+    getAllCandidates,
+    createCandidate,
+    updateCandidate,
+    deleteCandidate,
+    getCandidate,
+    getAuditLogs,
+    getAdminStatistics,
     authUtils,
     errorUtils,
     // Legacy
@@ -427,4 +553,5 @@ export default {
     votingAPIs,
     healthAPI,
     tokenUtils,
+    adminAPI,
 };

@@ -34,7 +34,7 @@ app = Flask(__name__)
 # Enable CORS for development
 CORS(app)
 
-# Register voting system blueprint
+# Register voting system blueprints
 app.register_blueprint(voting_bp)
 # Register admin routes blueprint
 app.register_blueprint(admin_bp)
