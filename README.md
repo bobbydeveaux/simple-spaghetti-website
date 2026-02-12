@@ -141,25 +141,6 @@ data:
   CONTACT_EMAIL: "admin@your-domain.com"         # REPLACE with actual email
 ```
 
-# JWT Configuration
-JWT_SECRET_KEY: your_secure_jwt_secret
-
-# AWS Configuration (for model storage)
-AWS_ACCESS_KEY_ID: your_aws_access_key
-AWS_SECRET_ACCESS_KEY: your_aws_secret_key
-```
-
-### Secrets Management
-
-All secrets are managed through Kubernetes secrets. Update `infrastructure/kubernetes/secrets.yaml` with your values:
-
-```bash
-# Generate secure passwords
-export POSTGRES_PASSWORD=$(openssl rand -base64 32)
-export JWT_SECRET=$(openssl rand -base64 64)
-
-# Base64 encode for Kubernetes
-echo -n "$POSTGRES_PASSWORD" | base64
 ```
 
 ## 📊 Monitoring
