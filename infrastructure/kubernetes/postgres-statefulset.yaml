@@ -53,24 +53,12 @@ spec:
         component: database
     spec:
       securityContext:
+        # Set fsGroup to postgres user ID (999) to automatically set correct ownership
+        # of mounted volumes without requiring a privileged init container
         fsGroup: 999
-      initContainers:
-      - name: init-postgres
-        image: postgres:15-alpine
-        command:
-        - sh
-        - -c
-        - |
-          if [ ! -f /var/lib/postgresql/data/PG_VERSION ]; then
-            echo "Initializing PostgreSQL data directory..."
-            chown -R postgres:postgres /var/lib/postgresql/data
-            chmod 0700 /var/lib/postgresql/data
-          fi
-        volumeMounts:
-        - name: postgres-storage
-          mountPath: /var/lib/postgresql/data
-        securityContext:
-          runAsUser: 0
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroupChangePolicy: "OnRootMismatch"
       containers:
       - name: postgres
         image: postgres:15-alpine

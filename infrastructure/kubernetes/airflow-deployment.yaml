@@ -142,7 +142,7 @@ spec:
         - -c
         - |
           airflow db init
-          airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@f1-analytics.com --password admin123
+          airflow users create --username $AIRFLOW_ADMIN_USERNAME --firstname Admin --lastname User --role Admin --email $AIRFLOW_ADMIN_EMAIL --password $AIRFLOW_ADMIN_PASSWORD
         env:
         - name: AIRFLOW__CORE__SQL_ALCHEMY_CONN
           value: "postgresql+psycopg2://airflow:$(AIRFLOW_DB_PASSWORD)@postgres-service:5432/airflow"
@@ -156,6 +156,21 @@ spec:
             secretKeyRef:
               name: airflow-secrets
               key: fernet-key
+        - name: AIRFLOW_ADMIN_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: airflow-secrets
+              key: admin-username
+        - name: AIRFLOW_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: airflow-secrets
+              key: admin-password
+        - name: AIRFLOW_ADMIN_EMAIL
+          valueFrom:
+            configMapKeyRef:
+              name: domain-config
+              key: CONTACT_EMAIL
         volumeMounts:
         - name: airflow-config
           mountPath: /opt/airflow/airflow.cfg
