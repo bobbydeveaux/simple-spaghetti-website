@@ -35,7 +35,7 @@ const CandidateManagement = () => {
     const [formLoading, setFormLoading] = useState(false);
 
     // Delete confirmation state
-    const [deleteCandidate, setDeleteCandidate] = useState(null);
+    const [deleteCandidateState, setDeleteCandidateState] = useState(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
 
     // Active tab for position filtering
@@ -182,7 +182,7 @@ const CandidateManagement = () => {
             await deleteCandidate(candidate.candidate_id);
 
             setSuccess('Candidate deleted successfully');
-            setDeleteCandidate(null);
+            setDeleteCandidateState(null);
             await loadCandidates();
 
         } catch (err) {
@@ -330,7 +330,7 @@ const CandidateManagement = () => {
                         candidates={getDisplayCandidates()}
                         showActions={true}
                         onEdit={handleEdit}
-                        onDelete={(candidate) => setDeleteCandidate(candidate)}
+                        onDelete={(candidate) => setDeleteCandidateState(candidate)}
                         emptyMessage={
                             activeTab === 'all'
                                 ? "No candidates have been added yet. Click 'Add Candidate' to get started."
@@ -479,7 +479,7 @@ const CandidateManagement = () => {
                 )}
 
                 {/* Delete Confirmation Modal */}
-                {deleteCandidate && (
+                {deleteCandidateState && (
                     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
                         <div className="relative top-20 mx-auto p-5 border w-11/12 max-w-md shadow-lg rounded-md bg-white">
                             <div className="mt-3 text-center">
@@ -490,18 +490,18 @@ const CandidateManagement = () => {
                                 </div>
                                 <h3 className="text-lg font-medium text-gray-900 mb-2">Delete Candidate</h3>
                                 <p className="text-sm text-gray-500 mb-6">
-                                    Are you sure you want to delete <strong>{deleteCandidate.name}</strong>?
+                                    Are you sure you want to delete <strong>{deleteCandidateState.name}</strong>?
                                     This action cannot be undone.
                                 </p>
                                 <div className="flex justify-center space-x-3">
                                     <button
-                                        onClick={() => setDeleteCandidate(null)}
+                                        onClick={() => setDeleteCandidateState(null)}
                                         className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                                     >
                                         Cancel
                                     </button>
                                     <button
-                                        onClick={() => handleDelete(deleteCandidate)}
+                                        onClick={() => handleDelete(deleteCandidateState)}
                                         disabled={deleteLoading}
                                         className="inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
