@@ -3,7 +3,8 @@ F1 Analytics Backend API - Main FastAPI application.
 
 This module combines comprehensive security features with clean database modeling
 for Formula 1 prediction analytics. It includes health checks, middleware setup,
-and basic API routing with placeholder endpoints for future development.
+Prometheus metrics collection, and basic API routing with placeholder endpoints
+for future development.
 """
 
 import os
@@ -26,6 +27,14 @@ from app.database import create_tables
 # Import all models to ensure they are registered
 from app.models import *  # noqa: F401, F403
 
+# Import Prometheus metrics
+from app.monitoring import (
+    instrument_fastapi_app,
+    PrometheusMiddleware,
+    get_metrics_summary,
+    initialize_metrics
+)
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -47,6 +56,10 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager for startup and shutdown events."""
     # Startup
     logger.info("Starting F1 Analytics Backend API...")
+
+    # Initialize Prometheus metrics
+    initialize_metrics()
+    logger.info("Prometheus metrics initialized")
 
     # Create database tables on startup (for development)
     if app_config.DEBUG:
@@ -96,6 +109,16 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
 )
+
+# Add Prometheus metrics middleware
+app.add_middleware(
+    PrometheusMiddleware,
+    app_name="f1-analytics-api",
+    skip_paths=["/metrics", "/health", "/docs", "/redoc", "/openapi.json"]
+)
+
+# Instrument the FastAPI app for Prometheus
+instrument_fastapi_app(app)
 
 
 @app.get("/")
@@ -220,6 +243,12 @@ async def health_check() -> Dict[str, Any]:
                 checks["security_issues"] = security_results["issues"]
                 if os.getenv("ENVIRONMENT") == "production":
                     health_status = "unhealthy"
+
+        # Check Prometheus metrics
+        metrics_summary = get_metrics_summary()
+        checks["metrics"] = "ok" if metrics_summary.get("metrics_enabled", False) else "warning"
+        if not metrics_summary.get("metrics_enabled", False):
+            checks["metrics_error"] = metrics_summary.get("error", "Unknown metrics error")
 
         response = {
             "status": health_status,
