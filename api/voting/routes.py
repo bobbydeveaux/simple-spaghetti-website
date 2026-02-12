@@ -591,6 +591,538 @@ def get_election_info() -> Tuple[Dict[str, Any], int]:
 
 
 # ============================================================================
+# Admin API Endpoints
+# ============================================================================
+
+@voting_bp.route('/admin/dashboard', methods=['GET'])
+def get_admin_dashboard() -> Tuple[Dict[str, Any], int]:
+    """
+    Get admin dashboard with system statistics and overview.
+
+    Request headers:
+        Authorization: Bearer <admin_token>
+
+    Returns:
+        200: Dashboard data with system overview, voter statistics, and audit statistics
+        401: {"error": "Missing or invalid Authorization header"}
+        403: {"error": "Admin privileges required"}
+    """
+    try:
+        # Get token from Authorization header
+        auth_header = request.headers.get('Authorization', '')
+        if not auth_header.startswith('Bearer '):
+            return {"error": "Missing or invalid Authorization header"}, 401
+
+        token = auth_header.split(' ', 1)[1]
+
+        # Find session and verify admin status
+        session = voting_data_store.get_session_by_token(token)
+        if not session:
+            return {"error": "Invalid or expired session"}, 401
+
+        if not session.is_admin:
+            return {"error": "Admin privileges required"}, 403
+
+        # Get system statistics
+        stats = voting_data_store.get_stats()
+
+        # Get active election info
+        active_election = voting_data_store.get_active_election()
+
+        # Get voting progress
+        all_voters = voting_data_store.get_all_voters()
+        total_eligible_votes = len(all_voters)
+
+        # Calculate voting participation
+        votes_cast_by_position = {}
+        positions = voting_data_store.get_all_positions()
+        for position in positions:
+            votes_count = len(voting_data_store.get_votes_for_position(position))
+            votes_cast_by_position[position] = votes_count
+
+        total_possible_votes = total_eligible_votes * len(positions) if positions else 0
+        total_actual_votes = sum(votes_cast_by_position.values())
+        participation_rate = (total_actual_votes / total_possible_votes * 100) if total_possible_votes > 0 else 0
+
+        return {
+            "system_overview": {
+                "total_voters": stats["total_voters"],
+                "active_sessions": stats["active_sessions"],
+                "total_votes": stats["total_votes"],
+                "total_candidates": stats["total_candidates"],
+                "total_positions": len(positions),
+                "participation_rate": round(participation_rate, 2)
+            },
+            "election_info": {
+                "has_active_election": active_election is not None,
+                "election_name": active_election.name if active_election else None,
+                "is_voting_active": active_election.is_voting_period_active() if active_election else False,
+                "positions": positions
+            },
+            "voter_statistics": {
+                "pending_verification_codes": stats["pending_codes"],
+                "voters_who_voted": len([v for v in all_voters if v.voted_positions]),
+                "voters_not_voted": len([v for v in all_voters if not v.voted_positions])
+            },
+            "audit_statistics": {
+                "total_audit_entries": stats["audit_log_entries"],
+                "recent_activity_count": len(voting_data_store.get_recent_audit_logs(24))
+            }
+        }, 200
+
+    except Exception as e:
+        print(f"Get admin dashboard error: {str(e)}")
+        return {"error": "Failed to get admin dashboard"}, 500
+
+
+@voting_bp.route('/admin/voters', methods=['GET'])
+def get_admin_voters() -> Tuple[Dict[str, Any], int]:
+    """
+    Get list of all voters for admin management.
+
+    Request headers:
+        Authorization: Bearer <admin_token>
+
+    Query parameters:
+        limit: Maximum number of voters to return (default: all)
+        offset: Number of voters to skip (default: 0)
+
+    Returns:
+        200: List of voters with voting status
+        401: {"error": "Missing or invalid Authorization header"}
+        403: {"error": "Admin privileges required"}
+    """
+    try:
+        # Get token from Authorization header
+        auth_header = request.headers.get('Authorization', '')
+        if not auth_header.startswith('Bearer '):
+            return {"error": "Missing or invalid Authorization header"}, 401
+
+        token = auth_header.split(' ', 1)[1]
+
+        # Find session and verify admin status
+        session = voting_data_store.get_session_by_token(token)
+        if not session:
+            return {"error": "Invalid or expired session"}, 401
+
+        if not session.is_admin:
+            return {"error": "Admin privileges required"}, 403
+
+        # Get query parameters
+        limit = request.args.get('limit', type=int)
+        offset = request.args.get('offset', type=int, default=0)
+
+        # Get all voters
+        all_voters = voting_data_store.get_all_voters()
+
+        # Apply pagination
+        if limit:
+            paginated_voters = all_voters[offset:offset + limit]
+        else:
+            paginated_voters = all_voters[offset:]
+
+        # Format voter data for admin view
+        voter_list = []
+        for voter in paginated_voters:
+            voter_data = {
+                "voter_id": voter.voter_id,
+                "email": voter.email,
+                "created_at": voter.created_at.isoformat() if voter.created_at else None,
+                "last_login": voter.last_login.isoformat() if voter.last_login else None,
+                "voted_positions": list(voter.voted_positions),
+                "has_voted": len(voter.voted_positions) > 0,
+                "voting_completion": f"{len(voter.voted_positions)}/{len(voting_data_store.get_all_positions())} positions"
+            }
+            voter_list.append(voter_data)
+
+        return {
+            "voters": voter_list,
+            "pagination": {
+                "total": len(all_voters),
+                "offset": offset,
+                "limit": limit,
+                "returned": len(voter_list)
+            }
+        }, 200
+
+    except Exception as e:
+        print(f"Get admin voters error: {str(e)}")
+        return {"error": "Failed to get voters list"}, 500
+
+
+@voting_bp.route('/admin/voters/<voter_id>', methods=['GET'])
+def get_admin_voter_details(voter_id: str) -> Tuple[Dict[str, Any], int]:
+    """
+    Get detailed information about a specific voter.
+
+    Request headers:
+        Authorization: Bearer <admin_token>
+
+    Returns:
+        200: Detailed voter information including audit history
+        404: {"error": "Voter not found"}
+        401: {"error": "Missing or invalid Authorization header"}
+        403: {"error": "Admin privileges required"}
+    """
+    try:
+        # Get token from Authorization header
+        auth_header = request.headers.get('Authorization', '')
+        if not auth_header.startswith('Bearer '):
+            return {"error": "Missing or invalid Authorization header"}, 401
+
+        token = auth_header.split(' ', 1)[1]
+
+        # Find session and verify admin status
+        session = voting_data_store.get_session_by_token(token)
+        if not session:
+            return {"error": "Invalid or expired session"}, 401
+
+        if not session.is_admin:
+            return {"error": "Admin privileges required"}, 403
+
+        # Get voter details
+        voter = voting_data_store.get_voter_by_id(voter_id)
+        if not voter:
+            return {"error": "Voter not found"}, 404
+
+        # Get voter's audit history
+        audit_logs = voting_data_store.get_audit_logs_for_voter(voter_id)
+
+        # Get voter's active sessions
+        all_sessions = voting_data_store.get_all_sessions()
+        voter_sessions = [s for s in all_sessions if s.voter_id == voter_id and s.is_valid()]
+
+        voter_details = {
+            "voter_id": voter.voter_id,
+            "email": voter.email,
+            "created_at": voter.created_at.isoformat() if voter.created_at else None,
+            "last_login": voter.last_login.isoformat() if voter.last_login else None,
+            "voted_positions": list(voter.voted_positions),
+            "voting_progress": {
+                "positions_voted": list(voter.voted_positions),
+                "total_positions": len(voting_data_store.get_all_positions()),
+                "remaining_positions": [pos for pos in voting_data_store.get_all_positions() if pos not in voter.voted_positions],
+                "completion_percentage": round((len(voter.voted_positions) / max(len(voting_data_store.get_all_positions()), 1)) * 100, 2)
+            },
+            "session_info": {
+                "active_sessions": len(voter_sessions),
+                "sessions": [
+                    {
+                        "session_id": s.session_id,
+                        "created_at": s.created_at.isoformat(),
+                        "expires_at": s.expires_at.isoformat(),
+                        "is_admin": s.is_admin
+                    }
+                    for s in voter_sessions
+                ]
+            },
+            "audit_history": [
+                {
+                    "log_id": log.log_id,
+                    "action": log.action,
+                    "position": log.position,
+                    "timestamp": log.timestamp.isoformat(),
+                    "metadata": log.metadata if hasattr(log, 'metadata') else {}
+                }
+                for log in sorted(audit_logs, key=lambda x: x.timestamp, reverse=True)[:20]  # Last 20 actions
+            ]
+        }
+
+        return voter_details, 200
+
+    except Exception as e:
+        print(f"Get admin voter details error: {str(e)}")
+        return {"error": "Failed to get voter details"}, 500
+
+
+@voting_bp.route('/admin/audit-logs', methods=['GET'])
+def get_admin_audit_logs() -> Tuple[Dict[str, Any], int]:
+    """
+    Get audit logs for admin monitoring.
+
+    Request headers:
+        Authorization: Bearer <admin_token>
+
+    Query parameters:
+        limit: Maximum number of logs to return (default: 50)
+        offset: Number of logs to skip (default: 0)
+        action: Filter by specific action type
+        voter_id: Filter by specific voter
+
+    Returns:
+        200: List of audit log entries
+        401: {"error": "Missing or invalid Authorization header"}
+        403: {"error": "Admin privileges required"}
+    """
+    try:
+        # Get token from Authorization header
+        auth_header = request.headers.get('Authorization', '')
+        if not auth_header.startswith('Bearer '):
+            return {"error": "Missing or invalid Authorization header"}, 401
+
+        token = auth_header.split(' ', 1)[1]
+
+        # Find session and verify admin status
+        session = voting_data_store.get_session_by_token(token)
+        if not session:
+            return {"error": "Invalid or expired session"}, 401
+
+        if not session.is_admin:
+            return {"error": "Admin privileges required"}, 403
+
+        # Get query parameters
+        limit = request.args.get('limit', type=int, default=50)
+        offset = request.args.get('offset', type=int, default=0)
+        action_filter = request.args.get('action')
+        voter_id_filter = request.args.get('voter_id')
+
+        # Get all audit logs
+        all_logs = voting_data_store.get_all_audit_logs()
+
+        # Apply filters
+        filtered_logs = all_logs
+        if action_filter:
+            filtered_logs = [log for log in filtered_logs if log.action == action_filter]
+        if voter_id_filter:
+            filtered_logs = [log for log in filtered_logs if log.voter_id == voter_id_filter]
+
+        # Sort by timestamp (newest first)
+        sorted_logs = sorted(filtered_logs, key=lambda x: x.timestamp, reverse=True)
+
+        # Apply pagination
+        paginated_logs = sorted_logs[offset:offset + limit]
+
+        # Format logs for response
+        log_list = []
+        for log in paginated_logs:
+            # Get voter email for context
+            voter = voting_data_store.get_voter_by_id(log.voter_id)
+            log_data = {
+                "log_id": log.log_id,
+                "voter_id": log.voter_id,
+                "voter_email": voter.email if voter else "Unknown",
+                "action": log.action,
+                "position": log.position,
+                "timestamp": log.timestamp.isoformat(),
+                "metadata": log.metadata if hasattr(log, 'metadata') else {}
+            }
+            log_list.append(log_data)
+
+        return {
+            "audit_logs": log_list,
+            "pagination": {
+                "total": len(filtered_logs),
+                "offset": offset,
+                "limit": limit,
+                "returned": len(log_list)
+            },
+            "filters_applied": {
+                "action": action_filter,
+                "voter_id": voter_id_filter
+            }
+        }, 200
+
+    except Exception as e:
+        print(f"Get admin audit logs error: {str(e)}")
+        return {"error": "Failed to get audit logs"}, 500
+
+
+@voting_bp.route('/admin/elections', methods=['GET'])
+def get_admin_elections() -> Tuple[Dict[str, Any], int]:
+    """
+    Get election management information for admins.
+
+    Request headers:
+        Authorization: Bearer <admin_token>
+
+    Returns:
+        200: Election information with candidates and voting statistics
+        401: {"error": "Missing or invalid Authorization header"}
+        403: {"error": "Admin privileges required"}
+    """
+    try:
+        # Get token from Authorization header
+        auth_header = request.headers.get('Authorization', '')
+        if not auth_header.startswith('Bearer '):
+            return {"error": "Missing or invalid Authorization header"}, 401
+
+        token = auth_header.split(' ', 1)[1]
+
+        # Find session and verify admin status
+        session = voting_data_store.get_session_by_token(token)
+        if not session:
+            return {"error": "Invalid or expired session"}, 401
+
+        if not session.is_admin:
+            return {"error": "Admin privileges required"}, 403
+
+        # Get active election
+        active_election = voting_data_store.get_active_election()
+        if not active_election:
+            return {"error": "No active election found"}, 404
+
+        # Get all candidates and organize by position
+        all_candidates = voting_data_store.get_all_candidates()
+        candidates_by_position = {}
+        for candidate in all_candidates:
+            position = candidate.position
+            if position not in candidates_by_position:
+                candidates_by_position[position] = []
+            candidates_by_position[position].append({
+                "candidate_id": candidate.candidate_id,
+                "name": candidate.name,
+                "bio": candidate.bio,
+                "position": candidate.position
+            })
+
+        # Get voting statistics for each position
+        position_stats = {}
+        for position in active_election.get_positions_list():
+            vote_counts = voting_data_store.get_vote_counts_for_position(position)
+            total_votes_for_position = sum(vote_counts.values())
+            position_stats[position] = {
+                "total_votes": total_votes_for_position,
+                "candidate_vote_counts": vote_counts,
+                "candidates_count": len(candidates_by_position.get(position, [])),
+                "voter_turnout": f"{total_votes_for_position}/{voting_data_store.get_stats()['total_voters']}"
+            }
+
+        election_data = {
+            "election_id": active_election.election_id,
+            "name": active_election.name,
+            "description": active_election.description,
+            "status": "ACTIVE" if active_election.is_voting_period_active() else "SETUP",
+            "is_active": active_election.is_voting_period_active(),
+            "start_time": active_election.start_time.isoformat() if active_election.start_time else None,
+            "end_time": active_election.end_time.isoformat() if active_election.end_time else None,
+            "positions": active_election.get_positions_list(),
+            "candidates_by_position": candidates_by_position,
+            "voting_statistics": position_stats,
+            "overall_statistics": {
+                "total_candidates": len(all_candidates),
+                "total_positions": len(active_election.get_positions_list()),
+                "total_votes_cast": voting_data_store.get_total_votes(),
+                "eligible_voters": voting_data_store.get_stats()["total_voters"]
+            }
+        }
+
+        return election_data, 200
+
+    except Exception as e:
+        print(f"Get admin elections error: {str(e)}")
+        return {"error": "Failed to get election information"}, 500
+
+
+@voting_bp.route('/admin/results', methods=['GET'])
+def get_admin_results() -> Tuple[Dict[str, Any], int]:
+    """
+    Get detailed voting results for admin analysis.
+
+    Request headers:
+        Authorization: Bearer <admin_token>
+
+    Query parameters:
+        position: Get results for specific position only
+
+    Returns:
+        200: Comprehensive voting results and analytics
+        401: {"error": "Missing or invalid Authorization header"}
+        403: {"error": "Admin privileges required"}
+    """
+    try:
+        # Get token from Authorization header
+        auth_header = request.headers.get('Authorization', '')
+        if not auth_header.startswith('Bearer '):
+            return {"error": "Missing or invalid Authorization header"}, 401
+
+        token = auth_header.split(' ', 1)[1]
+
+        # Find session and verify admin status
+        session = voting_data_store.get_session_by_token(token)
+        if not session:
+            return {"error": "Invalid or expired session"}, 401
+
+        if not session.is_admin:
+            return {"error": "Admin privileges required"}, 403
+
+        # Get query parameters
+        position_filter = request.args.get('position')
+
+        # Get active election
+        active_election = voting_data_store.get_active_election()
+        if not active_election:
+            return {"error": "No active election found"}, 404
+
+        positions_to_analyze = [position_filter] if position_filter else active_election.get_positions_list()
+
+        results = {}
+        overall_stats = {
+            "total_eligible_voters": voting_data_store.get_stats()["total_voters"],
+            "total_votes_cast": voting_data_store.get_total_votes(),
+            "positions_analyzed": len(positions_to_analyze)
+        }
+
+        for position in positions_to_analyze:
+            # Get candidates for this position
+            candidates = voting_data_store.get_candidates_for_position(position)
+            candidate_lookup = {c.candidate_id: c for c in candidates}
+
+            # Get vote counts
+            vote_counts = voting_data_store.get_vote_counts_for_position(position)
+            total_position_votes = sum(vote_counts.values())
+
+            # Calculate percentages and ranking
+            candidate_results = []
+            for candidate_id, vote_count in vote_counts.items():
+                candidate = candidate_lookup.get(candidate_id)
+                percentage = (vote_count / total_position_votes * 100) if total_position_votes > 0 else 0
+
+                candidate_results.append({
+                    "candidate_id": candidate_id,
+                    "candidate_name": candidate.name if candidate else "Unknown",
+                    "vote_count": vote_count,
+                    "percentage": round(percentage, 2),
+                    "candidate_bio": candidate.bio if candidate else ""
+                })
+
+            # Sort by vote count (descending)
+            candidate_results.sort(key=lambda x: x["vote_count"], reverse=True)
+
+            # Add ranking
+            for i, result in enumerate(candidate_results):
+                result["rank"] = i + 1
+
+            # Calculate voter turnout for this position
+            eligible_voters = overall_stats["total_eligible_voters"]
+            turnout_percentage = (total_position_votes / eligible_voters * 100) if eligible_voters > 0 else 0
+
+            results[position] = {
+                "position_name": position,
+                "total_votes": total_position_votes,
+                "eligible_voters": eligible_voters,
+                "turnout_percentage": round(turnout_percentage, 2),
+                "candidates_count": len(candidates),
+                "winner": candidate_results[0] if candidate_results else None,
+                "results": candidate_results
+            }
+
+        return {
+            "election": {
+                "election_id": active_election.election_id,
+                "name": active_election.name,
+                "is_active": active_election.is_voting_period_active()
+            },
+            "overall_statistics": overall_stats,
+            "position_results": results,
+            "generated_at": datetime.now().isoformat()
+        }, 200
+
+    except Exception as e:
+        print(f"Get admin results error: {str(e)}")
+        return {"error": "Failed to get voting results"}, 500
+
+
+# ============================================================================
 # FastAPI Legacy Routes (for compatibility)
 # ============================================================================
 

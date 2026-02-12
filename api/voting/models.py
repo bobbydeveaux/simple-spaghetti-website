@@ -392,6 +392,7 @@ if DATACLASSES_AVAILABLE:
 
 
     @dataclass
+    @dataclass
     class AuditLogDataclass:
         """Dataclass version of AuditLog for Flask applications."""
         log_id: str
@@ -400,6 +401,17 @@ if DATACLASSES_AVAILABLE:
         position: Optional[str] = None
         timestamp: datetime = field(default_factory=datetime.now)
         metadata: Dict[str, Any] = field(default_factory=dict)
+
+        def to_dict(self) -> dict:
+            """Convert to dictionary for JSON serialization."""
+            return {
+                "log_id": self.log_id,
+                "voter_id": self.voter_id,
+                "action": self.action,
+                "position": self.position,
+                "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+                "metadata": self.metadata
+            }
 
 
     @dataclass
