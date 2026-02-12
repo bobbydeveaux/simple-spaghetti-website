@@ -1,4 +1,4 @@
-# ROAM Analysis: simple-spaghetti-website
+# ROAM Analysis: simple-bolognese-website
 
 **Feature Count:** 12
 **Created:** 2026-02-05T15:26:47Z
@@ -47,7 +47,7 @@
 
 3. **Git repository already exists**: Assumes the repository at `/worktree/planning/simple-spaghetti-website-planning` is properly initialized with git, has a remote configured, and the developer has push access to the main branch. *Validation: Run `git status` and `git remote -v` before starting implementation.*
 
-4. **"spagheeti" spelling is intentional**: Assumes the non-standard spelling in requirements is deliberate (humor, meme, personal preference) and should not be corrected. *Validation: Confirmed by explicit requirement statement; no further validation needed.*
+4. **"bolognese" spelling is intentional**: Assumes the non-standard spelling in requirements is deliberate (humor, meme, personal preference) and should not be corrected. *Validation: Confirmed by explicit requirement statement; no further validation needed.*
 
 5. **Static hosting is sufficient**: Assumes no future requirements for server-side processing, dynamic content, or backend functionality that would require a different architecture. *Validation: Review PRD non-goals section; confirmed static-only scope.*
 
@@ -69,7 +69,7 @@
 ### Risk 2: Deployment Configuration Errors
 **Mitigation Strategies:**
 - **Prefer zero-config platforms**: Choose GitHub Pages, Netlify, or Vercel which automatically detect and serve index.html without manual configuration, rather than traditional web servers requiring nginx/Apache setup
-- **Deployment verification checklist**: After deployment, run systematic verification: (1) `curl -I <deployed-url>` to check 200 status, (2) `curl -s <deployed-url> | grep "I love spagheeti"` to verify content, (3) Open in browser to visual confirm
+- **Deployment verification checklist**: After deployment, run systematic verification: (1) `curl -I <deployed-url>` to check 200 status, (2) `curl -s <deployed-url> | grep "I love bolognese"` to verify content, (3) Open in browser to visual confirm
 - **Start with local testing**: Use `python3 -m http.server 8000` locally to verify index.html serves correctly before pushing to remote hosting, catching path and configuration issues early
 - **Document deployment steps**: Follow LLD Section 10 migration strategy exactly, using copy-paste commands to avoid manual configuration errors
 
@@ -132,7 +132,7 @@
 
 ### PRD
 # Product Requirements Document: basic HTML website no CSS or javascript - just an index.html file only,
-nothing else. it should say, I love spagheeti
+nothing else. it should say, I love bolognese
 
 
 **Created:** 2026-02-05T15:19:44Z
@@ -141,18 +141,18 @@ nothing else. it should say, I love spagheeti
 ## 1. Overview
 
 **Concept:** basic HTML website no CSS or javascript - just an index.html file only,
-nothing else. it should say, I love spagheeti
+nothing else. it should say, I love bolognese
 
 
 **Description:** basic HTML website no CSS or javascript - just an index.html file only,
-nothing else. it should say, I love spagheeti
+nothing else. it should say, I love bolognese
 
 
 ---
 
 ## 2. Goals
 
-- Create a minimal, valid HTML document containing only the text "I love spagheeti"
+- Create a minimal, valid HTML document containing only the text "I love bolognese"
 - Ensure the website displays correctly in all modern web browsers
 - Deliver a single index.html file with no external dependencies
 - Maintain semantic HTML structure with proper document tags
@@ -165,14 +165,14 @@ nothing else. it should say, I love spagheeti
 - Adding CSS styling or visual enhancements
 - Implementing JavaScript functionality or interactivity
 - Creating multiple pages or navigation structure
-- Correcting the spelling of "spagheeti" (intentionally preserved as specified)
+- Correcting the spelling of "bolognese" (intentionally preserved as specified)
 - Responsive design considerations or mobile optimization beyond basic HTML defaults
 
 ---
 
 ## 4. User Stories
 
-- As a visitor, I want to see the message "I love spagheeti" when I open the website so that I understand the site's content
+- As a visitor, I want to see the message "I love bolognese" when I open the website so that I understand the site's content
 - As a website owner, I want a single HTML file so that deployment is as simple as possible
 - As a developer, I want valid HTML markup so that the page renders correctly across all browsers
 - As a content viewer, I want the text to be readable immediately upon page load so that I don't have to wait for external resources
@@ -186,7 +186,7 @@ nothing else. it should say, I love spagheeti
 
 **Given** a web browser
 **When** the index.html file is opened
-**Then** the text "I love spagheeti" should be visible on the page
+**Then** the text "I love bolognese" should be visible on the page
 
 **Given** the index.html file
 **When** validated against HTML standards
@@ -210,7 +210,7 @@ nothing else. it should say, I love spagheeti
 
 - **FR-001**: The website shall consist of a single file named index.html
 - **FR-002**: The HTML file shall contain a valid HTML5 document structure (DOCTYPE, html, head, body tags)
-- **FR-003**: The page shall display the exact text "I love spagheeti" in the body
+- **FR-003**: The page shall display the exact text "I love bolognese" in the body
 - **FR-004**: The HTML file shall not include any `<style>` tags or inline CSS
 - **FR-005**: The HTML file shall not include any `<script>` tags or inline JavaScript
 - **FR-006**: The HTML file shall not reference any external CSS files via `<link>` tags
@@ -265,7 +265,7 @@ nothing else. it should say, I love spagheeti
 - Accessibility enhancements beyond basic HTML semantics
 - Internationalization or multi-language support
 - Mobile-specific optimizations or viewport meta tags
-- Spell checking or content editing (preserving "spagheeti" as specified)
+- Spell checking or content editing (preserving "bolognese" as specified)
 
 ---
 
@@ -273,7 +273,7 @@ nothing else. it should say, I love spagheeti
 
 - The index.html file is successfully created and validated as proper HTML5
 - The file size is minimal (target: under 500 bytes)
-- The message "I love spagheeti" displays correctly in at least 4 major browsers
+- The message "I love bolognese" displays correctly in at least 4 major browsers
 - The page loads without any console errors or warnings
 - The HTML passes W3C markup validation
 - The file can be deployed and accessed via a web server successfully
@@ -317,7 +317,7 @@ This represents a "zero-tier" architecture - essentially just content storage an
 **Component 1: Static HTML File (`index.html`)**
 - **Type:** Static content file
 - **Purpose:** Contains the complete webpage markup and content
-- **Responsibilities:** Provide valid HTML5 document structure and display "I love spagheeti" text
+- **Responsibilities:** Provide valid HTML5 document structure and display "I love bolognese" text
 - **Size:** < 500 bytes
 - **Location:** Web server document root
 
@@ -357,7 +357,7 @@ HTMLDocument
   │   ├─ head
   │   │   └─ title: "I Love Spagheeti" (or similar)
   │   └─ body
-  │       └─ text_content: "I love spagheeti"
+  │       └─ text_content: "I love bolognese"
 ```
 
 **Data Characteristics:**
@@ -399,7 +399,7 @@ Response:
         <title>I Love Spagheeti</title>
     </head>
     <body>
-        I love spagheeti
+        I love bolognese
     </body>
     </html>
 
@@ -809,11 +809,11 @@ No need for Prometheus, Grafana, ELK stack, Datadog, New Relic, or other observa
   - Self-hosted VPS - rejected as over-engineered and more expensive
   - AWS S3 + CloudFront - acceptable alternative but more complex setup
 
-**ADR-004: Preserve "spagheeti" Spelling as Specified**
+**ADR-004: Preserve "bolognese" Spelling as Specified**
 
 - **Status:** Accepted
-- **Context:** Requirements explicitly state text should say "I love spagheeti" (non-standard spelling)
-- **Decision:** Use exact spelling "spagheeti" rather than correcting to "spaghetti"
+- **Context:** Requirements explicitly state text should say "I love bolognese" (non-standard spelling)
+- **Decision:** Use exact spelling "bolognese" rather than correcting to "spaghetti"
 - **Rationale:**
   - Preserves user's original intent and creative choice
   - May be intentional (humor, branding, meme reference)
@@ -887,7 +887,7 @@ No need for Prometheus, Grafana, ELK stack, Datadog, New Relic, or other observa
 ## Appendix: PRD Reference
 
 # Product Requirements Document: basic HTML website no CSS or javascript - just an index.html file only,
-nothing else. it should say, I love spagheeti
+nothing else. it should say, I love bolognese
 
 
 **Created:** 2026-02-05T15:19:44Z
@@ -896,18 +896,18 @@ nothing else. it should say, I love spagheeti
 ## 1. Overview
 
 **Concept:** basic HTML website no CSS or javascript - just an index.html file only,
-nothing else. it should say, I love spagheeti
+nothing else. it should say, I love bolognese
 
 
 **Description:** basic HTML website no CSS or javascript - just an index.html file only,
-nothing else. it should say, I love spagheeti
+nothing else. it should say, I love bolognese
 
 
 ---
 
 ## 2. Goals
 
-- Create a minimal, valid HTML document containing only the text "I love spagheeti"
+- Create a minimal, valid HTML document containing only the text "I love bolognese"
 - Ensure the website displays correctly in all modern web browsers
 - Deliver a single index.html file with no external dependencies
 - Maintain semantic HTML structure with proper document tags
@@ -920,14 +920,14 @@ nothing else. it should say, I love spagheeti
 - Adding CSS styling or visual enhancements
 - Implementing JavaScript functionality or interactivity
 - Creating multiple pages or navigation structure
-- Correcting the spelling of "spagheeti" (intentionally preserved as specified)
+- Correcting the spelling of "bolognese" (intentionally preserved as specified)
 - Responsive design considerations or mobile optimization beyond basic HTML defaults
 
 ---
 
 ## 4. User Stories
 
-- As a visitor, I want to see the message "I love spagheeti" when I open the website so that I understand the site's content
+- As a visitor, I want to see the message "I love bolognese" when I open the website so that I understand the site's content
 - As a website owner, I want a single HTML file so that deployment is as simple as possible
 - As a developer, I want valid HTML markup so that the page renders correctly across all browsers
 - As a content viewer, I want the text to be readable immediately upon page load so that I don't have to wait for external resources
@@ -941,7 +941,7 @@ nothing else. it should say, I love spagheeti
 
 **Given** a web browser
 **When** the index.html file is opened
-**Then** the text "I love spagheeti" should be visible on the page
+**Then** the text "I love bolognese" should be visible on the page
 
 **Given** the index.html file
 **When** validated against HTML standards
@@ -965,7 +965,7 @@ nothing else. it should say, I love spagheeti
 
 - **FR-001**: The website shall consist of a single file named index.html
 - **FR-002**: The HTML file shall contain a valid HTML5 document structure (DOCTYPE, html, head, body tags)
-- **FR-003**: The page shall display the exact text "I love spagheeti" in the body
+- **FR-003**: The page shall display the exact text "I love bolognese" in the body
 - **FR-004**: The HTML file shall not include any `<style>` tags or inline CSS
 - **FR-005**: The HTML file shall not include any `<script>` tags or inline JavaScript
 - **FR-006**: The HTML file shall not reference any external CSS files via `<link>` tags
@@ -1020,7 +1020,7 @@ nothing else. it should say, I love spagheeti
 - Accessibility enhancements beyond basic HTML semantics
 - Internationalization or multi-language support
 - Mobile-specific optimizations or viewport meta tags
-- Spell checking or content editing (preserving "spagheeti" as specified)
+- Spell checking or content editing (preserving "bolognese" as specified)
 
 ---
 
@@ -1028,7 +1028,7 @@ nothing else. it should say, I love spagheeti
 
 - The index.html file is successfully created and validated as proper HTML5
 - The file size is minimal (target: under 500 bytes)
-- The message "I love spagheeti" displays correctly in at least 4 major browsers
+- The message "I love bolognese" displays correctly in at least 4 major browsers
 - The page loads without any console errors or warnings
 - The HTML passes W3C markup validation
 - The file can be deployed and accessed via a web server successfully
@@ -1051,11 +1051,11 @@ nothing else. it should say, I love spagheeti
 
 <!-- AI: Brief summary of implementation approach -->
 
-This implementation consists of creating a single static HTML5 file (`index.html`) that displays the text "I love spagheeti". The approach is straightforward:
+This implementation consists of creating a single static HTML5 file (`index.html`) that displays the text "I love bolognese". The approach is straightforward:
 
 1. Create a minimal valid HTML5 document in the repository root
 2. Include only the required HTML5 structural elements: DOCTYPE, html, head (with title), and body
-3. Place the literal text "I love spagheeti" directly in the body element
+3. Place the literal text "I love bolognese" directly in the body element
 4. Ensure no CSS, JavaScript, or external resource references exist in the file
 5. Validate the HTML structure against HTML5 standards
 6. Deploy by copying the file to a static hosting provider
@@ -1078,13 +1078,13 @@ The implementation requires no build process, dependencies, or runtime configura
 │           ├── HLD.md              [EXISTING] High-level design document
 │           ├── PRD.md              [EXISTING] Product requirements document
 │           └── LLD.md              [NEW] This low-level design document
-└── index.html                      [NEW] Main website file - displays "I love spagheeti"
+└── index.html                      [NEW] Main website file - displays "I love bolognese"
 ```
 
 **New Files:**
 
 - **index.html** (root directory)
-  - Purpose: Single-page website displaying "I love spagheeti"
+  - Purpose: Single-page website displaying "I love bolognese"
   - Type: Static HTML5 document
   - Size: ~180 bytes
   - Dependencies: None
@@ -1118,7 +1118,7 @@ Per requirements, the following files will NOT be created:
 
 **File Path:** `/index.html`
 
-**Purpose:** Serve as the complete website displaying "I love spagheeti"
+**Purpose:** Serve as the complete website displaying "I love bolognese"
 
 **Detailed Structure:**
 
@@ -1129,7 +1129,7 @@ Per requirements, the following files will NOT be created:
     <title>I Love Spagheeti</title>
 </head>
 <body>
-    I love spagheeti
+    I love bolognese
 </body>
 </html>
 ```
@@ -1167,7 +1167,7 @@ Per requirements, the following files will NOT be created:
    - Note: Title case used for better UX in browser chrome
 
 5. **`<body>` Element**
-   - Content: Raw text "I love spagheeti"
+   - Content: Raw text "I love bolognese"
    - No child elements: Text node only
    - No attributes: No id, class, or inline styles
    - Rendering: Browser default styling (typically black text on white background)
@@ -1446,7 +1446,7 @@ If the application evolves to include interactivity:
 <head>
     <title>I Love Spagheeti</title>
 <body>
-    I love spagheeti
+    I love bolognese
 </body>
 </html>
 
@@ -1456,7 +1456,7 @@ If the application evolves to include interactivity:
     <title>I Love Spagheeti</title>
 </head>
 <body>
-    I love spagheeti
+    I love bolognese
 </body>
 </html>
 ```
@@ -1613,7 +1613,7 @@ else
 fi
 
 # Test 4: File contains required text
-grep -q "I love spagheeti" index.html && \
+grep -q "I love bolognese" index.html && \
     echo "✓ Contains required text" || \
     echo "✗ Missing required text"
 
@@ -1658,7 +1658,7 @@ BODY=$(echo "$RESPONSE" | head -n-1)
 
 # Assertions
 test "$HTTP_CODE" = "200" && echo "✓ HTTP 200 OK" || echo "✗ HTTP $HTTP_CODE"
-echo "$BODY" | grep -q "I love spagheeti" && \
+echo "$BODY" | grep -q "I love bolognese" && \
     echo "✓ Body contains correct text" || \
     echo "✗ Body missing text"
 echo "$BODY" | grep -q "<!DOCTYPE html>" && \
@@ -1703,7 +1703,7 @@ curl -s -I http://localhost:8000/ | grep -i "cache-control"
 1. Open Chrome browser
 2. Navigate to http://localhost:8000/ or file:///path/to/index.html
 3. Verify page title in tab shows "I Love Spagheeti"
-4. Verify page body shows "I love spagheeti"
+4. Verify page body shows "I love bolognese"
 5. Open DevTools Console (F12)
 6. Verify no JavaScript errors
 7. Check Network tab - only one request (index.html)
@@ -1743,7 +1743,7 @@ test('displays spaghetti message', async ({ page }) => {
   
   // Check body text
   const bodyText = await page.locator('body').textContent();
-  expect(bodyText.trim()).toBe('I love spagheeti');
+  expect(bodyText.trim()).toBe('I love bolognese');
   
   // Check no console errors
   const errors = [];
@@ -1840,7 +1840,7 @@ cat > index.html << 'EOF'
     <title>I Love Spagheeti</title>
 </head>
 <body>
-    I love spagheeti
+    I love bolognese
 </body>
 </html>
 EOF
@@ -1869,7 +1869,7 @@ python3 -m http.server 8000
 curl http://localhost:8000/
 # Or open in browser: http://localhost:8000/
 
-# Verify output contains "I love spagheeti"
+# Verify output contains "I love bolognese"
 ```
 
 **Phase 2: Version Control**
@@ -1887,7 +1887,7 @@ git add index.html
 git commit -m "feat: add index.html with spaghetti message
 
 - Create minimal HTML5 document
-- Display 'I love spagheeti' message
+- Display 'I love bolognese' message
 - No CSS or JavaScript per requirements
 - File size: 182 bytes
 
@@ -1980,7 +1980,7 @@ curl -I https://your-site.com/
 # Expected: Content-Type: text/html
 
 # Test body content
-curl -s https://your-site.com/ | grep "I love spagheeti"
+curl -s https://your-site.com/ | grep "I love bolognese"
 
 # Expected: Match found
 ```
@@ -2140,7 +2140,7 @@ curl -I https://your-site.com/
 # Expected: HTTP 200 OK
 
 # Test 2: Content is correct
-curl -s https://your-site.com/ | grep "I love spagheeti"
+curl -s https://your-site.com/ | grep "I love bolognese"
 # Expected: Match found
 
 # Test 3: No errors
@@ -2198,7 +2198,7 @@ The HTML file is already minimal with no further optimization possible without s
 
 Minified version (removing all whitespace):
 ```html
-<!DOCTYPE html><html><head><title>I Love Spagheeti</title></head><body>I love spagheeti</body></html>
+<!DOCTYPE html><html><head><title>I Love Spagheeti</title></head><body>I love bolognese</body></html>
 ```
 
 - **Minified size:** ~120 bytes

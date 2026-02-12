@@ -70,7 +70,7 @@
 
 **Features:**
 
-- **simple-spaghetti-website-feat-display-message** (feature): Display Spaghetti Message
+- **simple-spaghetti-website-feat-display-message** (feature): Display Bolognese Message
 
 ### Sprint 4
 

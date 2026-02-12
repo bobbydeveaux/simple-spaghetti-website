@@ -102,7 +102,7 @@ This website can be deployed anywhere:
 ## Technical Specifications
 
 - **HTML Version**: HTML5
-- **File Size**: ~90 bytes
+- **File Size**: 125 bytes
 - **Load Time**: <10ms
 - **Dependencies**: None
 - **Server Requirements**: Any static file server (or none - can open locally)
