@@ -66,7 +66,7 @@ def get_csrf_token() -> str:
     """Get or create CSRF token for current session."""
     from api.config import settings
 
-    csrf = CSRFProtection(settings.SECRET_KEY)
+    csrf = CSRFProtection(settings.JWT_SECRET_KEY)
 
     # Generate new token for each request (stateless approach)
     token = csrf.generate_token()
@@ -77,7 +77,7 @@ def validate_csrf_token(token: str) -> bool:
     """Validate CSRF token."""
     from api.config import settings
 
-    csrf = CSRFProtection(settings.SECRET_KEY)
+    csrf = CSRFProtection(settings.JWT_SECRET_KEY)
     return csrf.validate_token(token)
 
 

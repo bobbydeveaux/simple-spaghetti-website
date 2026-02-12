@@ -176,8 +176,8 @@ def admin_login() -> Tuple[Dict[str, Any], int]:
 
     Request body:
         {
-            "email": "admin@pta.school",
-            "password": "securePassword123"
+            "email": "admin@example.com",
+            "password": "your_admin_password"
         }
 
     Returns:
