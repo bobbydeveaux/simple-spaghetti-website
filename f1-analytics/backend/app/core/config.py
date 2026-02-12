@@ -78,19 +78,38 @@ class Settings(BaseSettings):
         if not v:
             raise ValueError('JWT_SECRET_KEY is required')
 
-        # Check for development/weak secrets
-        weak_patterns = ['dev', 'secret', 'key', 'test', 'change']
-        if values.get('environment') == 'production':
-            if any(pattern in v.lower() for pattern in weak_patterns):
-                raise ValueError(
-                    'JWT_SECRET_KEY appears to be a development value. '
-                    'Use a cryptographically secure secret in production.'
-                )
+        # Check for development/weak secrets and template placeholders
+        weak_patterns = [
+            'dev', 'secret', 'key', 'test', 'change', 'generate',
+            'please', 'minimum', 'openssl', 'rand', 'base64',
+            '<generate_', 'generate_secure_', 'generate_production_',
+            'secure_jwt_secret', 'jwt_secret_minimum',
+            'GENERATE_WITH_OPENSSL_RAND', 'MINIMUM_64_CHARACTERS'
+        ]
 
-            if len(v) < 32:
-                raise ValueError(
-                    'JWT_SECRET_KEY must be at least 32 characters in production'
-                )
+        # Always check for weak patterns regardless of environment
+        if any(pattern.lower() in v.lower() for pattern in weak_patterns):
+            raise ValueError(
+                'JWT_SECRET_KEY appears to be a template/development value. '
+                'Generate a cryptographically secure secret with: openssl rand -base64 64'
+            )
+
+        # Minimum length requirements (stricter)
+        min_length = 64 if values.get('environment') == 'production' else 32
+        if len(v) < min_length:
+            raise ValueError(
+                f'JWT_SECRET_KEY must be at least {min_length} characters '
+                f'(current: {len(v)}). Generate with: openssl rand -base64 64'
+            )
+
+        # Check entropy - should not be repetitive
+        unique_chars = len(set(v))
+        if unique_chars < 16:
+            raise ValueError(
+                'JWT_SECRET_KEY has insufficient entropy '
+                f'(only {unique_chars} unique characters). '
+                'Generate with: openssl rand -base64 64'
+            )
 
         return v
 

@@ -36,7 +36,13 @@ class TestJWTSecretValidation:
             "dev_jwt_key",
             "secret",
             "key",
-            "development"
+            "development",
+            "<generate_with_openssl_rand_base64_64>",
+            "generate_secure_jwt_secret_minimum_64_characters",
+            "GENERATE_WITH_OPENSSL_RAND_BASE64_64_MINIMUM_64_CHARACTERS_REQUIRED_FOR_SECURITY",
+            "minimum_64_characters_required",
+            "please_generate_secure_secret",
+            "openssl_rand_base64_64"
         ]
 
         for weak_secret in weak_secrets:
@@ -45,7 +51,7 @@ class TestJWTSecretValidation:
                     validate_jwt_secret()
 
                 assert exc_info.value.status_code == 500
-                assert "development/default value" in exc_info.value.detail
+                assert "template/development value" in exc_info.value.detail
 
     def test_validate_jwt_secret_too_short(self):
         """Test validation rejects short secrets."""
@@ -231,3 +237,37 @@ class TestEnvironmentSecurityValidation:
             assert len(results["issues"]) >= 2
             assert any("Database" in issue for issue in results["issues"])
             assert any("Redis" in issue for issue in results["issues"])
+
+    def test_validate_environment_security_template_credentials(self):
+        """Test security validation detects template placeholder credentials."""
+        env_vars = {
+            "JWT_SECRET_KEY": "v8K9xB2nF6yU4mZ3qW7tR5eA1sD4gH9jK6xN2bM8vC5z",
+            "ENVIRONMENT": "test",
+            "DEBUG": "false",
+            "DATABASE_URL": "postgresql://user:<generate_secure_24_char_password>@localhost/db",
+            "REDIS_URL": "redis://:<generate_production_redis_password>@localhost:6379"
+        }
+
+        with patch.dict(os.environ, env_vars):
+            results = validate_environment_security()
+
+            assert len(results["issues"]) >= 2
+            assert any("Database" in issue and "generate_" in issue for issue in results["issues"])
+            assert any("Redis" in issue and "generate_" in issue for issue in results["issues"])
+
+    def test_validate_environment_security_production_placeholders(self):
+        """Test security validation detects production template placeholders."""
+        env_vars = {
+            "JWT_SECRET_KEY": "v8K9xB2nF6yU4mZ3qW7tR5eA1sD4gH9jK6xN2bM8vC5z",
+            "ENVIRONMENT": "test",
+            "DEBUG": "false",
+            "DATABASE_URL": "postgresql://user:use_a_very_strong_production_password_here@localhost/db",
+            "REDIS_URL": "redis://:use_a_very_strong_redis_password_here@localhost:6379"
+        }
+
+        with patch.dict(os.environ, env_vars):
+            results = validate_environment_security()
+
+            assert len(results["issues"]) >= 2
+            assert any("Database" in issue and "use_a_very_strong" in issue for issue in results["issues"])
+            assert any("Redis" in issue and "use_a_very_strong" in issue for issue in results["issues"])

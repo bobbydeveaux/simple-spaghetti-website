@@ -14,10 +14,11 @@ services:
       - postgres_data_prod:/var/lib/postgresql/data
       - ./backups:/backups
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h localhost -p 5432"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
     deploy:
       resources:
@@ -39,9 +40,10 @@ services:
       - redis_data_prod:/data
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
     deploy:
       resources:
@@ -93,11 +95,11 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health", "--max-time", "5"]
+      interval: 20s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 45s
     restart: unless-stopped
     deploy:
       replicas: 3
@@ -126,10 +128,11 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health", "--max-time", "5"]
+      interval: 20s
       timeout: 10s
       retries: 3
+      start_period: 20s
     restart: unless-stopped
     deploy:
       replicas: 2
@@ -158,10 +161,11 @@ services:
       - backend
       - frontend
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/health"]
-      interval: 30s
+      test: ["CMD", "curl", "-f", "http://localhost/health", "--max-time", "5"]
+      interval: 20s
       timeout: 10s
       retries: 3
+      start_period: 20s
     restart: unless-stopped
     deploy:
       resources:

@@ -31,7 +31,7 @@ def validate_jwt_secret() -> None:
             detail="JWT_SECRET_KEY is not configured"
         )
 
-    # Check for development/weak secrets
+    # Check for development/weak secrets and template placeholders
     weak_secrets = [
         "dev-secret-key",
         "change-in-production",
@@ -48,7 +48,16 @@ def validate_jwt_secret() -> None:
         "change_this",
         "f1_secure_password_2024",
         "redis_secure_password_2024",
-        "flower_secure_password_2024"
+        "flower_secure_password_2024",
+        "<generate_",
+        "generate_secure_",
+        "generate_production_",
+        "secure_24_char_password",
+        "secure_16_char_password",
+        "base64_64",
+        "openssl_rand",
+        "CHANGE_THIS_SECURE",
+        "GENERATE_WITH_OPENSSL_RAND"
     ]
 
     secret_lower = SECRET_KEY.lower()
@@ -170,7 +179,10 @@ def validate_environment_security() -> dict:
     weak_db_patterns = [
         "f1password", "password123", "f1_secure_password_2024",
         "please_change", "change_this_secure_db_password",
-        "CHANGE_THIS_SECURE_DB_PASSWORD"
+        "CHANGE_THIS_SECURE_DB_PASSWORD", "<generate_",
+        "generate_secure_", "generate_production_",
+        "use_a_very_strong", "production_password_here",
+        "secure_24_char_password", "production_db_password"
     ]
     for pattern in weak_db_patterns:
         if pattern.lower() in db_url.lower():
@@ -180,7 +192,10 @@ def validate_environment_security() -> dict:
     redis_url = os.getenv("REDIS_URL", "")
     weak_redis_patterns = [
         "f1redis", "redis_secure_password_2024", "please_change",
-        "change_this_secure_redis_password", "CHANGE_THIS_SECURE_REDIS_PASSWORD"
+        "change_this_secure_redis_password", "CHANGE_THIS_SECURE_REDIS_PASSWORD",
+        "<generate_", "generate_secure_", "generate_production_",
+        "use_a_very_strong", "redis_password_here",
+        "secure_24_char_password", "production_redis_password"
     ]
     for pattern in weak_redis_patterns:
         if pattern.lower() in redis_url.lower():

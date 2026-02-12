@@ -191,10 +191,11 @@ validate_existing() {
             echo -e "\n${BLUE}Checking $env_file...${NC}"
             found_env=true
 
-            # Check for weak patterns
-            if grep -iq "change.*this\|weak\|dev.*secret\|test.*secret\|f1password\|f1redis" "$PROJECT_DIR/$env_file"; then
-                print_error "Found weak/development credentials in $env_file"
-                grep -i "change.*this\|weak\|dev.*secret\|test.*secret\|f1password\|f1redis" "$PROJECT_DIR/$env_file" | head -5
+            # Check for weak patterns (expanded list)
+            weak_pattern="change.*this\|weak\|dev.*secret\|test.*secret\|f1password\|f1redis\|generate.*secure\|<generate_\|production.*password.*here\|minimum.*characters\|openssl.*rand\|base64.*64"
+            if grep -iq "$weak_pattern" "$PROJECT_DIR/$env_file"; then
+                print_error "Found weak/development/template credentials in $env_file"
+                grep -i "$weak_pattern" "$PROJECT_DIR/$env_file" | head -5
                 continue
             fi
 
