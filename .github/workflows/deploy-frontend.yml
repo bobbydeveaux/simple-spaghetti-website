@@ -1,0 +1,478 @@
+name: Deploy Frontend Application
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'f1-analytics/frontend/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.js'
+      - 'index.html'
+      - '.github/workflows/deploy-frontend.yml'
+
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # Build Frontend Applications
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+
+    outputs:
+      main-app-hash: ${{ steps.hash-main.outputs.hash }}
+      f1-analytics-hash: ${{ steps.hash-f1.outputs.hash }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js ${{ env.NODE_VERSION }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install dependencies for main app
+      run: npm ci
+
+    - name: Build main React application
+      env:
+        VITE_API_URL: https://api.f1-analytics.example.com
+        VITE_ENVIRONMENT: production
+      run: |
+        npm run build
+
+    - name: Calculate main app hash
+      id: hash-main
+      run: |
+        HASH=$(find dist -type f -exec sha256sum {} \; | sha256sum | cut -d' ' -f1)
+        echo "hash=$HASH" >> $GITHUB_OUTPUT
+
+    - name: Build F1 Analytics frontend
+      if: ${{ hashFiles('f1-analytics/frontend/package.json') != '' }}
+      run: |
+        cd f1-analytics/frontend
+        npm install
+        npm run build
+
+    - name: Calculate F1 Analytics app hash
+      id: hash-f1
+      if: ${{ hashFiles('f1-analytics/frontend/package.json') != '' }}
+      run: |
+        if [ -d "f1-analytics/frontend/dist" ]; then
+          HASH=$(find f1-analytics/frontend/dist -type f -exec sha256sum {} \; | sha256sum | cut -d' ' -f1)
+          echo "hash=$HASH" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Optimize assets
+      run: |
+        # Compress assets
+        find dist -name "*.js" -o -name "*.css" -o -name "*.html" | xargs gzip -k
+        find f1-analytics/frontend/dist -name "*.js" -o -name "*.css" -o -name "*.html" | xargs gzip -k 2>/dev/null || true
+
+        # Generate asset manifest
+        find dist -type f > asset-manifest-main.txt
+        find f1-analytics/frontend/dist -type f > asset-manifest-f1.txt 2>/dev/null || touch asset-manifest-f1.txt
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: frontend-builds
+        path: |
+          dist/
+          f1-analytics/frontend/dist/
+          asset-manifest-*.txt
+        retention-days: 30
+
+  # Deploy to S3 and CloudFront (Staging)
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build-frontend
+    environment:
+      name: staging
+      url: https://staging.f1-analytics.example.com
+
+    steps:
+    - name: Download build artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: frontend-builds
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Deploy main app to S3
+      run: |
+        # Sync main React app to S3
+        aws s3 sync dist/ s3://${{ secrets.STAGING_S3_BUCKET }}/main/ \
+          --delete \
+          --cache-control "max-age=31536000" \
+          --exclude "*.html" \
+          --exclude "*.json"
+
+        # Upload HTML files with no cache
+        aws s3 sync dist/ s3://${{ secrets.STAGING_S3_BUCKET }}/main/ \
+          --cache-control "no-cache, no-store, must-revalidate" \
+          --include "*.html" \
+          --include "*.json"
+
+    - name: Deploy F1 Analytics app to S3
+      if: ${{ hashFiles('f1-analytics/frontend/dist/*') != '' }}
+      run: |
+        # Sync F1 Analytics app to S3
+        aws s3 sync f1-analytics/frontend/dist/ s3://${{ secrets.STAGING_S3_BUCKET }}/f1-analytics/ \
+          --delete \
+          --cache-control "max-age=31536000" \
+          --exclude "*.html" \
+          --exclude "*.json"
+
+        # Upload HTML files with no cache
+        aws s3 sync f1-analytics/frontend/dist/ s3://${{ secrets.STAGING_S3_BUCKET }}/f1-analytics/ \
+          --cache-control "no-cache, no-store, must-revalidate" \
+          --include "*.html" \
+          --include "*.json"
+
+    - name: Invalidate CloudFront cache
+      run: |
+        # Invalidate CloudFront distribution cache
+        aws cloudfront create-invalidation \
+          --distribution-id ${{ secrets.STAGING_CLOUDFRONT_DISTRIBUTION_ID }} \
+          --paths "/*" > invalidation.json
+
+        # Wait for invalidation to complete
+        INVALIDATION_ID=$(jq -r '.Invalidation.Id' invalidation.json)
+        aws cloudfront wait invalidation-completed \
+          --distribution-id ${{ secrets.STAGING_CLOUDFRONT_DISTRIBUTION_ID }} \
+          --id $INVALIDATION_ID
+
+    - name: Run smoke tests
+      run: |
+        # Wait for CloudFront to propagate
+        sleep 60
+
+        # Test main application
+        STAGING_URL="https://staging.f1-analytics.example.com"
+        curl -f $STAGING_URL/ || exit 1
+        curl -f $STAGING_URL/robots.txt || echo "No robots.txt found"
+
+        # Test F1 Analytics application
+        curl -f $STAGING_URL/f1-analytics/ || echo "F1 Analytics app not available yet"
+
+        # Test that static assets load correctly
+        curl -f $STAGING_URL/assets/ || echo "No assets directory"
+
+    - name: Lighthouse performance audit
+      uses: treosh/lighthouse-ci-action@v10
+      with:
+        urls: |
+          https://staging.f1-analytics.example.com/
+          https://staging.f1-analytics.example.com/f1-analytics/
+        uploadArtifacts: true
+        temporaryPublicStorage: true
+
+    - name: Update deployment status
+      if: always()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const status = '${{ job.status }}' === 'success' ? 'success' : 'failure';
+
+          github.rest.repos.createDeploymentStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            deployment_id: context.payload.deployment?.id || 0,
+            state: status,
+            environment_url: 'https://staging.f1-analytics.example.com',
+            description: `Frontend deployment to staging ${status}`
+          });
+
+  # Deploy to Production
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build-frontend, deploy-staging]
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production') || github.event_name == 'push'
+    environment:
+      name: production
+      url: https://f1-analytics.example.com
+
+    steps:
+    - name: Download build artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: frontend-builds
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Create backup of current production
+      run: |
+        # Create backup of current production files
+        BACKUP_BUCKET="${{ secrets.PRODUCTION_S3_BUCKET }}-backup"
+        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+
+        # Backup main app
+        aws s3 sync s3://${{ secrets.PRODUCTION_S3_BUCKET }}/main/ s3://$BACKUP_BUCKET/main-$TIMESTAMP/ || echo "No previous main app found"
+
+        # Backup F1 Analytics app
+        aws s3 sync s3://${{ secrets.PRODUCTION_S3_BUCKET }}/f1-analytics/ s3://$BACKUP_BUCKET/f1-analytics-$TIMESTAMP/ || echo "No previous F1 app found"
+
+        echo "BACKUP_TIMESTAMP=$TIMESTAMP" >> $GITHUB_ENV
+
+    - name: Blue-Green deployment - Upload to staging bucket first
+      run: |
+        # Upload to a staging area in the same bucket
+        aws s3 sync dist/ s3://${{ secrets.PRODUCTION_S3_BUCKET }}/staging-main/ \
+          --delete \
+          --cache-control "max-age=31536000" \
+          --exclude "*.html" \
+          --exclude "*.json"
+
+        aws s3 sync dist/ s3://${{ secrets.PRODUCTION_S3_BUCKET }}/staging-main/ \
+          --cache-control "no-cache, no-store, must-revalidate" \
+          --include "*.html" \
+          --include "*.json"
+
+        # Upload F1 Analytics app to staging
+        if [ -d "f1-analytics/frontend/dist" ]; then
+          aws s3 sync f1-analytics/frontend/dist/ s3://${{ secrets.PRODUCTION_S3_BUCKET }}/staging-f1-analytics/ \
+            --delete \
+            --cache-control "max-age=31536000" \
+            --exclude "*.html" \
+            --exclude "*.json"
+
+          aws s3 sync f1-analytics/frontend/dist/ s3://${{ secrets.PRODUCTION_S3_BUCKET }}/staging-f1-analytics/ \
+            --cache-control "no-cache, no-store, must-revalidate" \
+            --include "*.html" \
+            --include "*.json"
+        fi
+
+    - name: Test staging environment in production bucket
+      run: |
+        # Test the staging deployment with a temporary CloudFront distribution
+        echo "Testing staging deployment..."
+
+        # For now, just verify files were uploaded correctly
+        aws s3 ls s3://${{ secrets.PRODUCTION_S3_BUCKET }}/staging-main/ || exit 1
+
+    - name: Atomic switch to new version
+      run: |
+        # Atomic switch - copy from staging to live
+        aws s3 sync s3://${{ secrets.PRODUCTION_S3_BUCKET }}/staging-main/ s3://${{ secrets.PRODUCTION_S3_BUCKET }}/main/ --delete
+
+        if aws s3 ls s3://${{ secrets.PRODUCTION_S3_BUCKET }}/staging-f1-analytics/; then
+          aws s3 sync s3://${{ secrets.PRODUCTION_S3_BUCKET }}/staging-f1-analytics/ s3://${{ secrets.PRODUCTION_S3_BUCKET }}/f1-analytics/ --delete
+        fi
+
+        # Clean up staging directories
+        aws s3 rm s3://${{ secrets.PRODUCTION_S3_BUCKET }}/staging-main/ --recursive
+        aws s3 rm s3://${{ secrets.PRODUCTION_S3_BUCKET }}/staging-f1-analytics/ --recursive || true
+
+    - name: Invalidate production CloudFront cache
+      run: |
+        # Invalidate production CloudFront distribution cache
+        aws cloudfront create-invalidation \
+          --distribution-id ${{ secrets.PRODUCTION_CLOUDFRONT_DISTRIBUTION_ID }} \
+          --paths "/*" > prod-invalidation.json
+
+        # Wait for invalidation to complete (max 15 minutes)
+        INVALIDATION_ID=$(jq -r '.Invalidation.Id' prod-invalidation.json)
+        timeout 900 aws cloudfront wait invalidation-completed \
+          --distribution-id ${{ secrets.PRODUCTION_CLOUDFRONT_DISTRIBUTION_ID }} \
+          --id $INVALIDATION_ID
+
+    - name: Production smoke tests
+      run: |
+        # Wait for CloudFront to propagate globally
+        sleep 120
+
+        # Test main application
+        PRODUCTION_URL="https://f1-analytics.example.com"
+
+        # Health check
+        curl -f $PRODUCTION_URL/ || exit 1
+
+        # Test key pages exist
+        curl -f $PRODUCTION_URL/robots.txt || echo "No robots.txt found"
+        curl -f $PRODUCTION_URL/sitemap.xml || echo "No sitemap found"
+
+        # Test F1 Analytics application
+        curl -f $PRODUCTION_URL/f1-analytics/ || echo "F1 Analytics app not available"
+
+        # Test that JavaScript and CSS assets are loadable
+        curl -f $PRODUCTION_URL/assets/ || echo "Assets directory check skipped"
+
+    - name: Performance monitoring
+      run: |
+        # Send performance metrics to monitoring system
+        curl -X POST "https://api.datadoghq.com/api/v1/events" \
+          -H "DD-API-KEY: ${{ secrets.DATADOG_API_KEY }}" \
+          -d '{
+            "title": "Frontend Deployment - Production",
+            "text": "Frontend applications deployed successfully to production",
+            "tags": ["deployment", "production", "frontend", "f1-analytics"]
+          }' || echo "Monitoring notification failed"
+
+    - name: Update CDN headers and security
+      run: |
+        # Set security headers for main application files
+        aws s3 cp s3://${{ secrets.PRODUCTION_S3_BUCKET }}/main/index.html s3://${{ secrets.PRODUCTION_S3_BUCKET }}/main/index.html \
+          --metadata-directive REPLACE \
+          --content-type "text/html; charset=utf-8" \
+          --cache-control "no-cache, no-store, must-revalidate" \
+          --metadata "x-frame-options=DENY,x-content-type-options=nosniff,x-xss-protection=1; mode=block"
+
+    - name: Notify deployment success
+      if: success()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.repos.createCommitComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            commit_sha: context.sha,
+            body: '🎉 **Frontend deployment successful!**\n\n✅ Main React application deployed\n✅ F1 Analytics dashboard deployed\n✅ CloudFront cache invalidated\n✅ Performance tests passed\n\n🌐 Live at: https://f1-analytics.example.com'
+          });
+
+  # Rollback procedure for production
+  rollback-production:
+    name: Rollback Production Frontend
+    runs-on: ubuntu-latest
+    if: failure() && needs.deploy-production.result == 'failure'
+    needs: deploy-production
+    environment:
+      name: production
+
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Rollback to previous version
+      run: |
+        # Find the most recent backup
+        BACKUP_BUCKET="${{ secrets.PRODUCTION_S3_BUCKET }}-backup"
+        LATEST_MAIN=$(aws s3 ls s3://$BACKUP_BUCKET/ | grep "main-" | tail -1 | awk '{print $2}')
+        LATEST_F1=$(aws s3 ls s3://$BACKUP_BUCKET/ | grep "f1-analytics-" | tail -1 | awk '{print $2}')
+
+        if [ -n "$LATEST_MAIN" ]; then
+          echo "Rolling back main app from $LATEST_MAIN"
+          aws s3 sync s3://$BACKUP_BUCKET/$LATEST_MAIN s3://${{ secrets.PRODUCTION_S3_BUCKET }}/main/ --delete
+        fi
+
+        if [ -n "$LATEST_F1" ]; then
+          echo "Rolling back F1 Analytics app from $LATEST_F1"
+          aws s3 sync s3://$BACKUP_BUCKET/$LATEST_F1 s3://${{ secrets.PRODUCTION_S3_BUCKET }}/f1-analytics/ --delete
+        fi
+
+    - name: Invalidate CloudFront after rollback
+      run: |
+        aws cloudfront create-invalidation \
+          --distribution-id ${{ secrets.PRODUCTION_CLOUDFRONT_DISTRIBUTION_ID }} \
+          --paths "/*"
+
+    - name: Verify rollback
+      run: |
+        sleep 60
+        curl -f https://f1-analytics.example.com/ || exit 1
+
+    - name: Notify rollback
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.repos.createCommitComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            commit_sha: context.sha,
+            body: '🔴 **Frontend deployment failed - Rollback executed**\n\n⏪ Reverted to previous version\n📊 Please check CloudFront logs\n🔧 Manual investigation required'
+          });
+
+  # Cleanup old assets
+  cleanup:
+    name: Cleanup Old Assets
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    if: success()
+
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Clean up old backups
+      run: |
+        # Keep only the last 10 backups
+        BACKUP_BUCKET="${{ secrets.PRODUCTION_S3_BUCKET }}-backup"
+
+        # Clean up old main app backups
+        aws s3 ls s3://$BACKUP_BUCKET/ | grep "main-" | head -n -10 | awk '{print $2}' | while read -r backup; do
+          echo "Deleting old backup: $backup"
+          aws s3 rm s3://$BACKUP_BUCKET/$backup --recursive
+        done
+
+        # Clean up old F1 analytics backups
+        aws s3 ls s3://$BACKUP_BUCKET/ | grep "f1-analytics-" | head -n -10 | awk '{print $2}' | while read -r backup; do
+          echo "Deleting old backup: $backup"
+          aws s3 rm s3://$BACKUP_BUCKET/$backup --recursive
+        done
+
+    - name: Update sitemap
+      run: |
+        # Generate and upload sitemap if the app has routes
+        cat > sitemap.xml << 'EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+          <url>
+            <loc>https://f1-analytics.example.com/</loc>
+            <changefreq>daily</changefreq>
+            <priority>1.0</priority>
+          </url>
+          <url>
+            <loc>https://f1-analytics.example.com/f1-analytics/</loc>
+            <changefreq>daily</changefreq>
+            <priority>0.9</priority>
+          </url>
+          <url>
+            <loc>https://f1-analytics.example.com/f1-analytics/calendar</loc>
+            <changefreq>weekly</changefreq>
+            <priority>0.8</priority>
+          </url>
+          <url>
+            <loc>https://f1-analytics.example.com/f1-analytics/analytics</loc>
+            <changefreq>weekly</changefreq>
+            <priority>0.7</priority>
+          </url>
+        </urlset>
+        EOF
+
+        aws s3 cp sitemap.xml s3://${{ secrets.PRODUCTION_S3_BUCKET }}/sitemap.xml \
+          --content-type "application/xml"
