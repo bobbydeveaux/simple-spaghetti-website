@@ -15,6 +15,7 @@ from typing import Dict, Any
 from datetime import datetime
 import psycopg2
 import redis
+from core.exceptions import configure_exception_handlers, DatabaseConnectionError, RedisConnectionError
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -62,6 +63,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Configure exception handlers
+configure_exception_handlers(app)
+
 # Configure CORS - use environment-based origins
 cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,http://frontend:3000")
 app.add_middleware(
@@ -90,6 +94,7 @@ async def check_database_connectivity() -> bool:
     try:
         database_url = os.getenv("DATABASE_URL")
         if not database_url:
+            logger.warning("DATABASE_URL not configured")
             return False
 
         # Parse connection details from URL
@@ -112,8 +117,14 @@ async def check_database_connectivity() -> bool:
         conn.close()
 
         return True
+    except psycopg2.OperationalError as e:
+        logger.error(f"Database operational error: {e}")
+        return False
+    except psycopg2.Error as e:
+        logger.error(f"Database error: {e}")
+        return False
     except Exception as e:
-        logger.error(f"Database connectivity check failed: {e}")
+        logger.error(f"Unexpected database connectivity error: {e}")
         return False
 
 
@@ -122,6 +133,7 @@ async def check_redis_connectivity() -> bool:
     try:
         redis_url = os.getenv("REDIS_URL")
         if not redis_url:
+            logger.warning("REDIS_URL not configured")
             return False
 
         # Parse Redis URL
@@ -138,8 +150,17 @@ async def check_redis_connectivity() -> bool:
 
         r.ping()
         return True
+    except redis.ConnectionError as e:
+        logger.error(f"Redis connection error: {e}")
+        return False
+    except redis.TimeoutError as e:
+        logger.error(f"Redis timeout error: {e}")
+        return False
+    except redis.RedisError as e:
+        logger.error(f"Redis error: {e}")
+        return False
     except Exception as e:
-        logger.error(f"Redis connectivity check failed: {e}")
+        logger.error(f"Unexpected Redis connectivity error: {e}")
         return False
 
 
