@@ -1,15 +1,15 @@
-# Simple Spaghetti Website
+# Test Pizza Page
 
-A minimal HTML5 website that displays "I love spagheeti" - a simple, static webpage with no CSS, JavaScript, or external dependencies.
+A minimal HTML5 website that displays "I love pizza" - a simple, static webpage with basic inline CSS styling.
 
 ## Overview
 
-This project contains a single `index.html` file that demonstrates the most basic possible HTML5 website structure. The site displays the message "I love spagheeti" (intentional spelling) in a clean, minimal format that works across all modern web browsers.
+This project contains a single `index.html` file that demonstrates a basic HTML5 website structure with inline CSS styling. The site displays the message "I love pizza" with a red background and includes a blue footer element.
 
 ## Features
 
-- ✅ Pure HTML5 with no external dependencies
-- ✅ No CSS styling (uses browser defaults)
+- ✅ HTML5 with no external dependencies
+- ✅ Inline CSS styling (red background, blue footer)
 - ✅ No JavaScript or client-side scripts
 - ✅ Valid HTML5 markup
 - ✅ Under 1KB file size
@@ -38,7 +38,7 @@ The simplest way to view the website is to open the HTML file directly in your b
 
 ```bash
 # Navigate to the project directory
-cd simple-spaghetti-website
+cd test-pizza-page
 
 # Open in your default browser (macOS)
 open index.html
@@ -58,7 +58,7 @@ For testing with HTTP (recommended for development):
 
 ```bash
 # Navigate to the project directory
-cd simple-spaghetti-website
+cd test-pizza-page
 
 # Start the server (Python 3)
 python3 -m http.server 8000
@@ -76,7 +76,7 @@ Then open your browser to: http://localhost:8000
 npm install -g http-server
 
 # Navigate to project directory and start server
-cd simple-spaghetti-website
+cd test-pizza-page
 http-server -p 8000
 
 # Open browser to: http://localhost:8000
@@ -85,7 +85,7 @@ http-server -p 8000
 #### Option 3: PHP Built-in Server
 
 ```bash
-cd simple-spaghetti-website
+cd test-pizza-page
 php -S localhost:8000
 ```
 
@@ -93,9 +93,9 @@ php -S localhost:8000
 
 When you access the website, you should see:
 
-- **Browser Tab Title**: "Test Pizza Page" (current) or "I Love Spagheeti" (planned)
-- **Page Content**: The text "I love pizza" (current) or "I love spagheeti" (planned)
-- **No Styling**: Plain black text on white background
+- **Browser Tab Title**: "Test Pizza Page"
+- **Page Content**: The text "I love pizza"
+- **Styling**: Red background for the body, blue footer element
 - **No Console Errors**: Clean browser developer console
 - **Fast Load Time**: Page loads almost instantly
 
@@ -186,7 +186,7 @@ Simply upload `index.html` to your web server's public directory (usually `publi
 ## Technical Specifications
 
 - **HTML Version**: HTML5
-- **File Size**: ~200 bytes
+- **File Size**: ~202 bytes
 - **Load Time**: <100ms typical
 - **Dependencies**: None
 - **Server Requirements**: Any static file server
@@ -215,4 +215,4 @@ This project is in the public domain. Use freely for any purpose.
 
 ## About This Project
 
-This website serves as a demonstration of the most minimal viable HTML5 website structure. It prioritizes simplicity, performance, and compatibility over features or visual design. The intentional spelling of "spagheeti" is preserved as specified in the original requirements.
+This website serves as a test page demonstrating a basic HTML5 website structure with simple inline CSS styling. It displays a pizza-themed message with basic visual styling including colored backgrounds.
