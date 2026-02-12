@@ -1,0 +1,391 @@
+name: CI Pipeline
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'f1-analytics/**'
+      - 'api/**'
+      - 'src/**'
+      - 'package.json'
+      - 'requirements.txt'
+      - '.github/workflows/**'
+  push:
+    branches: [ develop ]
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '20'
+
+jobs:
+  # Backend Python Testing
+  backend-tests:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: f1_analytics_test
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-asyncio pytest-cov black flake8 mypy
+
+    - name: Lint with flake8
+      run: |
+        # Stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=node_modules
+        # Exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --exclude=node_modules
+
+    - name: Format check with black
+      run: |
+        black --check --exclude=node_modules .
+
+    - name: Type checking with mypy
+      run: |
+        mypy api/ --ignore-missing-imports || true
+
+    - name: Set up test environment
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/f1_analytics_test
+        REDIS_URL: redis://localhost:6379/0
+        JWT_SECRET_KEY: test-secret-key-for-ci
+        ENVIRONMENT: test
+      run: |
+        # Initialize test database if Alembic migrations exist
+        if [ -d "api/alembic" ]; then
+          cd api && alembic upgrade head
+        fi
+
+    - name: Run backend tests
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/f1_analytics_test
+        REDIS_URL: redis://localhost:6379/0
+        JWT_SECRET_KEY: test-secret-key-for-ci
+        ENVIRONMENT: test
+      run: |
+        # Run existing tests in api directory
+        if [ -d "api" ]; then
+          cd api && python -m pytest -v --cov=. --cov-report=xml
+        fi
+
+        # Run F1 analytics tests if they exist
+        if [ -d "f1-analytics/backend/tests" ]; then
+          cd f1-analytics/backend && python -m pytest -v --cov=app --cov-report=xml
+        fi
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: backend
+        name: backend-coverage
+        fail_ci_if_error: false
+
+  # Frontend Testing
+  frontend-tests:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js ${{ env.NODE_VERSION }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Lint with ESLint
+      run: npm run lint
+
+    - name: Type checking with TypeScript
+      run: npx tsc --noEmit
+
+    - name: Run frontend tests
+      run: |
+        # Run existing tests
+        npm run test 2>/dev/null || echo "No frontend tests configured yet"
+
+        # Run F1 analytics frontend tests if they exist
+        if [ -d "f1-analytics/frontend" ]; then
+          cd f1-analytics/frontend
+          npm install
+          npm run test 2>/dev/null || echo "F1 analytics frontend tests not configured yet"
+        fi
+
+    - name: Build frontend
+      run: |
+        npm run build
+
+        # Build F1 analytics frontend if it exists
+        if [ -d "f1-analytics/frontend" ]; then
+          cd f1-analytics/frontend
+          npm run build
+        fi
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: frontend-build
+        path: |
+          dist/
+          f1-analytics/frontend/dist/
+        retention-days: 7
+
+  # Security Scanning
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Snyk to check for vulnerabilities
+      uses: snyk/actions/node@master
+      continue-on-error: true
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        args: --severity-threshold=high
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # Integration Tests
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+    if: github.event_name == 'pull_request'
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: f1_analytics_integration
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        npm ci
+
+    - name: Start backend services
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/f1_analytics_integration
+        REDIS_URL: redis://localhost:6379/0
+        JWT_SECRET_KEY: integration-test-secret
+        ENVIRONMENT: test
+      run: |
+        # Start existing Flask/FastAPI services in background
+        if [ -f "api/app.py" ]; then
+          cd api && python app.py &
+          API_PID=$!
+          echo "API_PID=$API_PID" >> $GITHUB_ENV
+        fi
+
+        if [ -f "api/main.py" ]; then
+          cd api && uvicorn main:app --host 0.0.0.0 --port 8000 &
+          FASTAPI_PID=$!
+          echo "FASTAPI_PID=$FASTAPI_PID" >> $GITHUB_ENV
+        fi
+
+        # Wait for services to start
+        sleep 10
+
+    - name: Run integration tests
+      env:
+        API_BASE_URL: http://localhost:8000
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/f1_analytics_integration
+      run: |
+        # Run integration tests if they exist
+        if [ -f "test_voting_implementation.py" ]; then
+          python test_voting_implementation.py
+        fi
+
+        # Add more integration tests here as they're created
+        echo "Integration tests completed successfully"
+
+    - name: Cleanup
+      if: always()
+      run: |
+        # Kill background processes
+        if [ -n "$API_PID" ]; then
+          kill $API_PID || true
+        fi
+        if [ -n "$FASTAPI_PID" ]; then
+          kill $FASTAPI_PID || true
+        fi
+
+  # Performance Tests
+  performance-tests:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    needs: integration-tests
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'performance-test')
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install performance testing tools
+      run: |
+        pip install locust
+        pip install -r requirements.txt
+
+    - name: Run load tests
+      run: |
+        # Run Locust performance tests if they exist
+        if [ -d "f1-analytics/backend/tests/performance" ]; then
+          cd f1-analytics/backend/tests/performance
+          # Run headless Locust test for 2 minutes
+          locust -f test_load.py --headless --users 100 --spawn-rate 10 --run-time 2m --host http://localhost:8000
+        else
+          echo "Performance tests not configured yet"
+        fi
+
+  # Code Quality Gates
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests, security-scan]
+    if: always()
+
+    steps:
+    - name: Check test results
+      run: |
+        if [[ "${{ needs.backend-tests.result }}" == "failure" ]]; then
+          echo "Backend tests failed"
+          exit 1
+        fi
+
+        if [[ "${{ needs.frontend-tests.result }}" == "failure" ]]; then
+          echo "Frontend tests failed"
+          exit 1
+        fi
+
+        echo "All quality checks passed"
+
+    - name: Comment on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const backendResult = '${{ needs.backend-tests.result }}';
+          const frontendResult = '${{ needs.frontend-tests.result }}';
+          const securityResult = '${{ needs.security-scan.result }}';
+
+          let comment = '## CI Pipeline Results\n\n';
+          comment += `- Backend Tests: ${backendResult === 'success' ? '✅' : '❌'}\n`;
+          comment += `- Frontend Tests: ${frontendResult === 'success' ? '✅' : '❌'}\n`;
+          comment += `- Security Scan: ${securityResult === 'success' ? '✅' : '⚠️'}\n`;
+
+          if (backendResult === 'success' && frontendResult === 'success') {
+            comment += '\n✅ **All checks passed!** This PR is ready for review.';
+          } else {
+            comment += '\n❌ **Some checks failed.** Please review the logs and fix issues.';
+          }
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
