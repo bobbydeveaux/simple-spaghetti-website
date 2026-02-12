@@ -3,16 +3,53 @@ F1 Analytics Backend API
 FastAPI application entry point with health checks and basic routing.
 """
 
+import os
+import asyncio
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
 import logging
 from typing import Dict, Any
+from datetime import datetime
+import psycopg2
+import redis
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Import security validation
+try:
+    from core.security import validate_environment_security
+    SECURITY_MODULE_AVAILABLE = True
+except ImportError:
+    SECURITY_MODULE_AVAILABLE = False
+    logger.warning("Security module not available - security validation disabled")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager for startup and shutdown events."""
+    # Startup
+    logger.info("Starting F1 Analytics Backend API...")
+
+    # Validate security configuration on startup
+    if SECURITY_MODULE_AVAILABLE:
+        security_results = validate_environment_security()
+        if security_results["issues"]:
+            for issue in security_results["issues"]:
+                logger.error(f"Security Issue: {issue}")
+            if os.getenv("ENVIRONMENT") == "production":
+                logger.critical("Security issues detected in production environment!")
+        else:
+            logger.info("Security validation passed")
+
+    yield
+
+    # Shutdown
+    logger.info("Shutting down F1 Analytics Backend API...")
 
 # Create FastAPI application
 app = FastAPI(
@@ -22,19 +59,17 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
+    lifespan=lifespan,
 )
 
-# Configure CORS
+# Configure CORS - use environment-based origins
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,http://frontend:3000")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://frontend:3000",
-    ],
+    allow_origins=cors_origins.split(","),
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
 )
 
 
@@ -50,30 +85,130 @@ async def root() -> Dict[str, Any]:
     }
 
 
+async def check_database_connectivity() -> bool:
+    """Check PostgreSQL database connectivity."""
+    try:
+        database_url = os.getenv("DATABASE_URL")
+        if not database_url:
+            return False
+
+        # Parse connection details from URL
+        import urllib.parse
+        parsed = urllib.parse.urlparse(database_url)
+
+        conn = psycopg2.connect(
+            host=parsed.hostname,
+            port=parsed.port or 5432,
+            database=parsed.path.lstrip('/'),
+            user=parsed.username,
+            password=parsed.password,
+            connect_timeout=5
+        )
+
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1")
+        cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        return True
+    except Exception as e:
+        logger.error(f"Database connectivity check failed: {e}")
+        return False
+
+
+async def check_redis_connectivity() -> bool:
+    """Check Redis connectivity."""
+    try:
+        redis_url = os.getenv("REDIS_URL")
+        if not redis_url:
+            return False
+
+        # Parse Redis URL
+        import urllib.parse
+        parsed = urllib.parse.urlparse(redis_url)
+
+        r = redis.Redis(
+            host=parsed.hostname,
+            port=parsed.port or 6379,
+            password=parsed.password,
+            socket_timeout=5,
+            socket_connect_timeout=5
+        )
+
+        r.ping()
+        return True
+    except Exception as e:
+        logger.error(f"Redis connectivity check failed: {e}")
+        return False
+
+
 @app.get("/health")
 async def health_check() -> Dict[str, Any]:
-    """Health check endpoint for container orchestration."""
-    try:
-        # Here you would typically check:
-        # - Database connectivity
-        # - Redis connectivity
-        # - External API availability
-        # For now, return a simple health status
+    """
+    Comprehensive health check endpoint for container orchestration.
+    Verifies actual connectivity to dependent services.
+    """
+    timestamp = datetime.utcnow().isoformat() + "Z"
+    health_status = "healthy"
+    checks = {}
 
-        return {
-            "status": "healthy",
+    try:
+        # Check API service (always healthy if we reach this point)
+        checks["api"] = "ok"
+
+        # Check database connectivity
+        db_healthy = await check_database_connectivity()
+        checks["database"] = "ok" if db_healthy else "error"
+        if not db_healthy:
+            health_status = "unhealthy"
+
+        # Check Redis connectivity
+        redis_healthy = await check_redis_connectivity()
+        checks["redis"] = "ok" if redis_healthy else "error"
+        if not redis_healthy:
+            health_status = "unhealthy"
+
+        # Check security configuration
+        if SECURITY_MODULE_AVAILABLE:
+            security_results = validate_environment_security()
+            checks["security"] = "ok" if not security_results["issues"] else "warning"
+            if security_results["issues"]:
+                checks["security_issues"] = security_results["issues"]
+                if os.getenv("ENVIRONMENT") == "production":
+                    health_status = "unhealthy"
+
+        response = {
+            "status": health_status,
             "service": "f1-analytics-backend",
             "version": "1.0.0",
-            "timestamp": "2026-02-12T00:00:00Z",
-            "checks": {
-                "api": "ok",
-                "database": "ok",  # TODO: Add actual DB check
-                "redis": "ok",     # TODO: Add actual Redis check
-            }
+            "timestamp": timestamp,
+            "environment": os.getenv("ENVIRONMENT", "unknown"),
+            "checks": checks
         }
+
+        if health_status == "unhealthy":
+            # Return 503 Service Unavailable if any critical checks fail
+            return JSONResponse(
+                status_code=503,
+                content=response
+            )
+
+        return response
+
     except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        raise HTTPException(status_code=503, detail="Service unhealthy")
+        logger.error(f"Health check failed with exception: {e}")
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unhealthy",
+                "service": "f1-analytics-backend",
+                "version": "1.0.0",
+                "timestamp": timestamp,
+                "error": str(e),
+                "checks": {"api": "error"}
+            }
+        )
 
 
 @app.get("/api/v1/info")
@@ -90,7 +225,7 @@ async def api_info() -> Dict[str, Any]:
             "data_export"
         ],
         "status": "active",
-        "environment": "development"
+        "environment": os.getenv("ENVIRONMENT", "development")
     }
 
 
