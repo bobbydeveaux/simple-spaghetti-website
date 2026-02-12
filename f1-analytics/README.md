@@ -31,6 +31,7 @@ Once setup is complete, access the application at:
 - **Backend API**: http://localhost:8000
 - **API Documentation**: http://localhost:8000/docs
 - **Task Monitor (Flower)**: http://localhost:5555
+- **Airflow Webserver**: http://localhost:8080
 - **Database**: localhost:5432
 - **Redis**: localhost:6379
 
@@ -54,6 +55,12 @@ graph TB
         FL[Flower Monitor<br/>Port: 5555]
     end
 
+    subgraph "Data Orchestration"
+        AF[Airflow Scheduler<br/>Port: 8793]
+        AW[Airflow Webserver<br/>Port: 8080]
+        AQ[Airflow Workers]
+    end
+
     subgraph "Data Layer"
         P[PostgreSQL<br/>Port: 5432]
         R[Redis<br/>Port: 6379]
@@ -73,6 +80,11 @@ graph TB
     CW --> E1
     CW --> E2
     FL --> R
+    AF --> AQ
+    AQ --> P
+    AQ --> E1
+    AQ --> E2
+    AW --> AF
 ```
 
 ### Database Schema
@@ -102,6 +114,47 @@ The system uses PostgreSQL with comprehensive F1 data modeling:
 - **Materialized Views**: Driver rankings for fast leaderboard queries
 - **Table Partitioning**: Ready for partitioning race_results and predictions by race_id
 - **Foreign Key Relationships**: Proper referential integrity across entities
+
+## 🔄 Data Orchestration & Workflows
+
+The platform uses Apache Airflow for orchestrating complex data workflows and ensuring reliable data ingestion and processing.
+
+### Airflow DAGs
+
+#### 1. F1 Daily Data Ingestion (`f1_daily_ingestion`)
+- **Schedule**: Daily at 6 AM UTC
+- **Purpose**: Orchestrates daily F1 data ingestion from external APIs
+- **Tasks**:
+  - Season data fetching from Ergast API
+  - Race calendar processing
+  - Race results ingestion
+  - Weather data collection
+  - Data quality validation
+
+#### 2. ELO and Predictions (`f1_elo_predictions`)
+- **Schedule**: Every 6 hours
+- **Purpose**: Updates ELO ratings and ML predictions
+- **Tasks**:
+  - ELO rating calculations for drivers and teams
+  - ML model prediction generation
+  - Prediction accuracy evaluation
+  - Data cleanup and maintenance
+
+### Custom Operators
+
+- **EloRatingOperator**: Handles driver/team ELO rating calculations
+- **F1APIDataOperator**: Robust F1 API data fetching with retry logic
+- **DataValidationOperator**: Comprehensive data quality validation
+- **PredictionModelOperator**: ML model prediction generation and updates
+
+### Workflow Features
+
+- **Conditional Execution**: Season-aware task execution (racing vs off-season)
+- **Error Handling**: Comprehensive retry logic and failure alerts
+- **Data Quality**: Built-in validation and monitoring
+- **Scalability**: Support for parallel task execution and worker scaling
+
+For detailed information about the Airflow setup, see [docs/airflow-dags.md](../docs/airflow-dags.md).
 
 # Application
 ENVIRONMENT=development
