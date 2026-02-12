@@ -42,15 +42,31 @@ A comprehensive Formula One race prediction system built with modern microservic
 - cert-manager installed
 - nginx-ingress-controller deployed
 
-### One-Click Deployment
+### Secure Production Deployment
+
+**⚠️ Important:** This platform now uses secure external secret management. Before deployment:
+
+1. **Configure AWS Secrets Manager** (see [External Secrets Setup](infrastructure/kubernetes/external-secrets/README.md))
+2. **Set up environment-specific domains** (see [Environment Configuration](infrastructure/kubernetes/environments/))
+3. **Deploy with proper security configurations**
 
 ```bash
 # Clone repository
 git clone <repository-url>
 cd simple-spaghetti-website
 
-# Deploy to Kubernetes
-./scripts/deploy.sh production
+# 1. Configure secrets in AWS Secrets Manager
+# See infrastructure/kubernetes/external-secrets/README.md
+
+# 2. Update domain configuration
+# Edit infrastructure/kubernetes/environments/production/domains.yaml
+
+# 3. Deploy External Secrets Operator first
+kubectl apply -f infrastructure/kubernetes/external-secrets/
+
+# 4. Deploy application with environment-specific config
+kubectl apply -f infrastructure/kubernetes/environments/production/
+kubectl apply -f infrastructure/kubernetes/
 ```
 
 ### Local Development
@@ -69,9 +85,10 @@ Visit http://localhost:8080 to access the application.
 ## 📖 Documentation
 
 ### Deployment Guides
-- [**Kubernetes Deployment Guide**](docs/KUBERNETES_DEPLOYMENT.md) - Complete production deployment instructions
-- [**Local Development Setup**](docs/concepts/f1-prediction-analytics/LLD.md) - Development environment configuration
-- [**Production Checklist**](docs/concepts/f1-prediction-analytics/ROAM.md) - Security and performance considerations
+- [**🔒 Secure Kubernetes Deployment**](docs/SECURE_DEPLOYMENT.md) - Complete production deployment with enterprise security
+- [**📋 Security Implementation Checklist**](docs/SECURITY_CHECKLIST.md) - Verification and compliance guide
+- [**🔐 External Secrets Setup**](infrastructure/kubernetes/external-secrets/README.md) - AWS Secrets Manager integration
+- [**💻 Local Development Setup**](docs/concepts/f1-prediction-analytics/LLD.md) - Development environment configuration
 
 ### Architecture Documentation
 - [**Product Requirements**](docs/concepts/f1-prediction-analytics/PRD.md) - Business requirements and feature specifications
@@ -79,19 +96,50 @@ Visit http://localhost:8080 to access the application.
 - [**Low-Level Design**](docs/concepts/f1-prediction-analytics/LLD.md) - Implementation details and database schema
 - [**Project Timeline**](docs/concepts/f1-prediction-analytics/timeline.md) - Development milestones and sprint planning
 
+## 🔒 Security Features
+
+### Enterprise Security Standards
+- **🔐 External Secret Management**: AWS Secrets Manager integration with External Secrets Operator
+- **🛡️ Zero Hardcoded Secrets**: No credentials stored in version control
+- **🔑 Modern Authentication**: SCRAM-SHA-256 PostgreSQL authentication
+- **🌐 Environment-Specific Configuration**: Separate configs for production/staging/development
+- **🚫 Non-Root Containers**: All services run with minimal privileges
+- **🛂 Network Security**: Restricted CIDR ranges and network policies
+- **📜 SSL/TLS**: Encrypted connections for all database and Redis communications
+- **🔄 Secret Rotation**: Automated secret rotation support via AWS
+
+### Compliance & Auditing
+- **📊 Audit Logging**: AWS CloudTrail integration for secret access
+- **🎯 Fine-Grained Access Control**: IAM roles with minimal permissions
+- **📋 Security Monitoring**: Prometheus metrics for security events
+
 ## 🔧 Configuration
 
-### Required Environment Variables
+### Secure Secret Management
+
+**No longer using environment variables!** All secrets are managed through AWS Secrets Manager:
+
+```bash
+# Create secrets in AWS (see external-secrets/README.md for full guide)
+aws secretsmanager create-secret --name f1-analytics/postgres --secret-string '{
+  "username": "f1_analytics",
+  "password": "GENERATED_SECURE_PASSWORD",
+  "replication_password": "GENERATED_REPLICATION_PASSWORD"
+}'
+```
+
+### Domain Configuration
+
+Update environment-specific domain configuration:
 
 ```yaml
-# External API Keys
-OPENWEATHER_API_KEY: your_openweather_api_key
-
-# Database Configuration
-DATABASE_URL: postgresql://user:pass@host:5432/f1_analytics
-
-# Redis Configuration
-REDIS_URL: redis://host:6379/0
+# infrastructure/kubernetes/environments/production/domains.yaml
+data:
+  PRIMARY_DOMAIN: "your-domain.com"              # REPLACE with actual domain
+  FRONTEND_DOMAIN: "your-domain.com"
+  API_DOMAIN: "api.your-domain.com"
+  CONTACT_EMAIL: "admin@your-domain.com"         # REPLACE with actual email
+```
 
 # JWT Configuration
 JWT_SECRET_KEY: your_secure_jwt_secret
