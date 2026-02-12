@@ -1,0 +1,899 @@
+name: Docker Build and Registry
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'api/**'
+      - 'f1-analytics/**'
+      - 'Dockerfile*'
+      - 'docker-compose*.yml'
+      - '.github/workflows/docker-build.yml'
+
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'api/**'
+      - 'f1-analytics/**'
+      - 'Dockerfile*'
+
+  workflow_dispatch:
+    inputs:
+      build_target:
+        description: 'Specific service to build'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+        - all
+        - api
+        - f1-analytics-backend
+        - f1-analytics-frontend
+      push_to_registry:
+        description: 'Push images to registry'
+        required: false
+        type: boolean
+        default: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Build existing API service
+  build-api:
+    name: Build API Service
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.build_target == 'all' || github.event.inputs.build_target == 'api' || github.event.inputs.build_target == '' }}
+
+    outputs:
+      image: ${{ steps.meta.outputs.tags }}
+      digest: ${{ steps.build.outputs.digest }}
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      if: github.event_name != 'pull_request'
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Create API Dockerfile if it doesn't exist
+      run: |
+        if [ ! -f "api/Dockerfile" ]; then
+          mkdir -p api
+          cat > api/Dockerfile << 'EOF'
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Create non-root user
+RUN useradd --create-home --shell /bin/bash app && chown -R app:app /app
+USER app
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:5000/health || exit 1
+
+# Expose port
+EXPOSE 5000 8000
+
+# Default command (can be overridden)
+CMD ["python", "app.py"]
+EOF
+        fi
+
+    - name: Extract metadata for API
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-api
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push API Docker image
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: ./api
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+
+    - name: Generate SBOM
+      uses: anchore/sbom-action@v0
+      if: github.event_name != 'pull_request'
+      with:
+        image: ${{ steps.meta.outputs.tags }}
+        format: spdx-json
+        output-file: api-sbom.spdx.json
+
+    - name: Upload SBOM
+      if: github.event_name != 'pull_request'
+      uses: actions/upload-artifact@v3
+      with:
+        name: api-sbom
+        path: api-sbom.spdx.json
+        retention-days: 30
+
+  # Build F1 Analytics Backend
+  build-f1-backend:
+    name: Build F1 Analytics Backend
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.build_target == 'all' || github.event.inputs.build_target == 'f1-analytics-backend' || github.event.inputs.build_target == '' }}
+
+    outputs:
+      image: ${{ steps.meta.outputs.tags }}
+      digest: ${{ steps.build.outputs.digest }}
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      if: github.event_name != 'pull_request'
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Create F1 Analytics Backend Dockerfile
+      run: |
+        mkdir -p f1-analytics/backend
+        cat > f1-analytics/backend/Dockerfile << 'EOF'
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies for ML and database connectivity
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    libpq-dev \
+    libblas-dev \
+    liblapack-dev \
+    gfortran \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install ML libraries
+RUN pip install --no-cache-dir \
+    scikit-learn==1.3.2 \
+    xgboost==2.0.3 \
+    pandas==2.1.4 \
+    numpy==1.24.4 \
+    fastapi==0.104.1 \
+    uvicorn[standard]==0.24.0 \
+    alembic==1.13.1 \
+    psycopg2-binary==2.9.9 \
+    redis==5.0.1 \
+    boto3==1.34.0 \
+    httpx==0.25.2 \
+    python-multipart==0.0.6
+
+# Copy application code
+COPY . .
+
+# Create non-root user
+RUN useradd --create-home --shell /bin/bash f1app && chown -R f1app:f1app /app
+USER f1app
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:8000/api/v1/health || exit 1
+
+# Expose port
+EXPOSE 8000
+
+# Default command for FastAPI
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+EOF
+
+        # Create requirements.txt for F1 analytics if it doesn't exist
+        if [ ! -f "f1-analytics/backend/requirements.txt" ]; then
+          cp requirements.txt f1-analytics/backend/requirements.txt
+        fi
+
+    - name: Extract metadata for F1 Analytics Backend
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-f1-analytics-backend
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push F1 Analytics Backend image
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: ./f1-analytics/backend
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+
+  # Build F1 Analytics Frontend
+  build-f1-frontend:
+    name: Build F1 Analytics Frontend
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.build_target == 'all' || github.event.inputs.build_target == 'f1-analytics-frontend' || github.event.inputs.build_target == '' }}
+
+    outputs:
+      image: ${{ steps.meta.outputs.tags }}
+      digest: ${{ steps.build.outputs.digest }}
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      if: github.event_name != 'pull_request'
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Create F1 Analytics Frontend Dockerfile
+      run: |
+        mkdir -p f1-analytics/frontend
+        cat > f1-analytics/frontend/Dockerfile << 'EOF'
+# Multi-stage build for React application
+FROM node:20-alpine as builder
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Copy source code
+COPY . .
+
+# Build the application
+ENV NODE_ENV=production
+RUN npm run build
+
+# Production stage
+FROM nginx:alpine
+
+# Copy built assets from builder stage
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Copy nginx configuration
+COPY nginx.conf /etc/nginx/nginx.conf
+
+# Add security headers
+COPY nginx-security.conf /etc/nginx/conf.d/security.conf
+
+# Create nginx config if it doesn't exist
+RUN if [ ! -f /etc/nginx/conf.d/security.conf ]; then \
+      echo 'add_header X-Frame-Options DENY;' > /etc/nginx/conf.d/security.conf && \
+      echo 'add_header X-Content-Type-Options nosniff;' >> /etc/nginx/conf.d/security.conf && \
+      echo 'add_header X-XSS-Protection "1; mode=block";' >> /etc/nginx/conf.d/security.conf; \
+    fi
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:80/ || exit 1
+
+# Expose port
+EXPOSE 80
+
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
+EOF
+
+        # Create nginx config
+        cat > f1-analytics/frontend/nginx.conf << 'EOF'
+events {
+    worker_connections 1024;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    include /etc/nginx/conf.d/security.conf;
+
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+    server {
+        listen 80;
+        server_name _;
+
+        root /usr/share/nginx/html;
+        index index.html;
+
+        # Handle React Router
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+
+        # Cache static assets
+        location ~* \.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
+
+        # Security headers
+        add_header X-Frame-Options DENY;
+        add_header X-Content-Type-Options nosniff;
+        add_header X-XSS-Protection "1; mode=block";
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains";
+    }
+}
+EOF
+
+        # Create package.json if it doesn't exist
+        if [ ! -f "f1-analytics/frontend/package.json" ]; then
+          cat > f1-analytics/frontend/package.json << 'EOF'
+{
+  "name": "f1-analytics-frontend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint src --ext js,jsx,ts,tsx"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.8.1",
+    "axios": "^1.6.2",
+    "@tanstack/react-query": "^5.8.4",
+    "chart.js": "^4.4.0",
+    "react-chartjs-2": "^5.2.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.0",
+    "vite": "^5.0.8",
+    "eslint": "^8.55.0",
+    "typescript": "^5.3.3"
+  }
+}
+EOF
+        fi
+
+    - name: Extract metadata for F1 Analytics Frontend
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-f1-analytics-frontend
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push F1 Analytics Frontend image
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: ./f1-analytics/frontend
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+
+  # Security scanning of images
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: [build-api, build-f1-backend, build-f1-frontend]
+    if: always() && github.event_name != 'pull_request'
+
+    strategy:
+      matrix:
+        include:
+          - service: api
+            image: ${{ needs.build-api.outputs.image }}
+          - service: f1-backend
+            image: ${{ needs.build-f1-backend.outputs.image }}
+          - service: f1-frontend
+            image: ${{ needs.build-f1-frontend.outputs.image }}
+
+    steps:
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      if: ${{ matrix.image }}
+      with:
+        image-ref: ${{ matrix.image }}
+        format: 'sarif'
+        output: '${{ matrix.service }}-trivy-results.sarif'
+
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always() && hashFiles('*-trivy-results.sarif') != ''
+      with:
+        sarif_file: '${{ matrix.service }}-trivy-results.sarif'
+        category: '${{ matrix.service }}-image-scan'
+
+  # Create docker-compose files for development
+  create-docker-compose:
+    name: Create Docker Compose Configuration
+    runs-on: ubuntu-latest
+    needs: [build-api, build-f1-backend, build-f1-frontend]
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Create docker-compose.yml for development
+      run: |
+        cat > docker-compose.yml << 'EOF'
+version: '3.8'
+
+services:
+  # Existing API service
+  api:
+    image: ghcr.io/${{ github.repository }}-api:latest
+    ports:
+      - "5000:5000"
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/f1_analytics
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET_KEY=dev-secret-key-change-in-production
+      - ENVIRONMENT=development
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  # F1 Analytics Backend
+  f1-analytics-backend:
+    image: ghcr.io/${{ github.repository }}-f1-analytics-backend:latest
+    ports:
+      - "8001:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/f1_analytics
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET_KEY=dev-secret-key-change-in-production
+      - ENVIRONMENT=development
+      - S3_BUCKET_MODELS=f1-analytics-models-dev
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  # F1 Analytics Frontend
+  f1-analytics-frontend:
+    image: ghcr.io/${{ github.repository }}-f1-analytics-frontend:latest
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_URL=http://localhost:8001
+    depends_on:
+      - f1-analytics-backend
+    restart: unless-stopped
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=f1_analytics
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    restart: unless-stopped
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  # Nginx Reverse Proxy (optional)
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+      - f1-analytics-backend
+      - f1-analytics-frontend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+EOF
+
+    - name: Create docker-compose.prod.yml for production
+      run: |
+        cat > docker-compose.prod.yml << 'EOF'
+version: '3.8'
+
+services:
+  api:
+    image: ghcr.io/${{ github.repository }}-api:latest
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - ENVIRONMENT=production
+    depends_on:
+      - redis
+    networks:
+      - f1-network
+
+  f1-analytics-backend:
+    image: ghcr.io/${{ github.repository }}-f1-analytics-backend:latest
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - ENVIRONMENT=production
+      - S3_BUCKET_MODELS=${S3_BUCKET_MODELS}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+    depends_on:
+      - redis
+    networks:
+      - f1-network
+
+  f1-analytics-frontend:
+    image: ghcr.io/${{ github.repository }}-f1-analytics-frontend:latest
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+    environment:
+      - VITE_API_URL=${API_URL}
+    networks:
+      - f1-network
+
+  redis:
+    image: redis:7-alpine
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+    volumes:
+      - redis_data:/data
+    networks:
+      - f1-network
+
+networks:
+  f1-network:
+    driver: overlay
+
+volumes:
+  redis_data:
+EOF
+
+    - name: Create database initialization script
+      run: |
+        cat > init-db.sql << 'EOF'
+-- Initialize F1 Analytics database
+
+-- Create extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Create schemas
+CREATE SCHEMA IF NOT EXISTS f1_analytics;
+
+-- Basic user table for existing app
+CREATE TABLE IF NOT EXISTS users (
+    user_id SERIAL PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW(),
+    last_login TIMESTAMP,
+    role VARCHAR(20) DEFAULT 'user' CHECK (role IN ('user', 'admin'))
+);
+
+-- Alembic version tracking
+CREATE TABLE IF NOT EXISTS alembic_version (
+    version_num VARCHAR(32) NOT NULL,
+    CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
+);
+
+-- Grant permissions
+GRANT ALL PRIVILEGES ON DATABASE f1_analytics TO postgres;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgres;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO postgres;
+
+-- Insert initial admin user (development only)
+INSERT INTO users (email, password_hash, role)
+VALUES ('admin@f1-analytics.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewCqxFL/VTp3qPzu', 'admin')
+ON CONFLICT (email) DO NOTHING;
+
+EOF
+
+    - name: Commit docker-compose files
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add docker-compose.yml docker-compose.prod.yml init-db.sql
+        git commit -m "Add Docker Compose configuration files" || echo "No changes to commit"
+        git push || echo "No changes to push"
+
+  # Test docker-compose setup
+  test-docker-compose:
+    name: Test Docker Compose Setup
+    runs-on: ubuntu-latest
+    needs: create-docker-compose
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Pull latest changes
+      run: git pull
+
+    - name: Test docker-compose configuration
+      run: |
+        # Validate docker-compose syntax
+        docker-compose config
+
+        # Start services in background
+        docker-compose up -d postgres redis
+
+        # Wait for services to be ready
+        sleep 30
+
+        # Test database connectivity
+        docker-compose exec -T postgres psql -U postgres -d f1_analytics -c "SELECT 1;"
+
+        # Test Redis connectivity
+        docker-compose exec -T redis redis-cli ping
+
+        # Cleanup
+        docker-compose down
+
+    - name: Generate deployment documentation
+      run: |
+        cat > DOCKER_DEPLOYMENT.md << 'EOF'
+# Docker Deployment Guide
+
+## Quick Start
+
+### Development Environment
+```bash
+# Clone the repository
+git clone <repository-url>
+cd simple-spaghetti-website
+
+# Start all services
+docker-compose up -d
+
+# Check service status
+docker-compose ps
+
+# View logs
+docker-compose logs -f
+```
+
+### Production Environment
+```bash
+# Set environment variables
+export DATABASE_URL="postgresql://user:pass@host:port/dbname"
+export REDIS_URL="redis://host:port/0"
+export JWT_SECRET_KEY="your-secret-key"
+export S3_BUCKET_MODELS="your-s3-bucket"
+export AWS_ACCESS_KEY_ID="your-access-key"
+export AWS_SECRET_ACCESS_KEY="your-secret-key"
+export AWS_REGION="us-east-1"
+export API_URL="https://api.yourdomain.com"
+
+# Deploy with production configuration
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+## Services
+
+### API Service
+- **Port**: 5000, 8000
+- **Health Check**: `curl http://localhost:5000/health`
+- **Environment**: Flask/FastAPI backend
+
+### F1 Analytics Backend
+- **Port**: 8001
+- **Health Check**: `curl http://localhost:8001/api/v1/health`
+- **Environment**: FastAPI with ML capabilities
+
+### F1 Analytics Frontend
+- **Port**: 3000
+- **Health Check**: `curl http://localhost:3000/`
+- **Environment**: React SPA with Nginx
+
+### PostgreSQL
+- **Port**: 5432
+- **Database**: f1_analytics
+- **Credentials**: postgres/password (dev only)
+
+### Redis
+- **Port**: 6379
+- **Purpose**: Caching and session storage
+
+## Monitoring
+
+### Check Service Health
+```bash
+# Check all services
+docker-compose ps
+
+# Check specific service logs
+docker-compose logs api
+docker-compose logs f1-analytics-backend
+
+# Monitor resource usage
+docker stats
+```
+
+### Database Operations
+```bash
+# Connect to database
+docker-compose exec postgres psql -U postgres -d f1_analytics
+
+# Run migrations
+docker-compose exec api python -c "from alembic import command; from alembic.config import Config; config = Config('alembic.ini'); command.upgrade(config, 'head')"
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Port conflicts**: Update port mappings in docker-compose.yml
+2. **Database connection**: Ensure PostgreSQL is running and accessible
+3. **ML model loading**: Verify S3 credentials and bucket access
+4. **Frontend API calls**: Check VITE_API_URL environment variable
+
+### Reset Environment
+```bash
+# Stop and remove all containers
+docker-compose down
+
+# Remove volumes (WARNING: This deletes all data)
+docker-compose down -v
+
+# Rebuild images
+docker-compose build --no-cache
+
+# Start fresh
+docker-compose up -d
+```
+
+## Production Considerations
+
+1. **Security**: Update default passwords and secrets
+2. **SSL/TLS**: Configure HTTPS with proper certificates
+3. **Load Balancing**: Use nginx or cloud load balancer
+4. **Monitoring**: Set up health checks and alerting
+5. **Backups**: Configure automated database backups
+6. **Logging**: Centralized logging with ELK stack or similar
+
+EOF
+
+        git add DOCKER_DEPLOYMENT.md
+        git commit -m "Add Docker deployment documentation" || echo "No changes to commit"
+        git push || echo "No changes to push"
+
+  # Update image metadata and labels
+  update-metadata:
+    name: Update Image Metadata
+    runs-on: ubuntu-latest
+    needs: [build-api, build-f1-backend, build-f1-frontend, security-scan]
+    if: always() && github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Log deployment to monitoring
+      run: |
+        # Send deployment event to monitoring system
+        curl -X POST "https://api.datadoghq.com/api/v1/events" \
+          -H "DD-API-KEY: ${{ secrets.DATADOG_API_KEY }}" \
+          -d '{
+            "title": "Docker Images Built and Published",
+            "text": "New Docker images published to registry",
+            "tags": ["docker", "deployment", "ci-cd", "f1-analytics"]
+          }' || echo "Monitoring notification failed"
+
+    - name: Create deployment summary
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const summary = `## Docker Build Summary
+
+### Images Built
+- ✅ **API Service**: \`ghcr.io/${{ github.repository }}-api:${{ github.ref_name }}\`
+- ✅ **F1 Analytics Backend**: \`ghcr.io/${{ github.repository }}-f1-analytics-backend:${{ github.ref_name }}\`
+- ✅ **F1 Analytics Frontend**: \`ghcr.io/${{ github.repository }}-f1-analytics-frontend:${{ github.ref_name }}\`
+
+### Security Scan
+- Security vulnerabilities scanned with Trivy
+- SBOM (Software Bill of Materials) generated
+
+### Deployment
+- Docker Compose files updated
+- Development and production configurations available
+- Deployment documentation generated
+
+### Quick Start
+\`\`\`bash
+docker-compose up -d
+\`\`\`
+
+See [DOCKER_DEPLOYMENT.md](./DOCKER_DEPLOYMENT.md) for detailed instructions.
+`;
+
+          github.rest.repos.createCommitComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            commit_sha: context.sha,
+            body: summary
+          });

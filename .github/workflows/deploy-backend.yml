@@ -1,0 +1,471 @@
+name: Deploy Backend Services
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'f1-analytics/backend/**'
+      - 'api/**'
+      - 'requirements.txt'
+      - '.github/workflows/deploy-backend.yml'
+
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      force_deploy:
+        description: 'Force deployment (skip safety checks)'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Build and Push Docker Images
+  build-backend:
+    name: Build Backend Images
+    runs-on: ubuntu-latest
+
+    outputs:
+      api-image: ${{ steps.meta-api.outputs.tags }}
+      f1-analytics-image: ${{ steps.meta-f1.outputs.tags }}
+      api-digest: ${{ steps.build-api.outputs.digest }}
+      f1-analytics-digest: ${{ steps.build-f1.outputs.digest }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    # Build existing API service
+    - name: Extract metadata for API service
+      id: meta-api
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-api
+        tags: |
+          type=ref,event=branch
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push API Docker image
+      id: build-api
+      uses: docker/build-push-action@v5
+      with:
+        context: ./api
+        file: ./api/Dockerfile
+        push: true
+        tags: ${{ steps.meta-api.outputs.tags }}
+        labels: ${{ steps.meta-api.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+
+    # Build F1 Analytics service
+    - name: Extract metadata for F1 Analytics service
+      id: meta-f1
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-f1-analytics
+        tags: |
+          type=ref,event=branch
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push F1 Analytics Docker image
+      id: build-f1
+      uses: docker/build-push-action@v5
+      if: ${{ hashFiles('f1-analytics/backend/Dockerfile') != '' }}
+      with:
+        context: ./f1-analytics/backend
+        file: ./f1-analytics/backend/Dockerfile
+        push: true
+        tags: ${{ steps.meta-f1.outputs.tags }}
+        labels: ${{ steps.meta-f1.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+
+  # Security Scan of Images
+  security-scan-images:
+    name: Scan Docker Images
+    runs-on: ubuntu-latest
+    needs: build-backend
+
+    steps:
+    - name: Run Trivy vulnerability scanner on API image
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ needs.build-backend.outputs.api-image }}
+        format: 'sarif'
+        output: 'api-trivy-results.sarif'
+
+    - name: Run Trivy vulnerability scanner on F1 Analytics image
+      if: ${{ needs.build-backend.outputs.f1-analytics-image }}
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ needs.build-backend.outputs.f1-analytics-image }}
+        format: 'sarif'
+        output: 'f1-trivy-results.sarif'
+
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: '*.sarif'
+
+  # Deploy to Staging
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build-backend, security-scan-images]
+    environment:
+      name: staging
+      url: https://staging-api.f1-analytics.example.com
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Configure kubectl
+      run: |
+        aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name f1-analytics-staging
+
+    - name: Run database migrations
+      env:
+        DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+      run: |
+        # Install Alembic if migrations exist
+        if [ -d "api/alembic" ]; then
+          pip install alembic psycopg2-binary
+          cd api
+          alembic upgrade head
+        fi
+
+        # Run F1 analytics migrations if they exist
+        if [ -d "f1-analytics/backend/alembic" ]; then
+          pip install alembic psycopg2-binary
+          cd f1-analytics/backend
+          alembic upgrade head
+        fi
+
+    - name: Deploy API service to staging
+      run: |
+        # Update Kubernetes deployment with new image
+        kubectl set image deployment/api-service api=${{ needs.build-backend.outputs.api-image }} -n staging
+        kubectl rollout status deployment/api-service -n staging --timeout=300s
+
+    - name: Deploy F1 Analytics service to staging
+      if: ${{ needs.build-backend.outputs.f1-analytics-image }}
+      run: |
+        kubectl set image deployment/f1-analytics-service f1-analytics=${{ needs.build-backend.outputs.f1-analytics-image }} -n staging
+        kubectl rollout status deployment/f1-analytics-service -n staging --timeout=300s
+
+    - name: Run smoke tests
+      run: |
+        # Wait for services to be ready
+        kubectl wait --for=condition=ready pod -l app=api-service -n staging --timeout=300s
+
+        # Test API health endpoints
+        API_URL=$(kubectl get service api-service -n staging -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+        curl -f http://$API_URL/health || exit 1
+
+        # Test F1 Analytics endpoints if available
+        if kubectl get deployment f1-analytics-service -n staging; then
+          F1_URL=$(kubectl get service f1-analytics-service -n staging -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          curl -f http://$F1_URL/api/v1/health || exit 1
+        fi
+
+    - name: Update deployment status
+      if: always()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const status = '${{ job.status }}' === 'success' ? 'success' : 'failure';
+          const environment = 'staging';
+          const deploymentUrl = 'https://staging-api.f1-analytics.example.com';
+
+          github.rest.repos.createDeploymentStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            deployment_id: context.payload.deployment?.id || 0,
+            state: status,
+            environment_url: deploymentUrl,
+            description: `Deployment to ${environment} ${status}`
+          });
+
+  # Deploy to Production (Manual Approval Required)
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build-backend, security-scan-images, deploy-staging]
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy-prod]'))
+    environment:
+      name: production
+      url: https://api.f1-analytics.example.com
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Safety checks
+      if: ${{ !github.event.inputs.force_deploy }}
+      run: |
+        # Check if this is during business hours (UTC)
+        current_hour=$(date -u +%H)
+        if [ $current_hour -ge 9 ] && [ $current_hour -le 17 ]; then
+          echo "⚠️ Deployment during business hours (UTC). Use force_deploy to override."
+          exit 1
+        fi
+
+        # Check if it's Friday evening or weekend
+        day_of_week=$(date -u +%u)
+        if [ $day_of_week -ge 5 ] && [ $current_hour -ge 15 ]; then
+          echo "⚠️ Friday evening or weekend deployment. Use force_deploy to override."
+          exit 1
+        fi
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Configure kubectl
+      run: |
+        aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name f1-analytics-production
+
+    - name: Create database backup
+      run: |
+        # Create backup before deployment
+        BACKUP_NAME="pre-deploy-$(date +%Y%m%d-%H%M%S)"
+        echo "Creating backup: $BACKUP_NAME"
+
+        # Trigger database backup (adjust for your backup strategy)
+        # This could be AWS RDS snapshot, pg_dump, etc.
+        aws rds create-db-snapshot \
+          --db-instance-identifier f1-analytics-prod \
+          --db-snapshot-identifier $BACKUP_NAME
+
+    - name: Blue-Green Deployment - Create Green Environment
+      run: |
+        # Deploy to green environment first
+        kubectl apply -f f1-analytics/infrastructure/kubernetes/production/ -n production-green
+
+        # Update image tags in green environment
+        kubectl set image deployment/api-service api=${{ needs.build-backend.outputs.api-image }} -n production-green
+
+        if [ "${{ needs.build-backend.outputs.f1-analytics-image }}" ]; then
+          kubectl set image deployment/f1-analytics-service f1-analytics=${{ needs.build-backend.outputs.f1-analytics-image }} -n production-green
+        fi
+
+    - name: Run database migrations on green
+      env:
+        DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+      run: |
+        # Run migrations in green environment
+        if [ -d "api/alembic" ]; then
+          pip install alembic psycopg2-binary
+          cd api
+          alembic upgrade head
+        fi
+
+    - name: Wait for green environment to be ready
+      run: |
+        kubectl rollout status deployment/api-service -n production-green --timeout=600s
+
+        if kubectl get deployment f1-analytics-service -n production-green; then
+          kubectl rollout status deployment/f1-analytics-service -n production-green --timeout=600s
+        fi
+
+    - name: Health check green environment
+      run: |
+        # Test green environment health
+        GREEN_API_URL=$(kubectl get service api-service -n production-green -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+
+        # Comprehensive health checks
+        curl -f http://$GREEN_API_URL/health || exit 1
+        curl -f http://$GREEN_API_URL/api/v1/races/calendar?season=2026 || exit 1
+
+        # Test database connectivity
+        curl -f http://$GREEN_API_URL/api/v1/health/db || exit 1
+
+    - name: Canary Release - Route 10% traffic to green
+      run: |
+        # Update ingress to route 10% traffic to green
+        kubectl patch ingress f1-analytics-ingress -n production -p '{"metadata":{"annotations":{"nginx.ingress.kubernetes.io/canary":"true","nginx.ingress.kubernetes.io/canary-weight":"10"}}}'
+
+        echo "Canary deployment active - 10% traffic routing to green environment"
+        echo "Monitoring for 10 minutes..."
+
+    - name: Monitor canary metrics
+      run: |
+        # Monitor error rates and latency for 10 minutes
+        sleep 600
+
+        # Check metrics (adjust for your monitoring setup)
+        # This would typically query Prometheus/CloudWatch
+        ERROR_RATE=$(curl -s "http://prometheus:9090/api/v1/query?query=rate(http_requests_total{job=\"api-service\",status=~\"5..\"}[5m])" | jq '.data.result[0].value[1] // "0"' -r)
+
+        if (( $(echo "$ERROR_RATE > 0.01" | bc -l) )); then
+          echo "Error rate too high: $ERROR_RATE"
+          exit 1
+        fi
+
+    - name: Full traffic switch to green
+      run: |
+        # Switch all traffic to green environment
+        kubectl patch ingress f1-analytics-ingress -n production -p '{"metadata":{"annotations":{"nginx.ingress.kubernetes.io/canary-weight":"100"}}}'
+
+        echo "Full traffic now routing to green environment"
+        sleep 60
+
+    - name: Final health check
+      run: |
+        # Final comprehensive health check
+        API_URL=$(kubectl get service api-service -n production -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+
+        curl -f http://$API_URL/health || exit 1
+        curl -f http://$API_URL/api/v1/predictions/next-race -H "Authorization: Bearer ${{ secrets.TEST_JWT_TOKEN }}" || echo "Predictions endpoint not yet available"
+
+    - name: Cleanup old blue environment
+      run: |
+        # Scale down old blue environment
+        kubectl scale deployment api-service --replicas=0 -n production-blue || true
+        kubectl scale deployment f1-analytics-service --replicas=0 -n production-blue || true
+
+        echo "Blue environment scaled down"
+
+    - name: Notify deployment success
+      if: success()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.repos.createCommitComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            commit_sha: context.sha,
+            body: '🚀 **Production deployment successful!**\n\n✅ Blue-green deployment completed\n✅ Health checks passed\n✅ Database migrations applied\n\nProduction URL: https://api.f1-analytics.example.com'
+          });
+
+  # Rollback procedure
+  rollback-production:
+    name: Rollback Production
+    runs-on: ubuntu-latest
+    if: failure() && needs.deploy-production.result == 'failure'
+    needs: deploy-production
+    environment:
+      name: production
+
+    steps:
+    - name: Configure kubectl
+      run: |
+        aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name f1-analytics-production
+
+    - name: Emergency rollback to blue environment
+      run: |
+        # Switch traffic back to blue environment
+        kubectl patch ingress f1-analytics-ingress -n production -p '{"metadata":{"annotations":{"nginx.ingress.kubernetes.io/canary":"false"}}}'
+
+        # Scale blue environment back up
+        kubectl scale deployment api-service --replicas=3 -n production-blue
+        kubectl scale deployment f1-analytics-service --replicas=2 -n production-blue || true
+
+        # Wait for blue to be ready
+        kubectl rollout status deployment/api-service -n production-blue --timeout=300s
+
+    - name: Rollback database if needed
+      if: contains(github.event.head_commit.message, '[rollback-db]')
+      run: |
+        echo "Database rollback requested - manual intervention required"
+        echo "Latest backup available for restoration"
+
+    - name: Notify rollback
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.repos.createCommitComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            commit_sha: context.sha,
+            body: '🔴 **Production deployment failed - Rollback executed**\n\n⏪ Traffic switched back to previous version\n📊 Please check logs and metrics\n🔧 Manual investigation required'
+          });
+
+  # Post-deployment tasks
+  post-deployment:
+    name: Post-deployment Tasks
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    if: success()
+
+    steps:
+    - name: Update model cache
+      run: |
+        # Trigger cache warming for predictions
+        curl -X POST "${{ secrets.PRODUCTION_API_URL }}/api/v1/admin/cache/warm" \
+          -H "Authorization: Bearer ${{ secrets.ADMIN_JWT_TOKEN }}" || echo "Cache warming endpoint not available"
+
+    - name: Update external monitoring
+      run: |
+        # Update external monitoring services (e.g., Pingdom, DataDog)
+        curl -X POST "https://api.datadoghq.com/api/v1/events" \
+          -H "DD-API-KEY: ${{ secrets.DATADOG_API_KEY }}" \
+          -d '{
+            "title": "F1 Analytics Production Deployment",
+            "text": "Backend services deployed successfully",
+            "tags": ["deployment", "production", "f1-analytics"]
+          }' || echo "External monitoring update failed"
+
+    - name: Create release notes
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const commits = await github.rest.repos.listCommits({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            since: '${{ needs.deploy-production.outputs.previous-deploy-time }}',
+            until: context.sha
+          });
+
+          let releaseNotes = '## Release Notes\n\n';
+          releaseNotes += `**Deployed:** ${new Date().toISOString()}\n`;
+          releaseNotes += `**Commit:** ${context.sha.substring(0, 7)}\n\n`;
+          releaseNotes += '### Changes:\n';
+
+          commits.data.forEach(commit => {
+            releaseNotes += `- ${commit.commit.message.split('\n')[0]}\n`;
+          });
+
+          github.rest.repos.createRelease({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            tag_name: `v${new Date().toISOString().split('T')[0]}-${context.sha.substring(0, 7)}`,
+            name: `Production Release - ${new Date().toISOString().split('T')[0]}`,
+            body: releaseNotes
+          });

@@ -1,124 +1,72 @@
 """
-Driver Model
+Driver model for F1 Prediction Analytics.
 
-Represents F1 drivers in the database.
-Tracks driver information, team associations, and Elo ratings for performance analysis.
+This module defines the Driver SQLAlchemy model representing Formula 1 drivers
+with their personal information, team associations, and ELO ratings.
 """
 
 from datetime import datetime, date
-from typing import List, Optional, TYPE_CHECKING
-
-from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey, Index
+from typing import Optional
+from sqlalchemy import Column, Integer, String, Date, ForeignKey, DateTime, Index
 from sqlalchemy.orm import relationship
 
-from ..database import Base
-
-if TYPE_CHECKING:
-    from .team import Team
-    from .race_result import RaceResult
-    from .qualifying_result import QualifyingResult
-    from .prediction import Prediction
+from app.database import Base
 
 
 class Driver(Base):
     """
-    F1 Driver model.
+    SQLAlchemy model for Formula 1 drivers.
 
-    Represents Formula 1 drivers and their metadata including
-    current team association and Elo rating for performance tracking.
+    This model stores driver information including personal details,
+    current team association, and performance rating (ELO).
 
     Attributes:
-        driver_id: Primary key
-        driver_code: Unique 3-letter driver code (e.g., 'HAM', 'VER', 'LEC')
-        driver_name: Full driver name
+        driver_id: Primary key, unique identifier for driver
+        driver_code: Three-letter code (e.g., 'VER', 'HAM', 'LEC')
+        driver_name: Full name of the driver
         nationality: Driver's nationality
         date_of_birth: Driver's birth date
         current_team_id: Foreign key to current team (nullable for retired drivers)
-        current_elo_rating: Current Elo rating for performance ranking (default: 1500)
-        created_at: Record creation timestamp
-        updated_at: Last update timestamp
-
-    Relationships:
-        current_team: Current team association
-        race_results: All race results for this driver
-        qualifying_results: All qualifying results for this driver
-        predictions: Predictions about this driver's performance
+        current_elo_rating: Current ELO rating for performance ranking
+        created_at: Timestamp when record was created
+        updated_at: Timestamp when record was last updated
     """
 
     __tablename__ = "drivers"
 
-    # Primary key
-    driver_id = Column(Integer, primary_key=True, autoincrement=True)
-
-    # Driver information
-    driver_code = Column(String(3), nullable=False, unique=True, index=True)
-    driver_name = Column(String(100), nullable=False, index=True)
-    nationality = Column(String(50), nullable=False)
-    date_of_birth = Column(Date, nullable=False)
-
-    # Team association (nullable for retired drivers)
-    current_team_id = Column(
-        Integer,
-        ForeignKey("teams.team_id", ondelete="SET NULL"),
-        nullable=True,
-        index=True
-    )
-
-    # Performance tracking
-    current_elo_rating = Column(Integer, nullable=False, default=1500, index=True)
-
-    # Timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(
-        DateTime,
-        nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow
-    )
+    driver_id = Column(Integer, primary_key=True, index=True)
+    driver_code = Column(String(3), unique=True, nullable=False, index=True)
+    driver_name = Column(String(100), nullable=False)
+    nationality = Column(String(50))
+    date_of_birth = Column(Date)
+    current_team_id = Column(Integer, ForeignKey("teams.team_id"), nullable=True)
+    current_elo_rating = Column(Integer, default=1500, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    current_team = relationship(
-        "Team",
-        back_populates="drivers",
-        lazy="select"
-    )
+    team = relationship("Team", back_populates="drivers")
+    race_results = relationship("RaceResult", back_populates="driver")
+    qualifying_results = relationship("QualifyingResult", back_populates="driver")
+    predictions = relationship("Prediction", back_populates="driver")
 
-    race_results = relationship(
-        "RaceResult",
-        back_populates="driver",
-        lazy="select"
-    )
-
-    qualifying_results = relationship(
-        "QualifyingResult",
-        back_populates="driver",
-        lazy="select"
-    )
-
-    predictions = relationship(
-        "Prediction",
-        back_populates="driver",
-        lazy="select"
-    )
-
-    # Indexes for performance
+    # Indexes
     __table_args__ = (
         Index("idx_drivers_code", "driver_code"),
-        Index("idx_drivers_name", "driver_name"),
-        Index("idx_drivers_elo_rating", "current_elo_rating"),
-        Index("idx_drivers_team", "current_team_id"),
+        Index("idx_drivers_elo", "current_elo_rating"),
     )
 
     def __repr__(self) -> str:
-        return f"<Driver(id={self.driver_id}, code='{self.driver_code}', name='{self.driver_name}')>"
+        """String representation of Driver instance."""
+        return f"<Driver(id={self.driver_id}, code='{self.driver_code}', name='{self.driver_name}', elo={self.current_elo_rating})>"
 
     def __str__(self) -> str:
-        team_name = self.current_team.team_name if self.current_team else "No Team"
-        return f"{self.driver_name} ({self.driver_code}) - {team_name}"
+        """Human-readable string representation."""
+        return f"{self.driver_name} ({self.driver_code})"
 
     @property
     def age(self) -> Optional[int]:
-        """Calculate current age of the driver"""
+        """Calculate driver's current age."""
         if self.date_of_birth:
             today = date.today()
             return today.year - self.date_of_birth.year - (

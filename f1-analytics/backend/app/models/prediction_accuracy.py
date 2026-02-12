@@ -1,206 +1,150 @@
 """
-Prediction Accuracy Model
+Prediction Accuracy model for F1 Prediction Analytics.
 
-Represents accuracy metrics for ML predictions after races are completed.
-Tracks various accuracy measures including Brier score, log loss, and classification accuracy.
+This module defines the PredictionAccuracy SQLAlchemy model for tracking
+the accuracy and performance metrics of ML model predictions.
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING
-from decimal import Decimal
-
-from sqlalchemy import (
-    Column, Integer, Boolean, DateTime, ForeignKey, DECIMAL,
-    Index, CheckConstraint
-)
+from sqlalchemy import Column, Integer, ForeignKey, DateTime, Numeric, Boolean
 from sqlalchemy.orm import relationship
 
-from ..database import Base
-
-if TYPE_CHECKING:
-    from .race import Race
+from app.database import Base
 
 
 class PredictionAccuracy(Base):
     """
-    Prediction Accuracy model.
+    SQLAlchemy model for Formula 1 prediction accuracy metrics.
 
-    Represents accuracy metrics for ML predictions after race completion.
-    Calculated by comparing predictions against actual race results.
-
-    One accuracy record per race, aggregating all predictions for that race.
+    This model stores accuracy metrics calculated after race completion
+    to evaluate prediction model performance. Metrics include Brier score,
+    log loss, and binary accuracy measures.
 
     Attributes:
-        accuracy_id: Primary key
-        race_id: Foreign key to race (unique - one accuracy record per race)
-        brier_score: Brier score (0-1, lower is better) for probabilistic accuracy
-        log_loss: Log loss (0+, lower is better) for probabilistic accuracy
-        correct_winner: Boolean indicating if winner was correctly predicted
-        top_3_accuracy: Boolean indicating if top 3 was correctly predicted
-        created_at: Record creation timestamp
-
-    Relationships:
-        race: Race these accuracy metrics apply to
-
-    Accuracy Metrics:
-        - Brier Score: Measures accuracy of probabilistic predictions (0 = perfect, 1 = worst)
-        - Log Loss: Measures uncertainty of predictions relative to actual outcome
-        - Correct Winner: Simple binary accuracy for race winner prediction
-        - Top 3 Accuracy: Binary accuracy for podium predictions
+        accuracy_id: Primary key, unique identifier for accuracy record
+        race_id: Foreign key to completed race (unique - one record per race)
+        brier_score: Brier score metric (lower is better, 0-1 scale)
+        log_loss: Logarithmic loss metric (lower is better)
+        correct_winner: Boolean indicating if predicted winner was correct
+        top_3_accuracy: Boolean indicating if actual winner was in predicted top 3
+        created_at: Timestamp when accuracy was calculated
     """
 
     __tablename__ = "prediction_accuracy"
 
-    # Primary key
-    accuracy_id = Column(Integer, primary_key=True, autoincrement=True)
-
-    # Foreign key to race (unique - one accuracy record per race)
-    race_id = Column(
-        Integer,
-        ForeignKey("races.race_id", ondelete="CASCADE"),
-        nullable=False,
-        unique=True,
-        index=True
-    )
-
-    # Probabilistic accuracy metrics
-    brier_score = Column(
-        DECIMAL(6, 4),
-        nullable=False,
-        index=True
-    )  # 0-1, lower is better
-
-    log_loss = Column(
-        DECIMAL(6, 4),
-        nullable=False,
-        index=True
-    )  # 0+, lower is better
-
-    # Classification accuracy metrics
-    correct_winner = Column(Boolean, nullable=False, index=True)
-    top_3_accuracy = Column(Boolean, nullable=False, index=True)
-
-    # Additional metrics (can be added later)
-    # mean_absolute_error = Column(DECIMAL(6, 4), nullable=True)
-    # rank_correlation = Column(DECIMAL(6, 4), nullable=True)
-
-    # Timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    accuracy_id = Column(Integer, primary_key=True, index=True)
+    race_id = Column(Integer, ForeignKey("races.race_id"), unique=True, nullable=False)
+    brier_score = Column(Numeric(6, 4))  # e.g., 0.1234 (range 0-1)
+    log_loss = Column(Numeric(6, 4))  # e.g., 2.3456
+    correct_winner = Column(Boolean)  # True if predicted winner was correct
+    top_3_accuracy = Column(Boolean)  # True if actual winner was in predicted top 3
+    created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
-    race = relationship(
-        "Race",
-        back_populates="prediction_accuracy",
-        lazy="select"
-    )
-
-    # Constraints and indexes
-    __table_args__ = (
-        # Check constraints for metric validation
-        CheckConstraint(
-            "brier_score >= 0 AND brier_score <= 1",
-            name="ck_prediction_accuracy_brier_score_range"
-        ),
-        CheckConstraint(
-            "log_loss >= 0",
-            name="ck_prediction_accuracy_log_loss_non_negative"
-        ),
-        # Performance indexes
-        Index("idx_prediction_accuracy_race", "race_id"),
-        Index("idx_prediction_accuracy_brier", "brier_score"),
-        Index("idx_prediction_accuracy_log_loss", "log_loss"),
-        Index("idx_prediction_accuracy_winner", "correct_winner"),
-        Index("idx_prediction_accuracy_top3", "top_3_accuracy"),
-    )
+    race = relationship("Race", back_populates="prediction_accuracy")
 
     def __repr__(self) -> str:
-        return (f"<PredictionAccuracy(id={self.accuracy_id}, race_id={self.race_id}, "
-                f"brier={self.brier_score}, winner={self.correct_winner})>")
+        """String representation of PredictionAccuracy instance."""
+        return (
+            f"<PredictionAccuracy(id={self.accuracy_id}, race_id={self.race_id}, "
+            f"brier_score={self.brier_score}, correct_winner={self.correct_winner})>"
+        )
 
     def __str__(self) -> str:
-        if self.race:
-            winner_status = "✓" if self.correct_winner else "✗"
-            top3_status = "✓" if self.top_3_accuracy else "✗"
-            return (f"{self.race.race_name} Accuracy: Winner {winner_status}, "
-                    f"Top3 {top3_status}, Brier: {self.brier_score}")
-        return f"Prediction Accuracy {self.accuracy_id}"
+        """Human-readable string representation."""
+        winner_status = "✓" if self.correct_winner else "✗"
+        top3_status = "✓" if self.top_3_accuracy else "✗"
+        return f"Winner: {winner_status}, Top-3: {top3_status}, Brier: {self.brier_score}"
 
     @property
-    def brier_score_percentage(self) -> float:
-        """Get Brier score as percentage (0-100%)"""
-        return float(self.brier_score) * 100
+    def excellent_prediction(self) -> bool:
+        """Check if prediction quality is excellent (Brier score < 0.10)."""
+        return self.brier_score is not None and self.brier_score < 0.10
+
+    @property
+    def good_prediction(self) -> bool:
+        """Check if prediction quality is good (Brier score < 0.20)."""
+        return self.brier_score is not None and self.brier_score < 0.20
+
+    @property
+    def poor_prediction(self) -> bool:
+        """Check if prediction quality is poor (Brier score > 0.30)."""
+        return self.brier_score is not None and self.brier_score > 0.30
 
     @property
     def accuracy_grade(self) -> str:
         """
-        Grade the prediction accuracy based on Brier score:
-        - Excellent: < 0.1 (10%)
-        - Good: 0.1-0.2 (10-20%)
-        - Fair: 0.2-0.3 (20-30%)
-        - Poor: 0.3-0.4 (30-40%)
-        - Very Poor: > 0.4 (40%+)
+        Return letter grade based on prediction accuracy.
+
+        Grading scale:
+        - A: Brier score < 0.10, correct winner
+        - B: Brier score < 0.20 or correct winner
+        - C: Brier score < 0.30 or top-3 accuracy
+        - D: Brier score >= 0.30, no winner/top-3 accuracy
         """
-        score = float(self.brier_score)
-        if score < 0.1:
-            return "excellent"
-        elif score < 0.2:
-            return "good"
-        elif score < 0.3:
-            return "fair"
-        elif score < 0.4:
-            return "poor"
+        if self.brier_score is None:
+            return "N/A"
+
+        if self.brier_score < 0.10 and self.correct_winner:
+            return "A"
+        elif self.brier_score < 0.20 or self.correct_winner:
+            return "B"
+        elif self.brier_score < 0.30 or self.top_3_accuracy:
+            return "C"
         else:
-            return "very_poor"
+            return "D"
 
-    @property
-    def is_good_prediction(self) -> bool:
-        """Check if this represents a good prediction (Brier < 0.2 and winner correct)"""
-        return float(self.brier_score) < 0.2 and self.correct_winner
-
-    @property
-    def log_loss_capped(self) -> float:
-        """Get log loss capped at reasonable maximum for display"""
-        return min(float(self.log_loss), 10.0)
-
-    @property
-    def overall_accuracy_score(self) -> float:
+    @classmethod
+    def calculate_brier_score(cls, predictions: list, actual_winner_id: int) -> float:
         """
-        Calculate overall accuracy score (0-100) combining multiple metrics.
-        Weighted combination of:
-        - Brier score (40% weight, inverted)
-        - Winner accuracy (30% weight)
-        - Top 3 accuracy (20% weight)
-        - Log loss (10% weight, inverted and capped)
+        Calculate Brier score for a set of predictions.
+
+        Brier score = mean((predicted_prob - actual_outcome)^2)
+        where actual_outcome is 1 for winner, 0 for non-winners.
+
+        Args:
+            predictions: List of Prediction objects for the race
+            actual_winner_id: driver_id of the actual race winner
+
+        Returns:
+            float: Brier score (0-1, lower is better)
         """
-        # Brier score component (inverted, 40% weight)
-        brier_component = (1 - float(self.brier_score)) * 0.4
+        if not predictions:
+            return 1.0  # Worst possible score
 
-        # Winner accuracy (30% weight)
-        winner_component = (1.0 if self.correct_winner else 0.0) * 0.3
+        squared_errors = []
+        for prediction in predictions:
+            actual_outcome = 1.0 if prediction.driver_id == actual_winner_id else 0.0
+            predicted_prob = prediction.probability_decimal
+            squared_error = (predicted_prob - actual_outcome) ** 2
+            squared_errors.append(squared_error)
 
-        # Top 3 accuracy (20% weight)
-        top3_component = (1.0 if self.top_3_accuracy else 0.0) * 0.2
+        return sum(squared_errors) / len(squared_errors)
 
-        # Log loss component (inverted and capped, 10% weight)
-        log_loss_capped = min(float(self.log_loss), 5.0)  # Cap at 5
-        log_loss_component = max(0, (1 - log_loss_capped / 5.0)) * 0.1
+    @classmethod
+    def calculate_log_loss(cls, predictions: list, actual_winner_id: int) -> float:
+        """
+        Calculate logarithmic loss for a set of predictions.
 
-        total_score = (brier_component + winner_component +
-                      top3_component + log_loss_component)
+        Log loss = -log(predicted_probability_of_actual_winner)
 
-        return total_score * 100  # Convert to percentage
+        Args:
+            predictions: List of Prediction objects for the race
+            actual_winner_id: driver_id of the actual race winner
 
-    def to_dict(self) -> dict:
-        """Convert accuracy metrics to dictionary for API responses"""
-        return {
-            "accuracy_id": self.accuracy_id,
-            "race_id": self.race_id,
-            "brier_score": float(self.brier_score),
-            "brier_score_percentage": self.brier_score_percentage,
-            "log_loss": float(self.log_loss),
-            "correct_winner": self.correct_winner,
-            "top_3_accuracy": self.top_3_accuracy,
-            "accuracy_grade": self.accuracy_grade,
-            "overall_accuracy_score": self.overall_accuracy_score,
-            "is_good_prediction": self.is_good_prediction
-        }
+        Returns:
+            float: Log loss (lower is better)
+        """
+        import math
+
+        winner_prediction = next(
+            (p for p in predictions if p.driver_id == actual_winner_id),
+            None
+        )
+
+        if not winner_prediction:
+            return float('inf')  # Worst possible score
+
+        # Add small epsilon to avoid log(0)
+        probability = max(winner_prediction.probability_decimal, 1e-15)
+        return -math.log(probability)

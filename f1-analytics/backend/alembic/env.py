@@ -1,37 +1,42 @@
 """
-Alembic Environment Configuration for F1 Prediction Analytics
+Alembic environment configuration for F1 Prediction Analytics.
 
-This file configures the Alembic migration environment, including
-database connection, model imports, and migration context setup.
+This file configures Alembic to work with our SQLAlchemy models
+and database connection settings.
 """
 
-import asyncio
 import os
 import sys
 from logging.config import fileConfig
 
-from sqlalchemy import pool
-from sqlalchemy.ext.asyncio import async_engine_from_config
-from sqlalchemy.engine import Connection
 from sqlalchemy import engine_from_config
+from sqlalchemy import pool
 
 from alembic import context
 
-# Add the parent directory to the path so we can import our models
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+# Add the app directory to Python path so we can import our models
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Import our database configuration and models
+# Import our models and database configuration
 from app.database import Base
 from app.config import settings
 
 # Import all models to ensure they are registered with SQLAlchemy
 from app.models import (
-    Driver, Team, Circuit, Race, RaceResult, QualifyingResult,
-    WeatherData, Prediction, PredictionAccuracy, User
+    driver,
+    team,
+    circuit,
+    race,
+    race_result,
+    qualifying_result,
+    weather_data,
+    prediction,
+    prediction_accuracy,
+    user
 )
 
-# This is the Alembic Config object, which provides
-# access to the values within the .ini file in use.
+# This is the Alembic Config object, which provides access to the values
+# within the .ini file in use.
 config = context.config
 
 # Interpret the config file for Python logging.
@@ -39,27 +44,41 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Set the SQLAlchemy URL from our settings if not already set
-if not config.get_main_option("sqlalchemy.url"):
-    config.set_main_option("sqlalchemy.url", settings.database_url)
+# Set the SQLAlchemy URL from our settings
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 # Add your model's MetaData object here for 'autogenerate' support
 target_metadata = Base.metadata
 
-# Other values from the config, defined by the needs of env.py
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
+
+def include_name(name, type_, parent_names):
+    """
+    Filter function to include/exclude tables from migrations.
+
+    This function is called by Alembic for each database object
+    to determine whether it should be included in the migration.
+    """
+    # Only include our F1 analytics tables
+    f1_tables = {
+        'users', 'drivers', 'teams', 'circuits', 'races',
+        'race_results', 'qualifying_results', 'weather_data',
+        'predictions', 'prediction_accuracy'
+    }
+
+    if type_ == 'table':
+        return name in f1_tables
+
+    # Include all other objects (indexes, constraints, etc.)
+    return True
 
 
 def run_migrations_offline() -> None:
     """
     Run migrations in 'offline' mode.
 
-    This configures the context with just a URL
-    and not an Engine, though an Engine is acceptable
-    here as well. By skipping the Engine creation
-    we don't even need a DBAPI to be available.
+    This configures the context with just a URL and not an Engine,
+    though an Engine is acceptable here as well. By skipping the Engine
+    creation we don't even need a DBAPI to be available.
 
     Calls to context.execute() here emit the given string to the
     script output.
@@ -70,99 +89,55 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        # Add custom naming convention for constraints
-        render_as_batch=False,
+        include_name=include_name,
         compare_type=True,
         compare_server_default=True,
     )
 
     with context.begin_transaction():
         context.run_migrations()
-
-
-def do_run_migrations(connection: Connection) -> None:
-    """Run migrations with the given connection."""
-    context.configure(
-        connection=connection,
-        target_metadata=target_metadata,
-        # Add custom options for better migration handling
-        render_as_batch=False,
-        compare_type=True,
-        compare_server_default=True,
-        # Include object names in migrations for better clarity
-        include_object=include_object,
-        # Custom naming convention for better constraint names
-        process_revision_directives=process_revision_directives,
-    )
-
-    with context.begin_transaction():
-        context.run_migrations()
-
-
-def include_object(object, name, type_, reflected, compare_to):
-    """
-    Filter objects to include in migrations.
-
-    This function allows us to skip certain objects during autogenerate.
-    For example, we might want to skip views or certain indexes.
-    """
-    # Skip certain objects if needed
-    if type_ == "table" and name in ["alembic_version"]:
-        return False
-
-    # Include all other objects
-    return True
-
-
-def process_revision_directives(context, revision, directives):
-    """
-    Process revision directives to customize migration generation.
-
-    This can be used to modify how migrations are generated,
-    for example to ensure certain operations happen in the correct order.
-    """
-    # Add custom processing if needed
-    pass
-
-
-async def run_async_migrations() -> None:
-    """
-    Run migrations in async mode.
-
-    This is useful when using async SQLAlchemy engines,
-    though for our current setup we'll use sync mode.
-    """
-    connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
-
-    async with connectable.connect() as connection:
-        await connection.run_sync(do_run_migrations)
-
-    await connectable.dispose()
 
 
 def run_migrations_online() -> None:
     """
     Run migrations in 'online' mode.
 
-    In this scenario we need to create an Engine
-    and associate a connection with the context.
+    In this scenario we need to create an Engine and associate a
+    connection with the context.
     """
+    # Get database connection configuration
+    configuration = config.get_section(config.config_ini_section, {})
+    configuration['sqlalchemy.url'] = settings.DATABASE_URL
+
+    # Create engine with connection pooling settings
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        configuration,
         prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
+        poolclass=pool.NullPool,  # Don't use connection pooling for migrations
     )
 
     with connectable.connect() as connection:
-        do_run_migrations(connection)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            include_name=include_name,
+            compare_type=True,
+            compare_server_default=True,
+            render_as_batch=False,  # We're using PostgreSQL, not SQLite
+            transaction_per_migration=True,
+        )
+
+        with context.begin_transaction():
+            context.run_migrations()
 
 
-# Determine whether to run in offline or online mode
-if context.is_offline_mode():
-    run_migrations_offline()
-else:
-    run_migrations_online()
+def run_migrations():
+    """Run migrations based on the context."""
+    if context.is_offline_mode():
+        run_migrations_offline()
+    else:
+        run_migrations_online()
+
+
+# Run the migrations
+run_migrations()

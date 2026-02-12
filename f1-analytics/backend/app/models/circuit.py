@@ -1,93 +1,76 @@
 """
-Circuit Model
+Circuit model for F1 Prediction Analytics.
 
-Represents F1 circuits/tracks in the database.
-Tracks circuit information including location and track characteristics.
+This module defines the Circuit SQLAlchemy model representing Formula 1 racing
+circuits and tracks with their characteristics.
 """
 
 from datetime import datetime
-from typing import List, TYPE_CHECKING
-from decimal import Decimal
-
-from sqlalchemy import Column, Integer, String, DateTime, DECIMAL, Index, CheckConstraint
+from sqlalchemy import Column, Integer, String, DateTime, Numeric, CheckConstraint
 from sqlalchemy.orm import relationship
 
-from ..database import Base
-
-if TYPE_CHECKING:
-    from .race import Race
+from app.database import Base
 
 
 class Circuit(Base):
     """
-    F1 Circuit model.
+    SQLAlchemy model for Formula 1 racing circuits.
 
-    Represents Formula 1 circuits/tracks and their characteristics.
+    This model stores circuit information including track characteristics
+    that may influence race predictions and performance analysis.
 
     Attributes:
-        circuit_id: Primary key
-        circuit_name: Official circuit name (unique)
+        circuit_id: Primary key, unique identifier for circuit
+        circuit_name: Official name of the racing circuit
         location: City/region where circuit is located
         country: Country where circuit is located
-        track_length_km: Track length in kilometers (2 decimal places)
-        track_type: Type of track ('street' or 'permanent')
-        created_at: Record creation timestamp
-
-    Relationships:
-        races: All races held at this circuit
+        track_length_km: Length of circuit in kilometers
+        track_type: Type of circuit ('street', 'permanent')
+        created_at: Timestamp when record was created
     """
 
     __tablename__ = "circuits"
 
-    # Primary key
-    circuit_id = Column(Integer, primary_key=True, autoincrement=True)
-
-    # Circuit information
-    circuit_name = Column(String(100), nullable=False, unique=True, index=True)
-    location = Column(String(100), nullable=False)
-    country = Column(String(50), nullable=False, index=True)
-
-    # Track characteristics
-    track_length_km = Column(DECIMAL(5, 2), nullable=False)
-    track_type = Column(String(20), nullable=False, index=True)
-
-    # Timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    circuit_id = Column(Integer, primary_key=True, index=True)
+    circuit_name = Column(String(100), unique=True, nullable=False)
+    location = Column(String(100))
+    country = Column(String(50))
+    track_length_km = Column(Numeric(5, 2))  # e.g., 5.891 km
+    track_type = Column(String(20))  # 'street', 'permanent'
+    created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
-    races = relationship(
-        "Race",
-        back_populates="circuit",
-        lazy="select"
-    )
+    races = relationship("Race", back_populates="circuit")
 
-    # Constraints and indexes
+    # Constraints
     __table_args__ = (
         CheckConstraint(
-            "track_type IN ('street', 'permanent')",
+            track_type.in_(["street", "permanent"]),
             name="ck_circuits_track_type"
         ),
-        CheckConstraint(
-            "track_length_km > 0",
-            name="ck_circuits_track_length_positive"
-        ),
-        Index("idx_circuits_name", "circuit_name"),
-        Index("idx_circuits_country", "country"),
-        Index("idx_circuits_type", "track_type"),
     )
 
     def __repr__(self) -> str:
-        return f"<Circuit(id={self.circuit_id}, name='{self.circuit_name}', country='{self.country}')>"
+        """String representation of Circuit instance."""
+        return f"<Circuit(id={self.circuit_id}, name='{self.circuit_name}', location='{self.location}')>"
 
     def __str__(self) -> str:
-        return f"{self.circuit_name} ({self.location}, {self.country})"
+        """Human-readable string representation."""
+        return f"{self.circuit_name} ({self.location})"
 
     @property
-    def is_street_circuit(self) -> bool:
-        """Check if this is a street circuit"""
-        return self.track_type == "street"
+    def full_name(self) -> str:
+        """Full descriptive name including location."""
+        if self.location and self.country:
+            return f"{self.circuit_name}, {self.location}, {self.country}"
+        elif self.location:
+            return f"{self.circuit_name}, {self.location}"
+        else:
+            return self.circuit_name
 
     @property
-    def is_permanent_circuit(self) -> bool:
-        """Check if this is a permanent circuit"""
-        return self.track_type == "permanent"
+    def track_length_miles(self) -> float:
+        """Convert track length to miles."""
+        if self.track_length_km:
+            return float(self.track_length_km) * 0.621371
+        return 0.0

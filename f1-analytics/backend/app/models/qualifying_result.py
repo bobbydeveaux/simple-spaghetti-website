@@ -1,179 +1,100 @@
 """
-Qualifying Result Model
+Qualifying Result model for F1 Prediction Analytics.
 
-Represents F1 qualifying session results in the database.
-Tracks Q1, Q2, Q3 times and final grid positions for each driver.
+This module defines the QualifyingResult SQLAlchemy model representing
+qualifying session results that determine grid positions for races.
 """
 
-from datetime import datetime, timedelta
-from typing import Optional, TYPE_CHECKING
-
-from sqlalchemy import (
-    Column, Integer, DateTime, ForeignKey, Interval,
-    Index, CheckConstraint, UniqueConstraint
-)
+from datetime import datetime
+from sqlalchemy import Column, Integer, ForeignKey, DateTime, Interval, UniqueConstraint
 from sqlalchemy.orm import relationship
 
-from ..database import Base
-
-if TYPE_CHECKING:
-    from .race import Race
-    from .driver import Driver
+from app.database import Base
 
 
 class QualifyingResult(Base):
     """
-    F1 Qualifying Result model.
+    SQLAlchemy model for Formula 1 qualifying results.
 
-    Represents qualifying session results for each driver in a specific race.
-    Tracks Q1, Q2, Q3 lap times and the final grid position.
+    This model stores qualifying session results including lap times
+    from Q1, Q2, and Q3 sessions, which determine grid positions
+    for the race. Qualifying performance is a key feature for predictions.
 
     Attributes:
-        qualifying_id: Primary key
-        race_id: Foreign key to race
-        driver_id: Foreign key to driver
-        q1_time: Best lap time in Q1 session (NULL if didn't participate)
-        q2_time: Best lap time in Q2 session (NULL if eliminated in Q1)
-        q3_time: Best lap time in Q3 session (NULL if eliminated in Q1/Q2)
-        final_grid_position: Final starting grid position
-        created_at: Record creation timestamp
-
-    Relationships:
-        race: Race this qualifying result belongs to
-        driver: Driver who achieved this result
+        qualifying_id: Primary key, unique identifier for qualifying result
+        race_id: Foreign key to the race
+        driver_id: Foreign key to the driver
+        q1_time: Best lap time from Q1 session (interval)
+        q2_time: Best lap time from Q2 session (interval, null if eliminated in Q1)
+        q3_time: Best lap time from Q3 session (interval, null if eliminated before Q3)
+        final_grid_position: Final grid position for race start
+        created_at: Timestamp when record was created
     """
 
     __tablename__ = "qualifying_results"
 
-    # Primary key
-    qualifying_id = Column(Integer, primary_key=True, autoincrement=True)
+    qualifying_id = Column(Integer, primary_key=True, index=True)
+    race_id = Column(Integer, ForeignKey("races.race_id"), nullable=False, index=True)
+    driver_id = Column(Integer, ForeignKey("drivers.driver_id"), nullable=False, index=True)
+    q1_time = Column(Interval)  # Q1 lap time (all drivers participate)
+    q2_time = Column(Interval)  # Q2 lap time (top 15 advance)
+    q3_time = Column(Interval)  # Q3 lap time (top 10 compete for pole)
+    final_grid_position = Column(Integer, nullable=False)  # 1-20 grid position
+    created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Foreign keys
-    race_id = Column(
-        Integer,
-        ForeignKey("races.race_id", ondelete="CASCADE"),
-        nullable=False,
-        index=True
+    # Ensure unique constraint: one qualifying result per driver per race
+    __table_args__ = (
+        UniqueConstraint("race_id", "driver_id", name="uq_qualifying_race_driver"),
     )
-    driver_id = Column(
-        Integer,
-        ForeignKey("drivers.driver_id", ondelete="CASCADE"),
-        nullable=False,
-        index=True
-    )
-
-    # Qualifying session times
-    q1_time = Column(Interval, nullable=True)  # Q1 best lap time
-    q2_time = Column(Interval, nullable=True)  # Q2 best lap time (NULL if eliminated in Q1)
-    q3_time = Column(Interval, nullable=True)  # Q3 best lap time (NULL if eliminated in Q1/Q2)
-
-    # Final grid position
-    final_grid_position = Column(Integer, nullable=False, index=True)
-
-    # Timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     # Relationships
-    race = relationship(
-        "Race",
-        back_populates="qualifying_results",
-        lazy="select"
-    )
-
-    driver = relationship(
-        "Driver",
-        back_populates="qualifying_results",
-        lazy="select"
-    )
-
-    # Constraints and indexes
-    __table_args__ = (
-        # Unique constraint - one qualifying result per driver per race
-        UniqueConstraint(
-            "race_id", "driver_id",
-            name="uq_qualifying_results_race_driver"
-        ),
-        # Check constraints
-        CheckConstraint(
-            "final_grid_position >= 1 AND final_grid_position <= 30",
-            name="ck_qualifying_results_grid_position_valid"
-        ),
-        # Performance indexes
-        Index("idx_qualifying_results_race", "race_id"),
-        Index("idx_qualifying_results_driver", "driver_id"),
-        Index("idx_qualifying_results_grid_position", "final_grid_position"),
-        # Composite indexes for common queries
-        Index("idx_qualifying_results_race_driver", "race_id", "driver_id"),
-        Index("idx_qualifying_results_race_position", "race_id", "final_grid_position"),
-    )
+    race = relationship("Race", back_populates="qualifying_results")
+    driver = relationship("Driver", back_populates="qualifying_results")
 
     def __repr__(self) -> str:
-        return (f"<QualifyingResult(id={self.qualifying_id}, race_id={self.race_id}, "
-                f"driver_id={self.driver_id}, grid_pos={self.final_grid_position})>")
+        """String representation of QualifyingResult instance."""
+        return (
+            f"<QualifyingResult(id={self.qualifying_id}, race_id={self.race_id}, "
+            f"driver_id={self.driver_id}, grid_pos={self.final_grid_position})>"
+        )
 
     def __str__(self) -> str:
-        if self.driver and self.race:
-            return f"{self.driver.driver_name} - {self.race.race_name} Qualifying: P{self.final_grid_position}"
-        return f"Qualifying Result {self.qualifying_id}"
-
-    @property
-    def best_time(self) -> Optional[timedelta]:
-        """Get the best qualifying time across all sessions"""
-        times = [t for t in [self.q3_time, self.q2_time, self.q1_time] if t is not None]
-        return min(times) if times else None
-
-    @property
-    def best_time_seconds(self) -> Optional[float]:
-        """Get the best qualifying time in seconds"""
-        best = self.best_time
-        return best.total_seconds() if best else None
-
-    @property
-    def made_q2(self) -> bool:
-        """Check if driver made it to Q2"""
-        return self.q2_time is not None
-
-    @property
-    def made_q3(self) -> bool:
-        """Check if driver made it to Q3"""
-        return self.q3_time is not None
+        """Human-readable string representation."""
+        return f"Grid P{self.final_grid_position}"
 
     @property
     def pole_position(self) -> bool:
-        """Check if driver achieved pole position"""
+        """Check if driver achieved pole position (P1 on grid)."""
         return self.final_grid_position == 1
 
     @property
     def front_row(self) -> bool:
-        """Check if driver starts from front row"""
+        """Check if driver starts from front row (P1 or P2)."""
         return self.final_grid_position <= 2
 
     @property
-    def top_10(self) -> bool:
-        """Check if driver qualified in top 10"""
+    def top_10_start(self) -> bool:
+        """Check if driver starts from top 10 (Q3 participants)."""
         return self.final_grid_position <= 10
 
     @property
-    def q1_time_seconds(self) -> Optional[float]:
-        """Get Q1 time in seconds"""
-        return self.q1_time.total_seconds() if self.q1_time else None
+    def advanced_to_q2(self) -> bool:
+        """Check if driver advanced to Q2 session."""
+        return self.q2_time is not None
 
     @property
-    def q2_time_seconds(self) -> Optional[float]:
-        """Get Q2 time in seconds"""
-        return self.q2_time.total_seconds() if self.q2_time else None
+    def advanced_to_q3(self) -> bool:
+        """Check if driver advanced to Q3 session."""
+        return self.q3_time is not None
 
     @property
-    def q3_time_seconds(self) -> Optional[float]:
-        """Get Q3 time in seconds"""
-        return self.q3_time.total_seconds() if self.q3_time else None
+    def best_qualifying_time(self) -> Interval:
+        """Return the best lap time from any qualifying session."""
+        times = [self.q1_time, self.q2_time, self.q3_time]
+        valid_times = [t for t in times if t is not None]
 
-    @property
-    def session_eliminated(self) -> str:
-        """Get the session where driver was eliminated"""
-        if self.q3_time is not None:
-            return "Q3" if self.final_grid_position > 10 else "Made Q3"
-        elif self.q2_time is not None:
-            return "Q2"
-        else:
-            return "Q1"
+        if not valid_times:
+            return None
+
+        # Return the fastest (minimum) time
+        return min(valid_times)

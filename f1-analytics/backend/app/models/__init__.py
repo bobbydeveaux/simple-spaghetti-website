@@ -1,12 +1,11 @@
 """
-F1 Prediction Analytics Models
+SQLAlchemy models package for F1 Prediction Analytics.
 
-This module exports all SQLAlchemy ORM models for the F1 prediction analytics system.
-These models represent the database schema for drivers, teams, races, results,
-weather data, and predictions.
+This package contains all database models for the F1 prediction analytics system,
+including drivers, teams, circuits, races, predictions, and related entities.
 
-All models inherit from the Base class defined in the database module and include
-proper relationships, constraints, and indexes for optimal query performance.
+This module imports all models to ensure they are registered with SQLAlchemy
+for Alembic migration detection.
 """
 
 from .driver import Driver
@@ -30,5 +29,5 @@ __all__ = [
     "WeatherData",
     "Prediction",
     "PredictionAccuracy",
-    "User"
+    "User",
 ]

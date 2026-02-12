@@ -1,176 +1,97 @@
 """
-Race Model
+Race model for F1 Prediction Analytics.
 
-Represents F1 races in the database.
-Tracks race information including season, location, date, and status.
+This module defines the Race SQLAlchemy model representing Formula 1 Grand Prix
+races with scheduling and status information.
 """
 
 from datetime import datetime, date
-from typing import List, TYPE_CHECKING, Optional
-
-from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey, Index, CheckConstraint, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Date, ForeignKey, DateTime, UniqueConstraint, CheckConstraint, Index
 from sqlalchemy.orm import relationship
 
-from ..database import Base
-
-if TYPE_CHECKING:
-    from .circuit import Circuit
-    from .race_result import RaceResult
-    from .qualifying_result import QualifyingResult
-    from .weather_data import WeatherData
-    from .prediction import Prediction
-    from .prediction_accuracy import PredictionAccuracy
+from app.database import Base
 
 
 class Race(Base):
     """
-    F1 Race model.
+    SQLAlchemy model for Formula 1 Grand Prix races.
 
-    Represents Formula 1 races within a season, including scheduling
-    and completion status.
+    This model stores race information including scheduling, circuit association,
+    and status tracking for the F1 calendar and prediction system.
 
     Attributes:
-        race_id: Primary key
-        season_year: F1 season year
+        race_id: Primary key, unique identifier for race
+        season_year: Year of the F1 season (e.g., 2024, 2025)
         round_number: Round number within the season (1-24)
-        circuit_id: Foreign key to circuit where race is held
-        race_date: Date when race is/was held
+        circuit_id: Foreign key to circuit where race takes place
+        race_date: Date when the race is scheduled/was held
         race_name: Official race name (e.g., "Monaco Grand Prix")
-        status: Race status ('scheduled', 'completed', 'cancelled')
-        created_at: Record creation timestamp
-
-    Relationships:
-        circuit: Circuit where race is held
-        race_results: Results from this race
-        qualifying_results: Qualifying session results
-        weather_data: Weather conditions during race
-        predictions: Predictions for this race
-        prediction_accuracy: Accuracy metrics for predictions
+        status: Current status of race ('scheduled', 'completed', 'cancelled')
+        created_at: Timestamp when record was created
+        updated_at: Timestamp when record was last updated
     """
 
     __tablename__ = "races"
 
-    # Primary key
-    race_id = Column(Integer, primary_key=True, autoincrement=True)
-
-    # Race scheduling information
+    race_id = Column(Integer, primary_key=True, index=True)
     season_year = Column(Integer, nullable=False, index=True)
     round_number = Column(Integer, nullable=False)
+    circuit_id = Column(Integer, ForeignKey("circuits.circuit_id"), nullable=False)
     race_date = Column(Date, nullable=False, index=True)
     race_name = Column(String(100), nullable=False)
-
-    # Circuit association
-    circuit_id = Column(
-        Integer,
-        ForeignKey("circuits.circuit_id", ondelete="RESTRICT"),
-        nullable=False,
-        index=True
-    )
-
-    # Race status
-    status = Column(String(20), nullable=False, default="scheduled", index=True)
-
-    # Timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    status = Column(String(20), default="scheduled", index=True)  # scheduled, completed, cancelled
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    circuit = relationship(
-        "Circuit",
-        back_populates="races",
-        lazy="select"
-    )
+    circuit = relationship("Circuit", back_populates="races")
+    race_results = relationship("RaceResult", back_populates="race", cascade="all, delete-orphan")
+    qualifying_results = relationship("QualifyingResult", back_populates="race", cascade="all, delete-orphan")
+    weather_data = relationship("WeatherData", back_populates="race", uselist=False, cascade="all, delete-orphan")
+    predictions = relationship("Prediction", back_populates="race", cascade="all, delete-orphan")
+    prediction_accuracy = relationship("PredictionAccuracy", back_populates="race", uselist=False, cascade="all, delete-orphan")
 
-    race_results = relationship(
-        "RaceResult",
-        back_populates="race",
-        lazy="select",
-        cascade="all, delete-orphan"
-    )
-
-    qualifying_results = relationship(
-        "QualifyingResult",
-        back_populates="race",
-        lazy="select",
-        cascade="all, delete-orphan"
-    )
-
-    weather_data = relationship(
-        "WeatherData",
-        back_populates="race",
-        uselist=False,  # One-to-one relationship
-        lazy="select",
-        cascade="all, delete-orphan"
-    )
-
-    predictions = relationship(
-        "Prediction",
-        back_populates="race",
-        lazy="select",
-        cascade="all, delete-orphan"
-    )
-
-    prediction_accuracy = relationship(
-        "PredictionAccuracy",
-        back_populates="race",
-        uselist=False,  # One-to-one relationship
-        lazy="select",
-        cascade="all, delete-orphan"
-    )
-
-    # Constraints and indexes
+    # Constraints
     __table_args__ = (
-        # Unique constraint for season/round combination
-        UniqueConstraint(
-            "season_year", "round_number",
-            name="uq_races_season_round"
-        ),
-        # Check constraints
+        UniqueConstraint("season_year", "round_number", name="uq_races_season_round"),
         CheckConstraint(
-            "status IN ('scheduled', 'completed', 'cancelled')",
+            status.in_(["scheduled", "completed", "cancelled"]),
             name="ck_races_status"
         ),
-        CheckConstraint(
-            "season_year >= 1950",
-            name="ck_races_season_year_valid"
-        ),
-        CheckConstraint(
-            "round_number >= 1 AND round_number <= 30",
-            name="ck_races_round_number_valid"
-        ),
-        # Performance indexes
-        Index("idx_races_season_year", "season_year"),
         Index("idx_races_date", "race_date"),
+        Index("idx_races_season", "season_year", "round_number"),
         Index("idx_races_status", "status"),
-        Index("idx_races_season_round", "season_year", "round_number"),
     )
 
     def __repr__(self) -> str:
-        return f"<Race(id={self.race_id}, {self.season_year} R{self.round_number}: {self.race_name})>"
+        """String representation of Race instance."""
+        return f"<Race(id={self.race_id}, name='{self.race_name}', year={self.season_year}, round={self.round_number}, status='{self.status}')>"
 
     def __str__(self) -> str:
-        return f"{self.season_year} {self.race_name} (Round {self.round_number})"
-
-    @property
-    def is_completed(self) -> bool:
-        """Check if race is completed"""
-        return self.status == "completed"
+        """Human-readable string representation."""
+        return f"{self.race_name} {self.season_year} (Round {self.round_number})"
 
     @property
     def is_scheduled(self) -> bool:
-        """Check if race is scheduled"""
+        """Check if race is scheduled (not completed or cancelled)."""
         return self.status == "scheduled"
 
     @property
-    def is_cancelled(self) -> bool:
-        """Check if race is cancelled"""
-        return self.status == "cancelled"
+    def is_completed(self) -> bool:
+        """Check if race has been completed."""
+        return self.status == "completed"
 
     @property
-    def is_future_race(self) -> bool:
-        """Check if race is in the future"""
-        return self.race_date > date.today()
+    def is_upcoming(self) -> bool:
+        """Check if race is scheduled and in the future."""
+        return self.status == "scheduled" and self.race_date >= date.today()
 
     @property
-    def is_current_season(self) -> bool:
-        """Check if race is in current season"""
-        return self.season_year == date.today().year
+    def season_round_key(self) -> str:
+        """Unique key combining season and round."""
+        return f"{self.season_year}-R{self.round_number:02d}"
+
+    @property
+    def season_round_identifier(self) -> str:
+        """Get season-round identifier for display."""
+        return f"{self.season_year}-R{self.round_number:02d}"
