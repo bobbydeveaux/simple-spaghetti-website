@@ -236,9 +236,14 @@ alembic downgrade -1
 ```
 
 ### Monitoring
-- **Health Checks**: Automated service monitoring
-- **Metrics**: DataDog integration for performance tracking
-- **Alerts**: PagerDuty/Slack notifications on failures
+- **Health Checks**: Automated service monitoring with custom probes
+- **Metrics Collection**: Prometheus with PostgreSQL, Redis, and Node exporters
+- **Alerting**: Comprehensive Alertmanager rules for F1 prediction analytics
+  - 25+ alert rules covering system health, ML performance, data pipeline
+  - Multi-channel notifications (Slack, Email, PagerDuty)
+  - Service-specific routing and escalation policies
+- **Visualization**: Grafana dashboards for system and ML performance metrics
+- **Security Monitoring**: Anomaly detection and authentication failure alerts
 - **Logs**: Centralized logging with search capabilities
 
 ## 📁 Project Structure
@@ -337,6 +342,7 @@ alembic downgrade -1
 - [**📋 Security Implementation Checklist**](docs/SECURITY_CHECKLIST.md) - Verification and compliance guide
 - [**🔐 External Secrets Setup**](infrastructure/kubernetes/external-secrets/README.md) - AWS Secrets Manager integration
 - [**🛡️ Security Validation**](scripts/validate-security.sh) - Automated security compliance checking
+- [**📊 Alertmanager Configuration**](docs/monitoring/alertmanager-configuration.md) - Comprehensive monitoring and alerting setup
 - [**💻 Local Development Setup**](docs/concepts/f1-prediction-analytics/LLD.md) - Development environment configuration
 
 ## 📧 Support
