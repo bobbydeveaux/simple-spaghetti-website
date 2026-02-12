@@ -1,39 +1,78 @@
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
+  scrape_timeout: 10s
+  external_labels:
+    cluster: 'f1-analytics-docker'
+    environment: 'production'
 
 rule_files:
-  # - "first_rules.yml"
-  # - "second_rules.yml"
+  - "/etc/prometheus/rules/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093  # Uncomment when alertmanager is added
 
 scrape_configs:
-  # F1 Analytics Backend metrics
+  # F1 Analytics Backend metrics (Production replicas)
   - job_name: 'f1-analytics-backend'
     static_configs:
-      - targets: ['backend:8000']
+      - targets:
+        - 'backend:8000'  # Load-balanced endpoint
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    honor_labels: true
+    honor_timestamps: true
+    params:
+      # Add any query parameters if needed
+      format: ['prometheus']
+
+  # F1 Analytics Frontend metrics (if frontend exposes metrics)
+  - job_name: 'f1-analytics-frontend'
+    static_configs:
+      - targets:
+        - 'frontend:3000'
     metrics_path: '/metrics'
     scrape_interval: 30s
-    scrape_timeout: 10s
+    scrape_timeout: 5s
 
-  # System metrics
+  # Prometheus itself
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
+    scrape_interval: 15s
 
-  # Nginx metrics (if nginx-prometheus-exporter is added)
-  - job_name: 'nginx'
+  # Nginx Load Balancer metrics
+  - job_name: 'nginx-loadbalancer'
     static_configs:
-      - targets: ['nginx:9113']
+      - targets: ['nginx:8080']  # Nginx status endpoint
+    metrics_path: '/nginx_status'
     scrape_interval: 30s
 
-  # PostgreSQL metrics (if postgres-exporter is added)
-  - job_name: 'postgres'
+  # PostgreSQL Database Health (basic endpoint check)
+  - job_name: 'postgres-health'
     static_configs:
-      - targets: ['postgres-exporter:9187']
+      - targets: ['postgres:5432']
+    metrics_path: '/'
+    scrape_interval: 60s
+    scrape_timeout: 5s
+
+  # Redis Cache Health (basic endpoint check)
+  - job_name: 'redis-health'
+    static_configs:
+      - targets: ['redis:6379']
+    metrics_path: '/'
+    scrape_interval: 60s
+    scrape_timeout: 5s
+
+  # Celery Worker metrics (if celery-prometheus-exporter is added)
+  - job_name: 'celery-workers'
+    static_configs:
+      - targets: []  # Will be populated when celery-prometheus-exporter is added
     scrape_interval: 30s
 
-  # Redis metrics (if redis-exporter is added)
-  - job_name: 'redis'
-    static_configs:
-      - targets: ['redis-exporter:9121']
-    scrape_interval: 30s
+# Service Discovery would be added here for Kubernetes deployment
+# kubernetes_sd_configs: [] # For future Kubernetes integration
