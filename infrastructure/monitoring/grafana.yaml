@@ -95,162 +95,6 @@ data:
       allowUiUpdates: true
       options:
         path: /var/lib/grafana/dashboards
-
-  # F1 Analytics System Overview Dashboard
-  system-overview.json: |
-    {
-      "dashboard": {
-        "id": null,
-        "title": "F1 Analytics - System Overview",
-        "tags": ["f1-analytics", "system"],
-        "timezone": "browser",
-        "panels": [
-          {
-            "id": 1,
-            "title": "API Request Rate",
-            "type": "stat",
-            "targets": [
-              {
-                "expr": "sum(rate(http_requests_total[5m]))",
-                "legendFormat": "Requests/sec"
-              }
-            ],
-            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
-          },
-          {
-            "id": 2,
-            "title": "API Error Rate",
-            "type": "stat",
-            "targets": [
-              {
-                "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m])) * 100",
-                "legendFormat": "Error %"
-              }
-            ],
-            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
-          },
-          {
-            "id": 3,
-            "title": "API Response Time",
-            "type": "graph",
-            "targets": [
-              {
-                "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
-                "legendFormat": "95th percentile"
-              },
-              {
-                "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
-                "legendFormat": "50th percentile"
-              }
-            ],
-            "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8}
-          },
-          {
-            "id": 4,
-            "title": "Database Connections",
-            "type": "graph",
-            "targets": [
-              {
-                "expr": "pg_stat_database_numbackends",
-                "legendFormat": "Active connections"
-              }
-            ],
-            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
-          },
-          {
-            "id": 5,
-            "title": "Redis Memory Usage",
-            "type": "graph",
-            "targets": [
-              {
-                "expr": "redis_memory_used_bytes",
-                "legendFormat": "Used memory"
-              }
-            ],
-            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
-          }
-        ],
-        "time": {"from": "now-1h", "to": "now"},
-        "refresh": "5s",
-        "version": 1
-      }
-    }
-
-  # ML Performance Dashboard
-  ml-performance.json: |
-    {
-      "dashboard": {
-        "id": null,
-        "title": "F1 Analytics - ML Performance",
-        "tags": ["f1-analytics", "ml", "predictions"],
-        "timezone": "browser",
-        "panels": [
-          {
-            "id": 1,
-            "title": "Prediction Accuracy",
-            "type": "stat",
-            "targets": [
-              {
-                "expr": "avg(prediction_accuracy)",
-                "legendFormat": "Current Accuracy"
-              }
-            ],
-            "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0}
-          },
-          {
-            "id": 2,
-            "title": "Model Inference Time",
-            "type": "stat",
-            "targets": [
-              {
-                "expr": "histogram_quantile(0.95, rate(ml_inference_duration_seconds_bucket[5m]))",
-                "legendFormat": "95th percentile"
-              }
-            ],
-            "gridPos": {"h": 8, "w": 8, "x": 8, "y": 0}
-          },
-          {
-            "id": 3,
-            "title": "Predictions Generated",
-            "type": "stat",
-            "targets": [
-              {
-                "expr": "increase(predictions_generated_total[1h])",
-                "legendFormat": "Last hour"
-              }
-            ],
-            "gridPos": {"h": 8, "w": 8, "x": 16, "y": 0}
-          },
-          {
-            "id": 4,
-            "title": "Model Performance by Type",
-            "type": "graph",
-            "targets": [
-              {
-                "expr": "prediction_accuracy by (model_type)",
-                "legendFormat": "{{ model_type }}"
-              }
-            ],
-            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
-          },
-          {
-            "id": 5,
-            "title": "Feature Engineering Time",
-            "type": "graph",
-            "targets": [
-              {
-                "expr": "rate(feature_engineering_duration_seconds_sum[5m]) / rate(feature_engineering_duration_seconds_count[5m])",
-                "legendFormat": "Avg processing time"
-              }
-            ],
-            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
-          }
-        ],
-        "time": {"from": "now-6h", "to": "now"},
-        "refresh": "30s",
-        "version": 1
-      }
-    }
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -303,7 +147,7 @@ spec:
           mountPath: /etc/grafana/
         - name: grafana-storage
           mountPath: /var/lib/grafana
-        - name: grafana-dashboards
+        - name: dashboard-files
           mountPath: /var/lib/grafana/dashboards
         resources:
           requests:
@@ -335,9 +179,9 @@ spec:
       - name: grafana-storage
         persistentVolumeClaim:
           claimName: grafana-storage
-      - name: grafana-dashboards
+      - name: dashboard-files
         configMap:
-          name: grafana-config
+          name: grafana-dashboards
       securityContext:
         fsGroup: 472
 ---
