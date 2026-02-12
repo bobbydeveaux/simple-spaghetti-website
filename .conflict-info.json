@@ -1,27 +1,20 @@
 {
-  "prNumber": 163,
+  "prNumber": 156,
   "baseBranch": "main",
-  "headBranch": "feature/139-f1-prediction-analytics-sprint-1-issue-139",
+  "headBranch": "feature/140-f1-prediction-analytics-sprint-1-issue-140",
   "conflictedFiles": [
+    "f1-analytics/backend/README.md",
     "f1-analytics/backend/alembic.ini",
     "f1-analytics/backend/alembic/env.py",
-    "f1-analytics/backend/alembic/script.py.mako",
-    "f1-analytics/backend/app/__init__.py",
+    "f1-analytics/backend/alembic/versions/001_initial_f1_analytics_schema.py",
     "f1-analytics/backend/app/config.py",
     "f1-analytics/backend/app/database.py",
-    "f1-analytics/backend/app/main.py",
+    "f1-analytics/backend/app/dependencies.py",
     "f1-analytics/backend/app/models/__init__.py",
-    "f1-analytics/backend/app/models/circuit.py",
-    "f1-analytics/backend/app/models/driver.py",
-    "f1-analytics/backend/app/models/prediction.py",
-    "f1-analytics/backend/app/models/prediction_accuracy.py",
-    "f1-analytics/backend/app/models/qualifying_result.py",
-    "f1-analytics/backend/app/models/race.py",
-    "f1-analytics/backend/app/models/race_result.py",
-    "f1-analytics/backend/app/models/team.py",
     "f1-analytics/backend/app/models/user.py",
-    "f1-analytics/backend/app/models/weather_data.py",
-    "f1-analytics/backend/requirements.txt"
+    "f1-analytics/backend/app/repositories/__init__.py",
+    "f1-analytics/backend/requirements.txt",
+    "f1-analytics/backend/tests/conftest.py"
   ],
-  "conflictCount": 19
+  "conflictCount": 12
 }
