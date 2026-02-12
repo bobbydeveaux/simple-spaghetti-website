@@ -103,6 +103,243 @@ The system uses PostgreSQL with comprehensive F1 data modeling:
 - **Table Partitioning**: Ready for partitioning race_results and predictions by race_id
 - **Foreign Key Relationships**: Proper referential integrity across entities
 
+## 🔧 Data Transformation & Validation Layer
+
+The F1 Analytics platform features a sophisticated data transformation and validation layer that ensures data quality, consistency, and proper format conversion across the entire application.
+
+### 📊 Pydantic Schema Validation
+
+Comprehensive request/response validation using Pydantic schemas with F1-specific business rules:
+
+```python
+from app.schemas import DriverCreate, RaceCreate, PredictionCreate
+
+# Driver validation with business rules
+driver_data = DriverCreate(
+    driver_code="VER",           # Must be 3 uppercase letters
+    driver_name="Max Verstappen", # Normalized automatically
+    nationality="Dutch",
+    date_of_birth="1997-09-30",  # Must be in past
+    current_elo_rating=2100      # Range: 800-3000
+)
+
+# Race validation with season consistency
+race_data = RaceCreate(
+    season_year=2024,
+    round_number=1,              # Unique per season
+    race_name="Bahrain Grand Prix",
+    race_date="2024-03-01",     # Must match season year
+    circuit_id=1
+)
+
+# Prediction validation with probability checks
+prediction_data = PredictionCreate(
+    race_id=1,
+    driver_id=1,
+    predicted_win_probability=25.5,  # Range: 0-100
+    model_version="v1.2.3"
+)
+```
+
+### 🛠️ Service Layer with Business Logic
+
+Advanced service classes handle complex business operations with automatic validation:
+
+```python
+from app.services import driver_service, race_service, prediction_service
+
+# Driver operations with validation
+driver = driver_service.create_driver(db, driver_data)
+rankings = driver_service.get_drivers_rankings(db, season=2024, limit=20)
+stats = driver_service.get_driver_statistics(db, driver_id=1, season=2024)
+
+# Race operations with result processing
+race = race_service.create_race(db, race_data)
+weekend_summary = race_service.get_race_weekend_summary(db, race_id=1)
+calendar = race_service.get_race_calendar(db, season=2024)
+
+# Prediction operations with ML model integration
+predictions = prediction_service.create_prediction(db, prediction_data)
+race_predictions = prediction_service.get_race_predictions(db, race_id=1)
+accuracy = prediction_service.update_prediction_accuracy(db, race_id=1)
+```
+
+### 🔍 Advanced Validation Decorators
+
+Sophisticated validation decorators for API endpoints and business logic:
+
+```python
+from app.utils.validators import (
+    validate_request_data, validate_database_constraints,
+    validate_business_rules, handle_service_errors
+)
+
+@validate_request_data(DriverCreate)
+@validate_database_constraints(
+    unique_fields=["driver_code"],
+    foreign_keys={"current_team_id": Team}
+)
+@validate_business_rules(
+    lambda db, data: validate_driver_team_consistency(db, data)
+)
+@handle_service_errors
+def create_driver_endpoint(db: Session, data: dict):
+    return driver_service.create_driver(db, data)
+```
+
+### 🔄 Data Transformation Utilities
+
+Comprehensive data transformation with F1-specific calculations:
+
+```python
+from app.utils.transformers import F1DataTransformer, TransformationConfig
+
+# Configure transformer behavior
+config = TransformationConfig(
+    include_metadata=True,
+    include_relationships=True,
+    include_calculated_fields=True,
+    datetime_format="iso",
+    decimal_places=2
+)
+
+transformer = F1DataTransformer(config)
+
+# Transform driver data with enrichment
+driver_api_data = transformer.transform_driver_for_api(
+    driver,
+    include_stats=True,
+    season=2024
+)
+# Result includes: age, experience_level, elo_category, performance_metrics
+
+# Transform predictions with analysis
+prediction_summary = transformer.transform_prediction_summary(
+    predictions, race
+)
+# Result includes: statistics, competitiveness_score, entropy, probability_distribution
+
+# Transform race results with context
+result_data = transformer.transform_race_result_with_context(
+    race_result,
+    include_performance_metrics=True
+)
+# Result includes: position_change_category, performance_rating, points_efficiency
+```
+
+### 📈 F1-Specific Validation Rules
+
+Business rule validators designed specifically for Formula 1 data:
+
+```python
+from app.utils.validators import F1DataValidator
+
+# Race season consistency
+F1DataValidator.validate_race_season_consistency(db, {
+    "race_date": date(2024, 3, 1),
+    "season_year": 2024
+})
+
+# Driver-team relationship validation
+F1DataValidator.validate_driver_team_consistency(db, {
+    "driver_id": 1,
+    "team_id": 1
+})
+
+# Prediction probability validation for entire race
+F1DataValidator.validate_prediction_probabilities(db, race_id=1)
+
+# Race result data consistency
+F1DataValidator.validate_race_result_consistency(db, {
+    "final_position": 1,
+    "grid_position": 3,
+    "points": 25.0
+})
+
+# Qualifying session progression
+F1DataValidator.validate_qualifying_progression(db, {
+    "q1_time": "1:23.456",
+    "q2_time": "1:22.789",
+    "q3_time": "1:21.123",
+    "final_grid_position": 5
+})
+```
+
+### 🧮 Advanced Data Calculations
+
+Sophisticated F1-specific calculations and metrics:
+
+```python
+from app.services.base import DataTransformer
+
+# Lap time format conversion
+lap_time = DataTransformer.format_lap_time(83.456)  # "1:23.456"
+seconds = DataTransformer.parse_lap_time("1:23.456")  # 83.456
+
+# Points calculation based on F1 rules
+points = DataTransformer.calculate_points_from_position(1)  # 25.0
+
+# Driver name normalization
+normalized = DataTransformer.normalize_driver_name("max verstappen")  # "Max Verstappen"
+
+# Safe mathematical operations
+rate = DataTransformer.safe_divide(wins, total_races, default=0.0)
+percentage = DataTransformer.format_percentage(0.235, decimals=1)  # "23.5%"
+```
+
+### ⚡ Performance Optimizations
+
+The validation layer includes several performance optimizations:
+
+- **Lazy Loading**: Relationships loaded only when needed
+- **Batch Operations**: Bulk validation for large datasets
+- **Caching**: Validation results cached for repeated operations
+- **Efficient Queries**: Optimized database queries with proper indexing
+- **Pagination**: Built-in pagination support for large result sets
+
+### 🧪 Comprehensive Testing
+
+The validation layer includes extensive test coverage:
+
+```python
+# Run validation layer tests
+pytest tests/test_validation_layer.py -v
+
+# Test categories:
+# - Pydantic schema validation with edge cases
+# - Data validator functions with invalid inputs
+# - F1-specific business rule validation
+# - Service layer validation and error handling
+# - Integration scenarios and error propagation
+# - Performance testing for large datasets
+```
+
+### 🛡️ Error Handling
+
+Sophisticated error handling with detailed context:
+
+```python
+from app.services.base import ValidationError, DataTransformationError
+
+try:
+    driver = driver_service.create_driver(db, invalid_data)
+except ValidationError as e:
+    # Contains: message, field, value for precise error reporting
+    return {
+        "error": "Validation Error",
+        "message": e.message,
+        "field": e.field,
+        "value": e.value
+    }
+except DataTransformationError as e:
+    # Contains context for transformation failures
+    return {
+        "error": "Data Transformation Error",
+        "message": e.message,
+        "context": e.field
+    }
+```
+
 # Application
 ENVIRONMENT=development
 DEBUG=true

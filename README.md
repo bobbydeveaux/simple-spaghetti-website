@@ -338,6 +338,7 @@ alembic downgrade -1
 - [**🔐 External Secrets Setup**](infrastructure/kubernetes/external-secrets/README.md) - AWS Secrets Manager integration
 - [**🛡️ Security Validation**](scripts/validate-security.sh) - Automated security compliance checking
 - [**💻 Local Development Setup**](docs/concepts/f1-prediction-analytics/LLD.md) - Development environment configuration
+- [**🔧 Data Transformation & Validation Layer**](docs/data-transformation-validation.md) - Comprehensive validation and transformation system
 
 ## 📧 Support
 
