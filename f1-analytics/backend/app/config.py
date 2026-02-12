@@ -8,7 +8,13 @@ including database connection settings, JWT configuration, and external API sett
 import os
 from functools import lru_cache
 from typing import Optional, List
-from pydantic import BaseSettings, Field, validator
+
+try:
+    from pydantic_settings import BaseSettings
+    from pydantic import Field, validator
+except ImportError:
+    # Fallback for older Pydantic versions
+    from pydantic import BaseSettings, Field, validator
 
 
 class DatabaseConfig(BaseSettings):
@@ -18,8 +24,8 @@ class DatabaseConfig(BaseSettings):
     db_host: str = Field(default="localhost", env="F1_DB_HOST")
     db_port: int = Field(default=5432, env="F1_DB_PORT")
     db_name: str = Field(default="f1_analytics", env="F1_DB_NAME")
-    db_user: str = Field(default="postgres", env="F1_DB_USER")
-    db_password: str = Field(default="postgres", env="F1_DB_PASSWORD")
+    db_user: str = Field(default="f1_user", env="F1_DB_USER")
+    db_password: str = Field(default="f1_password", env="F1_DB_PASSWORD")
 
     # Connection pool settings
     pool_size: int = Field(default=20, env="F1_DB_POOL_SIZE")
@@ -47,8 +53,14 @@ class DatabaseConfig(BaseSettings):
             f"{self.db_host}:{self.db_port}/{self.db_name}"
         )
 
+    # Backward compatibility properties
+    @property
+    def DATABASE_URL(self) -> str:
+        """Backward compatibility property for main branch."""
+        return self.database_url
+
     class Config:
-        env_prefix = ""
+        env_file = ".env"
         case_sensitive = False
 
 
@@ -78,7 +90,7 @@ class RedisConfig(BaseSettings):
         return f"redis://{self.redis_host}:{self.redis_port}/{self.redis_db}"
 
     class Config:
-        env_prefix = ""
+        env_file = ".env"
         case_sensitive = False
 
 
@@ -102,7 +114,7 @@ class JWTConfig(BaseSettings):
         return v
 
     class Config:
-        env_prefix = ""
+        env_file = ".env"
         case_sensitive = False
 
 
@@ -119,7 +131,7 @@ class ExternalAPIConfig(BaseSettings):
     weather_base_url: str = Field(default="https://api.openweathermap.org/data/2.5", env="F1_WEATHER_BASE_URL")
 
     class Config:
-        env_prefix = ""
+        env_file = ".env"
         case_sensitive = False
 
 
@@ -129,19 +141,24 @@ class MLConfig(BaseSettings):
     # Model settings
     model_bucket: str = Field(default="f1-analytics-models", env="F1_MODEL_BUCKET")
     model_path_prefix: str = Field(default="models", env="F1_MODEL_PATH_PREFIX")
+    model_version: str = Field(default="v1", env="F1_MODEL_VERSION")
 
     # Training settings
     random_forest_n_estimators: int = Field(default=100, env="F1_RF_N_ESTIMATORS")
     random_forest_max_depth: int = Field(default=10, env="F1_RF_MAX_DEPTH")
     xgboost_learning_rate: float = Field(default=0.1, env="F1_XGB_LEARNING_RATE")
     xgboost_n_estimators: int = Field(default=200, env="F1_XGB_N_ESTIMATORS")
+    xgboost_max_depth: int = Field(default=6, env="F1_XGB_MAX_DEPTH")
 
     # ELO settings
     elo_k_factor: int = Field(default=32, env="F1_ELO_K_FACTOR")
     elo_base_rating: int = Field(default=1500, env="F1_ELO_BASE_RATING")
 
+    # Feature engineering
+    historical_races_lookback: int = Field(default=5, env="F1_HISTORICAL_RACES_LOOKBACK")
+
     class Config:
-        env_prefix = ""
+        env_file = ".env"
         case_sensitive = False
 
 
@@ -196,7 +213,7 @@ class AppConfig(BaseSettings):
         return self.environment == "production"
 
     class Config:
-        env_prefix = ""
+        env_file = ".env"
         case_sensitive = False
 
 
@@ -217,7 +234,7 @@ class Settings:
             if self.jwt.secret_key == "f1-analytics-dev-secret-key-change-in-production":
                 raise ValueError("JWT secret key must be changed in production!")
 
-            if self.database.db_password == "postgres":
+            if self.database.db_password == "f1_password":
                 raise ValueError("Database password must be changed in production!")
 
             if self.app.debug:
@@ -250,3 +267,8 @@ def get_settings() -> Settings:
 
 # Global settings instance
 settings = get_settings()
+
+# Backward compatibility exports for main branch
+db_config = settings.database
+app_config = settings.app
+ml_config = settings.ml

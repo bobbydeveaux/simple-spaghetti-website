@@ -1,6 +1,15 @@
-# F1 Prediction Analytics - Backend
+# F1 Analytics Backend
 
-A comprehensive backend system for Formula 1 race prediction analytics, built with FastAPI, PostgreSQL, and Redis.
+A comprehensive Formula One prediction analytics API built with FastAPI, SQLAlchemy, and PostgreSQL.
+
+## Overview
+
+This backend provides the data layer and API endpoints for the F1 prediction analytics platform, featuring:
+
+- **Database Models**: 10 core entities for F1 data (drivers, teams, races, predictions, etc.)
+- **REST API**: FastAPI endpoints for data access and analytics
+- **ML Integration**: Model prediction storage and accuracy tracking
+- **Authentication**: JWT-based user authentication and authorization
 
 ## Features
 
@@ -10,20 +19,17 @@ A comprehensive backend system for Formula 1 race prediction analytics, built wi
 - **SQLAlchemy ORM**: Complete F1 data models with relationships and constraints
 - **Alembic Migrations**: Database schema versioning and migration system
 
+### Database Design
+- **Partitioning**: `race_results` and `predictions` tables partitioned by race_id for performance
+- **Indexes**: Strategic indexing on foreign keys and frequently queried columns
+- **Constraints**: Check constraints for data validation and integrity
+- **Materialized Views**: Pre-aggregated driver rankings for fast queries
+
 ### Authentication & Security
 - **JWT Authentication**: Access and refresh token support with configurable expiration
 - **Rate Limiting**: Per-user rate limiting (100 requests/minute by default)
 - **Session Management**: Redis-backed user sessions with automatic cleanup
 - **Secure Defaults**: Bcrypt password hashing, secure JWT configuration
-
-### Data Models
-- **Drivers**: Driver profiles, ELO ratings, team associations
-- **Teams**: Constructor information and performance ratings
-- **Circuits**: Track details and race locations
-- **Races**: Season calendar with race metadata
-- **Results**: Race and qualifying results with detailed statistics
-- **Predictions**: ML model predictions with accuracy tracking
-- **Weather**: Race day conditions affecting predictions
 
 ### Repository Pattern
 - **Base Repository**: Generic CRUD operations for all models
@@ -31,9 +37,29 @@ A comprehensive backend system for Formula 1 race prediction analytics, built wi
 - **Async Support**: Both sync and async database operations
 - **Bulk Operations**: Efficient batch processing for large datasets
 
+## Database Schema
+
+The system includes the following entities:
+
+### Core F1 Entities
+- **Driver**: F1 drivers with ELO ratings and team associations
+- **Team**: Constructor teams with nationality and ELO ratings
+- **Circuit**: Racing circuits with track characteristics
+- **Race**: Grand Prix races with season/round information
+
+### Results & Data
+- **RaceResult**: Race finishing positions, points, and performance data
+- **QualifyingResult**: Qualifying session times and grid positions
+- **WeatherData**: Race weather conditions (temperature, precipitation, etc.)
+
+### ML & Analytics
+- **Prediction**: ML model predictions for race outcomes
+- **PredictionAccuracy**: Model performance tracking and metrics
+- **User**: Authentication and user management
+
 ## Quick Start
 
-### Requirements
+### Prerequisites
 - Python 3.10+
 - PostgreSQL 13+
 - Redis 6+
@@ -99,92 +125,99 @@ python scripts/seed_sample_data.py
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
+## Database Migration
+
+### Create Migration
+```bash
+alembic revision --autogenerate -m "Description of changes"
+```
+
+### Apply Migrations
+```bash
+alembic upgrade head
+```
+
+### Rollback Migration
+```bash
+alembic downgrade -1
+```
+
+### Check Migration Status
+```bash
+alembic current
+alembic history
+```
+
+## Schema Validation
+
+Run the schema verification script to validate the implementation:
+
+```bash
+python verify_schema.py
+```
+
+This will test:
+- Model imports and relationships
+- Database configuration
+- Migration script structure
+- Syntax validation
 ## Project Structure
 
 ```
 f1-analytics/backend/
 ├── alembic/                    # Database migrations
+│   ├── versions/               # Migration scripts
+│   │   └── 001_initial_schema.py
 │   ├── env.py                  # Alembic environment configuration
-│   └── versions/               # Migration scripts
+│   └── script.py.mako
 ├── app/                        # Main application code
-│   ├── config.py              # Configuration management
-│   ├── database.py            # Database connection and session management
-│   ├── dependencies.py        # FastAPI dependency injection
-│   ├── models/                # SQLAlchemy ORM models
+│   ├── models/                 # SQLAlchemy ORM models
+│   │   ├── driver.py
+│   │   ├── team.py
+│   │   ├── race.py
 │   │   ├── user.py            # User authentication model
-│   │   └── f1_models.py       # F1 domain models
-│   ├── repositories/          # Data access layer
+│   │   └── ...
+│   ├── schemas/                # Pydantic schemas
+│   ├── repositories/           # Data access layer
 │   │   ├── base.py            # Base repository with CRUD operations
 │   │   ├── user_repository.py # User-specific database operations
 │   │   └── f1_repositories.py # F1-specific database operations
-│   └── utils/                 # Utility modules
-│       ├── jwt_manager.py     # JWT token management
-│       └── session_manager.py # Redis session management
+│   ├── services/               # Business logic
+│   ├── routes/                 # API endpoints
+│   ├── middleware/             # Custom middleware
+│   ├── utils/                 # Utility modules
+│   │   ├── jwt_manager.py     # JWT token management
+│   │   └── session_manager.py # Redis session management
+│   ├── config.py              # Configuration management
+│   ├── database.py            # Database connection and session management
+│   ├── dependencies.py        # FastAPI dependency injection
+│   └── main.py                # FastAPI application
 ├── tests/                     # Test suite
 │   ├── conftest.py           # Test configuration and fixtures
+│   ├── unit/                 # Unit tests
+│   │   └── test_models.py
 │   ├── test_database.py      # Database functionality tests
 │   └── test_session_management.py # Session and JWT tests
-├── alembic.ini               # Alembic configuration
 ├── requirements.txt          # Python dependencies
-└── README.md                 # This file
+├── alembic.ini              # Alembic configuration
+├── .env.example             # Environment variables template
+├── test_syntax.py           # Syntax validation
+├── verify_schema.py         # Schema verification
+└── README.md                # This file
 ```
 
-## Database Models
+## API Documentation
 
-### Core F1 Models
-- **Driver**: F1 drivers with ELO ratings and team associations
-- **Team**: Constructors with performance metrics
-- **Circuit**: Race tracks with technical specifications
-- **Race**: Season calendar with race scheduling
-- **RaceResult**: Race finishing positions and points
-- **QualifyingResult**: Grid positions from qualifying sessions
-- **WeatherData**: Race day weather conditions
-- **Prediction**: ML model predictions for race outcomes
-- **PredictionAccuracy**: Model performance tracking
-
-### Relationships
-- Drivers belong to Teams
-- Races occur at Circuits
-- Results link Races, Drivers, and Teams
-- Predictions connect Races and Drivers
-- Weather data is associated with specific Races
-
-## Configuration
-
-The application uses environment-based configuration with sensible defaults:
-
-### Database Configuration
-- Connection pooling with configurable pool size
-- Health check endpoints for monitoring
-- Automatic connection retry with exponential backoff
-- SSL support for production deployments
-
-### Redis Configuration
-- Separate cache TTLs for different data types
-- Connection pooling for high concurrency
-- Failover support with graceful degradation
-
-### JWT Configuration
-- Configurable token expiration times
-- Support for additional custom claims
-- Automatic token refresh mechanism
-- Secure default algorithms and key sizes
+When running the application, API documentation is available at:
+- Swagger UI: `http://localhost:8000/api/docs`
+- ReDoc: `http://localhost:8000/api/redoc`
 
 ## Testing
 
-The project includes comprehensive tests covering:
-
-### Database Tests
-- Connection management and pooling
-- CRUD operations and transactions
-- Model relationships and constraints
-- Performance and optimization
-
-### Session Management Tests
-- JWT token creation and validation
-- Redis session storage and retrieval
-- Rate limiting functionality
-- Cache operations
+### Syntax Check
+```bash
+python test_syntax.py
+```
 
 ### Running Tests
 
@@ -203,6 +236,42 @@ pytest tests/test_database.py
 pytest tests/test_session_management.py
 ```
 
+## Environment Variables
+
+Key configuration options:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `F1_DB_HOST` | PostgreSQL host | `localhost` |
+| `F1_DB_PORT` | PostgreSQL port | `5432` |
+| `F1_DB_NAME` | Database name | `f1_analytics` |
+| `F1_DB_USER` | Database user | `postgres` |
+| `F1_DB_PASSWORD` | Database password | `your_password` |
+| `F1_ENVIRONMENT` | Runtime environment | `development` |
+| `F1_DEBUG` | Enable debug mode | `true` |
+| `F1_JWT_SECRET_KEY` | JWT signing key | (required) |
+
+## Performance Features
+
+- **Connection Pooling**: SQLAlchemy QueuePool with configurable size
+- **Table Partitioning**: Large tables partitioned by race_id for faster queries
+- **Materialized Views**: Pre-computed aggregations for analytics queries
+- **Strategic Indexing**: Indexes optimized for common query patterns
+
+### Caching Strategy
+- Prediction results cached for 7 days
+- Race calendar cached for 24 hours
+- Driver rankings cached for 1 hour
+- Automatic cache invalidation on data updates
+
+## Security
+
+- **JWT Authentication**: Secure token-based authentication
+- **Password Hashing**: bcrypt for secure password storage
+- **Input Validation**: Pydantic schemas for request validation
+- **SQL Injection Protection**: SQLAlchemy ORM prevents injection attacks
+- **Rate Limiting**: Per-user request limits to prevent abuse
+
 ## Health Checks
 
 The application provides health check endpoints:
@@ -211,58 +280,43 @@ The application provides health check endpoints:
 - **Redis Health**: `/health/redis` - Redis connectivity and memory usage
 - **Overall Health**: `/health` - Combined system health status
 
-## Performance Considerations
+## Production Deployment
 
-### Database Optimization
-- Proper indexing on frequently queried columns
-- Connection pooling with configurable limits
-- Query optimization with eager loading for relationships
-- Bulk operations for large data imports
+For production deployment:
 
-### Caching Strategy
-- Prediction results cached for 7 days
-- Race calendar cached for 24 hours
-- Driver rankings cached for 1 hour
-- Automatic cache invalidation on data updates
+1. **Set Production Environment Variables**
+2. **Use Connection Pooling** with appropriate pool sizes
+3. **Enable SSL** for database connections
+4. **Configure Logging** with appropriate levels
+5. **Set up Monitoring** for database performance
+6. **Backup Strategy** for critical race and prediction data
 
-### Rate Limiting
-- Per-user request limits to prevent abuse
-- Redis-backed counters with automatic expiration
-- Graceful handling of rate limit exceeded scenarios
+## Development
 
-## Security Features
+### Adding New Models
 
-### Authentication
-- JWT-based stateless authentication
-- Secure password hashing with bcrypt
-- Token expiration and refresh mechanisms
-- Role-based access control support
+1. Create model file in `app/models/`
+2. Add import to `app/models/__init__.py`
+3. Generate migration: `alembic revision --autogenerate -m "Add new model"`
+4. Apply migration: `alembic upgrade head`
 
-### Data Protection
-- Input validation and sanitization
-- SQL injection prevention through ORM
-- Secure session management with Redis
-- Environment-based configuration for secrets
+### Database Schema Changes
 
-## Development Guidelines
+Always use Alembic migrations for schema changes to maintain version control and enable rollbacks.
 
-### Code Style
+### Development Guidelines
+
+#### Code Style
 - Black for code formatting
 - isort for import organization
 - flake8 for linting
 - mypy for type checking
 
-### Testing Standards
+#### Testing Standards
 - Minimum 80% code coverage
 - Unit tests for all business logic
 - Integration tests for database operations
 - Mocked external dependencies
-
-### Documentation
-- Comprehensive docstrings for all functions
-- Type hints for all function parameters
-- README files for each major module
-- API documentation with FastAPI/OpenAPI
 
 ## Future Enhancements
 
@@ -280,15 +334,6 @@ The application provides health check endpoints:
 - Horizontal scaling with load balancing
 - Metrics and monitoring integration
 
-## Contributing
+## Support
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes with tests
-4. Ensure all tests pass
-5. Update documentation as needed
-6. Submit a pull request
-
-## License
-
-This project is part of the F1 Prediction Analytics system and follows the main project's licensing terms.
+For issues or questions regarding the F1 Analytics backend, please refer to the project documentation or create an issue in the repository.

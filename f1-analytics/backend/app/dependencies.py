@@ -3,16 +3,16 @@ FastAPI dependency injection providers for F1 Analytics.
 
 This module provides dependency injection functions for FastAPI endpoints,
 including database sessions, authentication, and service instances.
+It includes both simple and comprehensive authentication approaches.
 """
 
 import logging
 from typing import Generator, Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.orm import Session
 
-from .database import get_db, Session
-from .utils.jwt_manager import jwt_manager, ExpiredTokenError, InvalidTokenError
-from .utils.session_manager import session_manager
+from .database import get_db, SessionLocal
 from .repositories.user_repository import UserRepository
 from .models.user import User
 
@@ -20,6 +20,21 @@ logger = logging.getLogger(__name__)
 
 # Security scheme for JWT token authentication
 security = HTTPBearer()
+
+
+def get_database() -> Generator[Session, None, None]:
+    """
+    Database session dependency for FastAPI.
+    Alternative to get_db for backward compatibility.
+
+    Yields:
+        Database session that automatically closes after use.
+    """
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 def get_user_repository(db: Session = Depends(get_db)) -> UserRepository:
@@ -56,6 +71,9 @@ async def get_current_user(
         # Extract token from credentials
         token = credentials.credentials
 
+        # Import JWT manager here to avoid circular imports
+        from .utils.jwt_manager import jwt_manager, ExpiredTokenError, InvalidTokenError
+
         # Decode and validate JWT token
         user_info = jwt_manager.get_user_from_token(token, token_type="access")
 
@@ -68,30 +86,43 @@ async def get_current_user(
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        # Update session access time
-        await session_manager.update_session_access(user.user_id)
+        # Update session access time if session manager is available
+        try:
+            from .utils.session_manager import session_manager
+            await session_manager.update_session_access(user.user_id)
+        except ImportError:
+            # Session manager not available, skip session update
+            pass
 
         return user
 
-    except ExpiredTokenError:
+    except ImportError:
+        # JWT manager not available - basic token validation
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    except InvalidTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="Authentication system not fully configured",
             headers={"WWW-Authenticate": "Bearer"},
         )
     except Exception as e:
-        logger.error(f"Authentication error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        if "ExpiredTokenError" in str(type(e)):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has expired",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        elif "InvalidTokenError" in str(type(e)):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        else:
+            logger.error(f"Authentication error: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
 
 async def get_current_admin_user(
@@ -109,7 +140,7 @@ async def get_current_admin_user(
     Raises:
         HTTPException: If user is not an admin
     """
-    if not current_user.is_admin():
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin privileges required"
@@ -139,14 +170,18 @@ def get_optional_current_user(
         return None
 
     try:
+        # Import JWT manager here to avoid circular imports
+        from .utils.jwt_manager import jwt_manager, ExpiredTokenError, InvalidTokenError
+
         token = credentials.credentials
         user_info = jwt_manager.get_user_from_token(token, token_type="access")
         user = user_repo.get_by_id(user_info["user_id"])
 
-        if user and user.is_active:
+        if user and hasattr(user, 'is_active') and user.is_active:
             return user
 
-    except (ExpiredTokenError, InvalidTokenError):
+    except ImportError:
+        # JWT manager not available
         pass
     except Exception as e:
         logger.debug(f"Optional authentication failed: {e}")
@@ -170,6 +205,9 @@ async def validate_rate_limit(
         HTTPException: If rate limit is exceeded
     """
     try:
+        # Import session manager here to avoid circular imports
+        from .utils.session_manager import session_manager
+
         user_id = current_user.user_id if current_user else 0  # Use 0 for anonymous users
 
         rate_limit_info = await session_manager.check_rate_limit(user_id)
@@ -190,6 +228,9 @@ async def validate_rate_limit(
 
         return True
 
+    except ImportError:
+        # Session manager not available, allow request
+        return True
     except HTTPException:
         raise
     except Exception as e:

@@ -1,8 +1,14 @@
-"""Initial F1 Analytics schema
+"""Initial F1 Analytics Schema
 
 Revision ID: 001
 Revises:
-Create Date: 2026-02-12 15:00:00.000000
+Create Date: 2026-02-12
+
+Creates all tables for F1 Prediction Analytics system including:
+- Core entities: drivers, teams, circuits, races
+- Race data: race_results, qualifying_results, weather_data
+- Predictions: predictions, prediction_accuracy
+- Users: users for authentication
 
 """
 from typing import Sequence, Union
@@ -82,7 +88,7 @@ def upgrade() -> None:
         sa.Column('current_elo_rating', sa.Integer(), nullable=False),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
         sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
-        sa.ForeignKeyConstraint(['current_team_id'], ['teams.team_id'], ),
+        sa.ForeignKeyConstraint(['current_team_id'], ['teams.team_id'], name='fk_drivers_team'),
         sa.PrimaryKeyConstraint('driver_id')
     )
     op.create_index('idx_drivers_code', 'drivers', ['driver_code'], unique=False)
@@ -104,6 +110,7 @@ def upgrade() -> None:
         sa.Column('race_name', sa.String(length=100), nullable=False),
         sa.Column('status', sa.Enum('SCHEDULED', 'COMPLETED', 'CANCELLED', name='racestatus'), nullable=False),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(['circuit_id'], ['circuits.circuit_id'], ),
         sa.PrimaryKeyConstraint('race_id'),
         sa.UniqueConstraint('season_year', 'round_number', name='uq_races_season_round')
@@ -115,7 +122,6 @@ def upgrade() -> None:
     op.create_index(op.f('ix_races_race_date'), 'races', ['race_date'], unique=False)
     op.create_index(op.f('ix_races_race_id'), 'races', ['race_id'], unique=False)
     op.create_index(op.f('ix_races_season_year'), 'races', ['season_year'], unique=False)
-    op.create_index(op.f('ix_races_status'), 'races', ['status'], unique=False)
 
     # Create race_results table
     op.create_table('race_results',
@@ -123,15 +129,12 @@ def upgrade() -> None:
         sa.Column('race_id', sa.Integer(), nullable=False),
         sa.Column('driver_id', sa.Integer(), nullable=False),
         sa.Column('team_id', sa.Integer(), nullable=False),
-        sa.Column('grid_position', sa.Integer(), nullable=True),
-        sa.Column('final_position', sa.Integer(), nullable=True),
-        sa.Column('points', sa.Numeric(precision=4, scale=1), nullable=True),
-        sa.Column('fastest_lap_time', sa.String(length=20), nullable=True),
-        sa.Column('status', sa.Enum('FINISHED', 'RETIRED', 'DNF', 'DISQUALIFIED', name='resultstatus'), nullable=False),
+        sa.Column('finishing_position', sa.Integer(), nullable=True),
+        sa.Column('points_awarded', sa.Integer(), nullable=False),
+        sa.Column('fastest_lap_time', sa.Interval(), nullable=True),
+        sa.Column('total_race_time', sa.Interval(), nullable=True),
+        sa.Column('status', sa.String(length=20), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-        sa.CheckConstraint('final_position >= 1 AND final_position <= 30', name='ck_race_results_final_position'),
-        sa.CheckConstraint('grid_position >= 1 AND grid_position <= 30', name='ck_race_results_grid_position'),
-        sa.CheckConstraint('points >= 0', name='ck_race_results_points'),
         sa.ForeignKeyConstraint(['driver_id'], ['drivers.driver_id'], ),
         sa.ForeignKeyConstraint(['race_id'], ['races.race_id'], ),
         sa.ForeignKeyConstraint(['team_id'], ['teams.team_id'], ),
@@ -139,51 +142,54 @@ def upgrade() -> None:
         sa.UniqueConstraint('race_id', 'driver_id', name='uq_race_results_race_driver')
     )
     op.create_index('idx_race_results_driver', 'race_results', ['driver_id'], unique=False)
-    op.create_index('idx_race_results_points_desc', 'race_results', ['points'], unique=False, postgresql_using='btree', postgresql_ops={'points': 'DESC'})
-    op.create_index('idx_race_results_position', 'race_results', ['final_position'], unique=False)
+    op.create_index('idx_race_results_points', 'race_results', ['points_awarded'], unique=False)
+    op.create_index('idx_race_results_position', 'race_results', ['finishing_position'], unique=False)
     op.create_index('idx_race_results_race', 'race_results', ['race_id'], unique=False)
     op.create_index(op.f('ix_race_results_driver_id'), 'race_results', ['driver_id'], unique=False)
-    op.create_index(op.f('ix_race_results_final_position'), 'race_results', ['final_position'], unique=False)
+    op.create_index(op.f('ix_race_results_points_awarded'), 'race_results', ['points_awarded'], unique=False)
     op.create_index(op.f('ix_race_results_race_id'), 'race_results', ['race_id'], unique=False)
     op.create_index(op.f('ix_race_results_result_id'), 'race_results', ['result_id'], unique=False)
 
     # Create qualifying_results table
     op.create_table('qualifying_results',
-        sa.Column('qualifying_id', sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column('qualifying_result_id', sa.Integer(), autoincrement=True, nullable=False),
         sa.Column('race_id', sa.Integer(), nullable=False),
         sa.Column('driver_id', sa.Integer(), nullable=False),
-        sa.Column('q1_time', sa.String(length=20), nullable=True),
-        sa.Column('q2_time', sa.String(length=20), nullable=True),
-        sa.Column('q3_time', sa.String(length=20), nullable=True),
-        sa.Column('final_grid_position', sa.Integer(), nullable=False),
+        sa.Column('team_id', sa.Integer(), nullable=False),
+        sa.Column('qualifying_position', sa.Integer(), nullable=False),
+        sa.Column('q1_time', sa.Interval(), nullable=True),
+        sa.Column('q2_time', sa.Interval(), nullable=True),
+        sa.Column('q3_time', sa.Interval(), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-        sa.CheckConstraint('final_grid_position >= 1 AND final_grid_position <= 30', name='ck_qualifying_results_position'),
         sa.ForeignKeyConstraint(['driver_id'], ['drivers.driver_id'], ),
         sa.ForeignKeyConstraint(['race_id'], ['races.race_id'], ),
-        sa.PrimaryKeyConstraint('qualifying_id'),
+        sa.ForeignKeyConstraint(['team_id'], ['teams.team_id'], ),
+        sa.PrimaryKeyConstraint('qualifying_result_id'),
         sa.UniqueConstraint('race_id', 'driver_id', name='uq_qualifying_results_race_driver')
     )
-    op.create_index('idx_qualifying_driver', 'qualifying_results', ['driver_id'], unique=False)
-    op.create_index('idx_qualifying_position', 'qualifying_results', ['final_grid_position'], unique=False)
-    op.create_index('idx_qualifying_race', 'qualifying_results', ['race_id'], unique=False)
+    op.create_index('idx_qualifying_results_driver', 'qualifying_results', ['driver_id'], unique=False)
+    op.create_index('idx_qualifying_results_position', 'qualifying_results', ['qualifying_position'], unique=False)
+    op.create_index('idx_qualifying_results_race', 'qualifying_results', ['race_id'], unique=False)
     op.create_index(op.f('ix_qualifying_results_driver_id'), 'qualifying_results', ['driver_id'], unique=False)
-    op.create_index(op.f('ix_qualifying_results_final_grid_position'), 'qualifying_results', ['final_grid_position'], unique=False)
-    op.create_index(op.f('ix_qualifying_results_qualifying_id'), 'qualifying_results', ['qualifying_id'], unique=False)
+    op.create_index(op.f('ix_qualifying_results_qualifying_result_id'), 'qualifying_results', ['qualifying_result_id'], unique=False)
     op.create_index(op.f('ix_qualifying_results_race_id'), 'qualifying_results', ['race_id'], unique=False)
 
     # Create weather_data table
     op.create_table('weather_data',
         sa.Column('weather_id', sa.Integer(), autoincrement=True, nullable=False),
         sa.Column('race_id', sa.Integer(), nullable=False),
-        sa.Column('temperature_celsius', sa.Numeric(precision=4, scale=1), nullable=True),
-        sa.Column('precipitation_mm', sa.Numeric(precision=5, scale=2), nullable=True),
-        sa.Column('wind_speed_kph', sa.Numeric(precision=5, scale=2), nullable=True),
-        sa.Column('conditions', sa.Enum('DRY', 'WET', 'MIXED', name='weathercondition'), nullable=True),
+        sa.Column('temperature', sa.Numeric(precision=5, scale=2), nullable=True),
+        sa.Column('humidity', sa.Numeric(precision=5, scale=2), nullable=True),
+        sa.Column('wind_speed', sa.Numeric(precision=5, scale=2), nullable=True),
+        sa.Column('precipitation', sa.Numeric(precision=5, scale=2), nullable=True),
+        sa.Column('track_temperature', sa.Numeric(precision=5, scale=2), nullable=True),
+        sa.Column('weather_condition', sa.String(length=50), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(['race_id'], ['races.race_id'], ),
-        sa.PrimaryKeyConstraint('weather_id')
+        sa.PrimaryKeyConstraint('weather_id'),
+        sa.UniqueConstraint('race_id', name='uq_weather_data_race')
     )
-    op.create_index(op.f('ix_weather_data_race_id'), 'weather_data', ['race_id'], unique=True)
+    op.create_index(op.f('ix_weather_data_race_id'), 'weather_data', ['race_id'], unique=False)
     op.create_index(op.f('ix_weather_data_weather_id'), 'weather_data', ['weather_id'], unique=False)
 
     # Create predictions table
@@ -191,42 +197,41 @@ def upgrade() -> None:
         sa.Column('prediction_id', sa.Integer(), autoincrement=True, nullable=False),
         sa.Column('race_id', sa.Integer(), nullable=False),
         sa.Column('driver_id', sa.Integer(), nullable=False),
-        sa.Column('predicted_win_probability', sa.Numeric(precision=5, scale=2), nullable=False),
-        sa.Column('model_version', sa.String(length=50), nullable=False),
-        sa.Column('prediction_timestamp', sa.DateTime(timezone=True), nullable=False),
+        sa.Column('predicted_position', sa.Integer(), nullable=False),
+        sa.Column('confidence_score', sa.Numeric(precision=5, scale=4), nullable=True),
+        sa.Column('model_version', sa.String(length=50), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-        sa.CheckConstraint('predicted_win_probability >= 0 AND predicted_win_probability <= 100', name='ck_predictions_probability_range'),
         sa.ForeignKeyConstraint(['driver_id'], ['drivers.driver_id'], ),
         sa.ForeignKeyConstraint(['race_id'], ['races.race_id'], ),
         sa.PrimaryKeyConstraint('prediction_id'),
-        sa.UniqueConstraint('race_id', 'driver_id', 'model_version', name='uq_predictions_race_driver_model')
+        sa.UniqueConstraint('race_id', 'driver_id', name='uq_predictions_race_driver')
     )
-    op.create_index('idx_predictions_probability_desc', 'predictions', ['predicted_win_probability'], unique=False, postgresql_using='btree', postgresql_ops={'predicted_win_probability': 'DESC'})
+    op.create_index('idx_predictions_confidence', 'predictions', ['confidence_score'], unique=False)
+    op.create_index('idx_predictions_driver', 'predictions', ['driver_id'], unique=False)
+    op.create_index('idx_predictions_model', 'predictions', ['model_version'], unique=False)
     op.create_index('idx_predictions_race', 'predictions', ['race_id'], unique=False)
-    op.create_index('idx_predictions_timestamp_desc', 'predictions', ['prediction_timestamp'], unique=False, postgresql_using='btree', postgresql_ops={'prediction_timestamp': 'DESC'})
     op.create_index(op.f('ix_predictions_driver_id'), 'predictions', ['driver_id'], unique=False)
-    op.create_index(op.f('ix_predictions_predicted_win_probability'), 'predictions', ['predicted_win_probability'], unique=False)
     op.create_index(op.f('ix_predictions_prediction_id'), 'predictions', ['prediction_id'], unique=False)
-    op.create_index(op.f('ix_predictions_prediction_timestamp'), 'predictions', ['prediction_timestamp'], unique=False)
     op.create_index(op.f('ix_predictions_race_id'), 'predictions', ['race_id'], unique=False)
 
     # Create prediction_accuracy table
     op.create_table('prediction_accuracy',
         sa.Column('accuracy_id', sa.Integer(), autoincrement=True, nullable=False),
         sa.Column('race_id', sa.Integer(), nullable=False),
-        sa.Column('brier_score', sa.Numeric(precision=6, scale=4), nullable=True),
-        sa.Column('log_loss', sa.Numeric(precision=6, scale=4), nullable=True),
-        sa.Column('correct_winner', sa.Boolean(), nullable=True),
-        sa.Column('top_3_accuracy', sa.Boolean(), nullable=True),
+        sa.Column('model_version', sa.String(length=50), nullable=False),
+        sa.Column('avg_position_error', sa.Numeric(precision=5, scale=2), nullable=True),
+        sa.Column('top3_accuracy', sa.Numeric(precision=5, scale=4), nullable=True),
+        sa.Column('top5_accuracy', sa.Numeric(precision=5, scale=4), nullable=True),
+        sa.Column('top10_accuracy', sa.Numeric(precision=5, scale=4), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(['race_id'], ['races.race_id'], ),
-        sa.PrimaryKeyConstraint('accuracy_id')
+        sa.PrimaryKeyConstraint('accuracy_id'),
+        sa.UniqueConstraint('race_id', 'model_version', name='uq_prediction_accuracy_race_model')
     )
-    op.create_index('idx_accuracy_brier', 'prediction_accuracy', ['brier_score'], unique=False)
-    op.create_index('idx_accuracy_correct_winner', 'prediction_accuracy', ['correct_winner'], unique=False)
-    op.create_index('idx_accuracy_race', 'prediction_accuracy', ['race_id'], unique=False)
+    op.create_index('idx_prediction_accuracy_model', 'prediction_accuracy', ['model_version'], unique=False)
+    op.create_index('idx_prediction_accuracy_race', 'prediction_accuracy', ['race_id'], unique=False)
     op.create_index(op.f('ix_prediction_accuracy_accuracy_id'), 'prediction_accuracy', ['accuracy_id'], unique=False)
-    op.create_index(op.f('ix_prediction_accuracy_race_id'), 'prediction_accuracy', ['race_id'], unique=True)
+    op.create_index(op.f('ix_prediction_accuracy_race_id'), 'prediction_accuracy', ['race_id'], unique=False)
 
 
 def downgrade() -> None:
@@ -241,9 +246,3 @@ def downgrade() -> None:
     op.drop_table('circuits')
     op.drop_table('teams')
     op.drop_table('users')
-
-    # Drop custom enums
-    op.execute('DROP TYPE IF EXISTS weathercondition CASCADE')
-    op.execute('DROP TYPE IF EXISTS resultstatus CASCADE')
-    op.execute('DROP TYPE IF EXISTS racestatus CASCADE')
-    op.execute('DROP TYPE IF EXISTS tracktype CASCADE')

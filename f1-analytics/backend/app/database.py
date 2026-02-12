@@ -2,29 +2,42 @@
 Database connection and session management for F1 Prediction Analytics.
 
 This module provides SQLAlchemy engine configuration, session management,
-and database utilities for the F1 analytics backend.
+and database utilities for the F1 analytics backend. It includes both
+synchronous and asynchronous database support with connection pooling
+for optimal performance.
 """
 
 import logging
 from contextlib import contextmanager, asynccontextmanager
 from typing import Generator, AsyncGenerator, Optional
 
-from sqlalchemy import create_engine, event, Engine, exc
+from sqlalchemy import create_engine, event, Engine, exc, MetaData
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.pool import QueuePool
+from sqlalchemy.pool import QueuePool, StaticPool
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
 from .config import settings
 
 logger = logging.getLogger(__name__)
 
+# Define metadata for Alembic migration with naming conventions
+metadata = MetaData(
+    naming_convention={
+        "ix": "ix_%(column_0_label)s",
+        "uq": "uq_%(table_name)s_%(column_0_name)s",
+        "ck": "ck_%(table_name)s_%(constraint_name)s",
+        "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+        "pk": "pk_%(table_name)s"
+    }
+)
+
 # Base class for all ORM models
-Base = declarative_base()
+Base = declarative_base(metadata=metadata)
 
 
 class DatabaseManager:
-    """Database connection and session manager."""
+    """Database connection and session manager with both sync and async support."""
 
     def __init__(self):
         self._engine: Optional[Engine] = None
@@ -71,7 +84,7 @@ class DatabaseManager:
         return self._async_session_factory
 
     def _create_sync_engine(self) -> Engine:
-        """Create synchronous SQLAlchemy engine."""
+        """Create synchronous SQLAlchemy engine with connection pooling."""
         logger.info(f"Creating database engine for {settings.database.db_host}:{settings.database.db_port}")
 
         engine = create_engine(
@@ -81,12 +94,12 @@ class DatabaseManager:
             max_overflow=settings.database.max_overflow,
             pool_timeout=settings.database.pool_timeout,
             pool_recycle=settings.database.pool_recycle,
-            pool_pre_ping=True,
-            echo=settings.database.echo_sql,
+            pool_pre_ping=True,  # Verify connections before use
+            echo=settings.database.echo_sql,  # Log SQL queries if enabled
             future=True
         )
 
-        # Add event listeners
+        # Add event listeners for monitoring
         self._add_engine_listeners(engine)
         return engine
 
@@ -108,7 +121,7 @@ class DatabaseManager:
         return engine
 
     def _add_engine_listeners(self, engine: Engine) -> None:
-        """Add event listeners for database engine."""
+        """Add event listeners for database engine monitoring."""
 
         @event.listens_for(engine, "connect")
         def on_connect(dbapi_connection, connection_record):
@@ -182,7 +195,11 @@ class DatabaseManager:
             await conn.run_sync(Base.metadata.create_all)
 
     def drop_all_tables(self) -> None:
-        """Drop all tables in the database. USE WITH CAUTION!"""
+        """
+        Drop all database tables. USE WITH CAUTION!
+
+        Warning: This will delete all data! Use only in development/testing.
+        """
         if not settings.app.is_development:
             raise ValueError("Can only drop tables in development environment")
 
@@ -222,7 +239,7 @@ class DatabaseManager:
             logger.info("Async database engine disposed")
 
     def get_connection_info(self) -> dict:
-        """Get database connection information."""
+        """Get database connection information for monitoring."""
         pool = self.engine.pool
         return {
             "database_url": settings.database.database_url.replace(settings.database.db_password, "***"),
@@ -239,10 +256,17 @@ class DatabaseManager:
 # Global database manager instance
 db_manager = DatabaseManager()
 
+# Legacy engine and session for backward compatibility
+engine = db_manager.engine
+SessionLocal = db_manager.session_factory
+
 
 def get_db() -> Generator[Session, None, None]:
     """
     FastAPI dependency to get database session.
+
+    This function creates a new SQLAlchemy SessionLocal that will be used
+    in a single request, and then close it once the request is finished.
 
     Usage in route:
         @app.get("/users/")
@@ -265,6 +289,25 @@ async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
     """
     async with db_manager.get_async_session() as session:
         yield session
+
+
+def create_tables():
+    """
+    Create all database tables.
+
+    This function creates all tables defined by SQLAlchemy models.
+    Should be called during application startup or in migrations.
+    """
+    db_manager.create_all_tables()
+
+
+def drop_tables():
+    """
+    Drop all database tables.
+
+    Warning: This will delete all data! Use only in development/testing.
+    """
+    db_manager.drop_all_tables()
 
 
 def health_check() -> dict:
@@ -315,6 +358,10 @@ async def async_health_check() -> dict:
             "error": str(e),
             "timestamp": __import__("datetime").datetime.utcnow().isoformat()
         }
+
+
+# Alias for backward compatibility
+get_database = get_db
 
 
 class DatabaseError(Exception):

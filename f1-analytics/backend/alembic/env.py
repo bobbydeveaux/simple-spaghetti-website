@@ -1,7 +1,8 @@
 """
-Alembic environment configuration for F1 Analytics.
+Alembic environment configuration for F1 Prediction Analytics.
 
-This file is used by Alembic to configure the migration environment.
+This file configures Alembic to work with our SQLAlchemy models
+and database connection settings.
 """
 
 import os
@@ -13,20 +14,29 @@ from sqlalchemy import pool
 
 from alembic import context
 
-# Add the parent directory to the path so we can import our modules
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+# Add the app directory to Python path so we can import our models
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import our models and database configuration
 from app.database import Base
 from app.config import settings
-from app.models.user import User
-from app.models.f1_models import (
-    Driver, Team, Circuit, Race, RaceResult, QualifyingResult,
-    WeatherData, Prediction, PredictionAccuracy
+
+# Import all models to ensure they are registered with SQLAlchemy
+from app.models import (
+    driver,
+    team,
+    circuit,
+    race,
+    race_result,
+    qualifying_result,
+    weather_data,
+    prediction,
+    prediction_accuracy,
+    user
 )
 
-# This is the Alembic Config object, which provides
-# access to the values within the .ini file in use.
+# This is the Alembic Config object, which provides access to the values
+# within the .ini file in use.
 config = context.config
 
 # Interpret the config file for Python logging.
@@ -34,17 +44,11 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Set the database URL from our settings
-config.set_main_option('sqlalchemy.url', settings.database.database_url)
+# Set the SQLAlchemy URL from our settings
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
-# Add your model's MetaData object here
-# for 'autogenerate' support
+# Add your model's MetaData object here for 'autogenerate' support
 target_metadata = Base.metadata
-
-# Other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
 
 
 def include_name(name, type_, parent_names):
@@ -67,15 +71,13 @@ def include_name(name, type_, parent_names):
     # Include all other objects (indexes, constraints, etc.)
     return True
 
-
 def run_migrations_offline() -> None:
     """
     Run migrations in 'offline' mode.
 
-    This configures the context with just a URL
-    and not an Engine, though an Engine is acceptable
-    here as well.  By skipping the Engine creation
-    we don't even need a DBAPI to be available.
+    This configures the context with just a URL and not an Engine,
+    though an Engine is acceptable here as well. By skipping the Engine
+    creation we don't even need a DBAPI to be available.
 
     Calls to context.execute() here emit the given string to the
     script output.
@@ -99,12 +101,12 @@ def run_migrations_online() -> None:
     """
     Run migrations in 'online' mode.
 
-    In this scenario we need to create an Engine
-    and associate a connection with the context.
+    In this scenario we need to create an Engine and associate a
+    connection with the context.
     """
     # Get database connection configuration
-    configuration = config.get_section(config.config_ini_section)
-    configuration['sqlalchemy.url'] = settings.database.database_url
+    configuration = config.get_section(config.config_ini_section, {})
+    configuration['sqlalchemy.url'] = settings.DATABASE_URL
 
     # Create engine with connection pooling settings
     connectable = engine_from_config(
@@ -120,10 +122,7 @@ def run_migrations_online() -> None:
             include_name=include_name,
             compare_type=True,
             compare_server_default=True,
-            # Enable additional migration features
-            compare_server_default=True,
             render_as_batch=False,  # We're using PostgreSQL, not SQLite
-            # Transaction per migration for safety
             transaction_per_migration=True,
         )
 
