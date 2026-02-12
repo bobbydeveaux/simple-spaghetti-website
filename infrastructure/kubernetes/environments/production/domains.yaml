@@ -1,0 +1,40 @@
+# Production Domain Configuration
+# Replace these values with your actual production domains
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: domain-config
+  namespace: f1-analytics
+  labels:
+    app: f1-analytics
+    component: domain-configuration
+    environment: production
+data:
+  # Primary domain for the F1 Analytics platform
+  PRIMARY_DOMAIN: "f1-analytics.com"  # REPLACE with your actual domain
+
+  # Frontend domains
+  FRONTEND_DOMAIN: "f1-analytics.com"
+  FRONTEND_WWW_DOMAIN: "www.f1-analytics.com"
+
+  # API domains
+  API_DOMAIN: "api.f1-analytics.com"
+  WS_DOMAIN: "ws.f1-analytics.com"
+
+  # Airflow domain
+  AIRFLOW_DOMAIN: "airflow.f1-analytics.com"
+
+  # Full URLs (computed from domains above)
+  FRONTEND_URL: "https://f1-analytics.com"
+  API_BASE_URL: "https://api.f1-analytics.com/api/v1"
+  WS_URL: "wss://ws.f1-analytics.com"
+  AIRFLOW_BASE_URL: "https://airflow.f1-analytics.com"
+
+  # CORS origins (comma-separated list)
+  CORS_ORIGINS: "https://f1-analytics.com,https://www.f1-analytics.com"
+
+  # Contact email for certificates and notifications
+  CONTACT_EMAIL: "admin@f1-analytics.com"  # REPLACE with your actual email
+
+  # CSP connect-src domains
+  CSP_CONNECT_SRC: "https://api.f1-analytics.com wss://ws.f1-analytics.com"

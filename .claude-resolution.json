@@ -1,6 +1,6 @@
 {
   "method": "ai-assisted",
-  "filesResolved": 18,
-  "summary": "Successfully resolved all merge conflicts by adopting the more complete, production-ready code from the main branch. The main branch had comprehensive configuration management, better database models, proper dependency injection, and enhanced alembic setup compared to the feature branch's simpler implementation.",
-  "strategyUsed": "Analyzed each conflict and consistently chose the main branch version which contained more complete features including: comprehensive pydantic-based configuration with validation, advanced database connection pooling, proper async support, enhanced model definitions with better constraints and relationships, and production-ready alembic migrations. The main branch code was systematically more mature and feature-complete for F1 prediction analytics."
+  "filesResolved": 1,
+  "summary": "Successfully merged README.md by combining multi-service platform overview from main branch with comprehensive F1 analytics documentation from feature branch. Preserved all functionality and features from both versions.",
+  "strategyUsed": "Integrated both versions by keeping the multi-service architecture overview from main and incorporating detailed F1 analytics features, security, and deployment information from the feature branch. Used a layered approach where F1 analytics is presented as a comprehensive service within the larger platform ecosystem."
 }

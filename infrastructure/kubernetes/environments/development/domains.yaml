@@ -1,0 +1,44 @@
+# Development Domain Configuration
+# These are local development domains (localhost or minikube)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: domain-config
+  namespace: f1-analytics-development
+  labels:
+    app: f1-analytics
+    component: domain-configuration
+    environment: development
+data:
+  # Primary domain for local development
+  PRIMARY_DOMAIN: "localhost"
+
+  # Frontend domains (local development)
+  FRONTEND_DOMAIN: "localhost"
+  FRONTEND_WWW_DOMAIN: "localhost"
+
+  # API domains (local development with different ports)
+  API_DOMAIN: "localhost"
+  WS_DOMAIN: "localhost"
+
+  # Airflow domain (local development)
+  AIRFLOW_DOMAIN: "localhost"
+
+  # Full URLs for local development
+  FRONTEND_URL: "http://localhost:3000"
+  API_BASE_URL: "http://localhost:8080/api/v1"
+  WS_URL: "ws://localhost:8081"
+  AIRFLOW_BASE_URL: "http://localhost:8082"
+
+  # CORS origins (allow localhost for development)
+  CORS_ORIGINS: "http://localhost:3000,http://localhost:8080"
+
+  # Contact email for development
+  CONTACT_EMAIL: "dev@localhost"
+
+  # CSP connect-src domains for development
+  CSP_CONNECT_SRC: "http://localhost:8080 ws://localhost:8081"
+
+  # Development-specific settings
+  DEVELOPMENT_MODE: "true"
+  DEBUG_ENABLED: "true"

@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: f1-analytics
+  labels:
+    name: f1-analytics
+    project: f1-prediction-analytics
+    version: v1
+    environment: production
+  annotations:
+    description: "F1 Prediction Analytics Platform - Production Environment"
+    owner: "devops-team"
+    created-by: "kubernetes-deployment"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: f1-analytics-staging
+  labels:
+    name: f1-analytics-staging
+    project: f1-prediction-analytics
+    version: v1
+    environment: staging
+  annotations:
+    description: "F1 Prediction Analytics Platform - Staging Environment"
+    owner: "devops-team"
+    created-by: "kubernetes-deployment"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: f1-analytics-development
+  labels:
+    name: f1-analytics-development
+    project: f1-prediction-analytics
+    version: v1
+    environment: development
+  annotations:
+    description: "F1 Prediction Analytics Platform - Development Environment"
+    owner: "devops-team"
+    created-by: "kubernetes-deployment"

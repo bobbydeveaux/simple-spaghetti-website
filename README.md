@@ -106,12 +106,23 @@ locust -f tests/performance/test_load.py
 
 ## 📊 F1 Prediction Analytics
 
-### Features
-- **Race Winner Predictions**: ML-based probability calculations using ensemble models
-- **Driver Rankings**: ELO-based rating system with team associations
-- **Historical Analysis**: Prediction accuracy tracking and performance metrics
-- **Interactive Dashboard**: React-based visualization with real-time updates
-- **Data Ingestion**: Automated collection from Ergast API and weather services
+A comprehensive Formula One race prediction system built with modern microservices architecture and machine learning. This platform aggregates F1 data from multiple sources, applies statistical models, and provides real-time race winner predictions through an interactive web dashboard.
+
+### 🏎️ Features
+
+#### Core Functionality
+- **Real-time Predictions**: ML-powered race winner probability calculations
+- **Interactive Dashboard**: React-based web interface with live data visualizations
+- **Historical Analysis**: Track prediction accuracy and model performance over time
+- **Data Export**: CSV/JSON export functionality for analysis
+- **Multi-Model Ensemble**: Random Forest, XGBoost, and ELO rating systems
+
+#### Technical Capabilities
+- **Cloud-Native Architecture**: Kubernetes-ready microservices deployment
+- **High Availability**: Redis clustering, PostgreSQL replication, auto-scaling
+- **Real-time Analytics**: Live prediction updates and performance monitoring
+- **ML Pipeline**: Apache Airflow orchestration for automated model training
+- **Comprehensive Monitoring**: Prometheus, Grafana, and custom metrics
 
 ### Database Models
 
@@ -146,12 +157,39 @@ The F1 analytics system follows a layered architecture:
 - **ML Layer**: Scikit-learn and XGBoost models
 - **Cache Layer**: Redis for performance optimization
 
-### Database Schema
-- Normalized F1 data structure
-- Optimized indexes for performance
-- Materialized views for complex queries
-- Foreign key constraints for data integrity
-- Check constraints for data validation
+### 🔒 Enterprise Security Standards
+- **🔐 External Secret Management**: AWS Secrets Manager integration with External Secrets Operator
+- **🛡️ Zero Hardcoded Secrets**: No credentials stored in version control
+- **🔑 Modern Authentication**: SCRAM-SHA-256 PostgreSQL authentication
+- **🌐 Environment-Specific Configuration**: Separate configs for production/staging/development
+- **🚫 Non-Root Containers**: All services run with minimal privileges
+- **🛂 Network Security**: Comprehensive network policies with micro-segmentation and default-deny-all
+- **📜 SSL/TLS**: Encrypted connections for all database and Redis communications
+- **🔄 Secret Rotation**: Automated secret rotation support via AWS
+
+### Production Deployment
+
+**⚠️ Important:** For F1 Analytics production deployment with secure external secret management:
+
+1. **Configure AWS Secrets Manager** (see [External Secrets Setup](infrastructure/kubernetes/external-secrets/README.md))
+2. **Set up environment-specific domains** (see [Environment Configuration](infrastructure/kubernetes/environments/))
+3. **Deploy with proper security configurations**
+
+```bash
+# F1 Analytics Kubernetes deployment
+# 1. Configure secrets in AWS Secrets Manager
+# See infrastructure/kubernetes/external-secrets/README.md
+
+# 2. Update domain configuration
+# Edit infrastructure/kubernetes/environments/production/domains.yaml
+
+# 3. Deploy External Secrets Operator first
+kubectl apply -f infrastructure/kubernetes/external-secrets/
+
+# 4. Deploy F1 Analytics with environment-specific config
+kubectl apply -f infrastructure/kubernetes/environments/production/
+kubectl apply -f infrastructure/kubernetes/
+```
 
 ### F1 Analytics Setup
 ```bash
@@ -280,6 +318,12 @@ alembic downgrade -1
 - Integration tests must pass
 - Documentation updates required for new features
 
+### Code Standards
+- Python: Black formatting, flake8 linting, type hints
+- JavaScript: ESLint, Prettier, TypeScript
+- Documentation: Comprehensive README and inline comments
+- Testing: Minimum 90% test coverage required
+
 ## 📚 Documentation
 
 - [CI/CD Implementation Guide](docs/CI-CD-IMPLEMENTATION.md)
@@ -287,6 +331,13 @@ alembic downgrade -1
 - [F1 Analytics Architecture](docs/concepts/f1-prediction-analytics/)
 - [F1 Database Models](docs/F1_DATABASE_MODELS.md)
 - [PTA Voting System](docs/concepts/pta-voting-system/)
+
+### F1 Analytics Documentation
+- [**🔒 Secure Kubernetes Deployment**](docs/SECURE_DEPLOYMENT.md) - Complete production deployment with enterprise security
+- [**📋 Security Implementation Checklist**](docs/SECURITY_CHECKLIST.md) - Verification and compliance guide
+- [**🔐 External Secrets Setup**](infrastructure/kubernetes/external-secrets/README.md) - AWS Secrets Manager integration
+- [**🛡️ Security Validation**](scripts/validate-security.sh) - Automated security compliance checking
+- [**💻 Local Development Setup**](docs/concepts/f1-prediction-analytics/LLD.md) - Development environment configuration
 
 ## 📧 Support
 
@@ -298,3 +349,14 @@ For questions, issues, or contributions:
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- **Ergast API**: Historical F1 data source
+- **OpenWeatherMap**: Weather data for race predictions
+- **Formula 1**: Inspiration and data standards
+- **Open Source Community**: Libraries and frameworks used
+
+---
+
+**Built with ❤️ for Formula 1 fans and data enthusiasts**

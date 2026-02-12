@@ -1,0 +1,519 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: airflow-webserver-service
+  namespace: f1-analytics
+  labels:
+    app: airflow
+    component: webserver
+spec:
+  selector:
+    app: airflow-webserver
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: http
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: airflow-scheduler-service
+  namespace: f1-analytics
+  labels:
+    app: airflow
+    component: scheduler
+spec:
+  selector:
+    app: airflow-scheduler
+  ports:
+  - port: 8793
+    targetPort: 8793
+    name: scheduler
+  type: ClusterIP
+  clusterIP: None
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: airflow-config
+  namespace: f1-analytics
+  labels:
+    app: airflow
+    component: config
+data:
+  airflow.cfg: |
+    [core]
+    # F1 Analytics Airflow Configuration
+    dags_folder = /opt/airflow/dags
+    base_log_folder = /opt/airflow/logs
+    remote_logging = False
+    executor = CeleryExecutor
+    sql_alchemy_conn = postgresql+psycopg2://airflow:$(AIRFLOW_DB_PASSWORD)@postgres-service:5432/airflow
+    parallelism = 32
+    dag_concurrency = 16
+    dags_are_paused_at_creation = False
+    max_active_runs_per_dag = 16
+    load_examples = False
+    plugins_folder = /opt/airflow/plugins
+    fernet_key = $(AIRFLOW_FERNET_KEY)
+    donot_pickle = True
+    dagbag_import_timeout = 30
+
+    [logging]
+    logging_level = INFO
+    fab_logging_level = WARN
+    log_filename_template = {{ ti.dag_id }}/{{ ti.task_id }}/{{ ts }}/{{ try_number }}.log
+    log_processor_filename_template = {{ filename }}.log
+    dag_processor_manager_log_location = /opt/airflow/logs/dag_processor_manager/dag_processor_manager.log
+
+    [metrics]
+    statsd_on = True
+    statsd_host = prometheus-statsd-exporter
+    statsd_port = 9125
+    statsd_prefix = airflow
+
+    [celery]
+    broker_url = redis://:$(REDIS_PASSWORD)@redis-service:6379/2
+    result_backend = db+postgresql://airflow:$(AIRFLOW_DB_PASSWORD)@postgres-service:5432/airflow
+    worker_concurrency = 16
+
+    [webserver]
+    base_url = $(AIRFLOW_BASE_URL)
+    expose_config = False
+    authenticate = True
+    auth_backend = airflow.contrib.auth.backends.password_auth
+    filter_by_owner = False
+    owner_mode = user
+    rbac = True
+    default_ui_timezone = UTC
+
+    [scheduler]
+    job_heartbeat_sec = 5
+    scheduler_heartbeat_sec = 5
+    num_runs = -1
+    processor_poll_interval = 1
+    min_file_process_interval = 30
+    dag_dir_list_interval = 300
+    print_stats_interval = 30
+    catchup_by_default = False
+    max_threads = 2
+
+    [email]
+    email_backend = airflow.utils.email.send_email_smtp
+    smtp_host = localhost
+    smtp_starttls = True
+    smtp_ssl = False
+    smtp_port = 587
+
+    [kubernetes]
+    namespace = f1-analytics
+    airflow_configmap = airflow-config
+    worker_container_repository = f1-analytics/airflow-worker
+    worker_container_tag = latest
+    delete_worker_pods = True
+    delete_worker_pods_on_failure = False
+    worker_pods_creation_batch_size = 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-webserver
+  namespace: f1-analytics
+  labels:
+    app: airflow-webserver
+    component: webserver
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: airflow-webserver
+  template:
+    metadata:
+      labels:
+        app: airflow-webserver
+        component: webserver
+    spec:
+      securityContext:
+        fsGroup: 50000
+        runAsNonRoot: true
+
+      initContainers:
+      - name: airflow-init
+        image: f1-analytics/airflow:latest
+        command:
+        - bash
+        - -c
+        - |
+          airflow db init
+          airflow users create --username $AIRFLOW_ADMIN_USERNAME --firstname Admin --lastname User --role Admin --email $AIRFLOW_ADMIN_EMAIL --password $AIRFLOW_ADMIN_PASSWORD
+        env:
+        - name: AIRFLOW__CORE__SQL_ALCHEMY_CONN
+          value: "postgresql+psycopg2://airflow:$(AIRFLOW_DB_PASSWORD)@postgres-service:5432/airflow"
+        - name: AIRFLOW_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: airflow-secrets
+              key: db-password
+        - name: AIRFLOW__CORE__FERNET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: airflow-secrets
+              key: fernet-key
+        - name: AIRFLOW_ADMIN_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: airflow-secrets
+              key: admin-username
+        - name: AIRFLOW_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: airflow-secrets
+              key: admin-password
+        - name: AIRFLOW_ADMIN_EMAIL
+          valueFrom:
+            configMapKeyRef:
+              name: domain-config
+              key: CONTACT_EMAIL
+        volumeMounts:
+        - name: airflow-config
+          mountPath: /opt/airflow/airflow.cfg
+          subPath: airflow.cfg
+      containers:
+      - name: airflow-webserver
+        image: f1-analytics/airflow:latest
+        command:
+        - airflow
+        - webserver
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: AIRFLOW__CORE__SQL_ALCHEMY_CONN
+          value: "postgresql+psycopg2://airflow:$(AIRFLOW_DB_PASSWORD)@postgres-service:5432/airflow"
+        - name: AIRFLOW_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: airflow-secrets
+              key: db-password
+        - name: AIRFLOW__CORE__FERNET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: airflow-secrets
+              key: fernet-key
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-secret
+              key: password
+        - name: AIRFLOW__CELERY__BROKER_URL
+          value: "redis://:$(REDIS_PASSWORD)@redis-service:6379/2"
+
+        # F1 Analytics specific environment variables
+        - name: F1_API_BASE_URL
+          value: "http://api-gateway-service:8000/api/v1"
+        - name: ERGAST_API_URL
+          value: "https://ergast.com/api/f1"
+        - name: OPENWEATHER_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: external-api-secrets
+              key: openweather-api-key
+
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+
+        volumeMounts:
+        - name: airflow-config
+          mountPath: /opt/airflow/airflow.cfg
+          subPath: airflow.cfg
+        - name: dags-volume
+          mountPath: /opt/airflow/dags
+        - name: logs-volume
+          mountPath: /opt/airflow/logs
+        - name: tmp
+          mountPath: /tmp
+
+        securityContext:
+          runAsUser: 50000
+          runAsGroup: 50000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false  # Airflow needs write access for temporary files
+          capabilities:
+            drop:
+            - ALL
+
+      volumes:
+      - name: airflow-config
+        configMap:
+          name: airflow-config
+      - name: dags-volume
+        persistentVolumeClaim:
+          claimName: airflow-dags-pvc
+      - name: logs-volume
+        persistentVolumeClaim:
+          claimName: airflow-logs-pvc
+      - name: tmp
+        emptyDir: {}
+
+      securityContext:
+        fsGroup: 50000
+        runAsNonRoot: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-scheduler
+  namespace: f1-analytics
+  labels:
+    app: airflow-scheduler
+    component: scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: airflow-scheduler
+  template:
+    metadata:
+      labels:
+        app: airflow-scheduler
+        component: scheduler
+    spec:
+      containers:
+      - name: airflow-scheduler
+        image: f1-analytics/airflow:latest
+        command:
+        - airflow
+        - scheduler
+        ports:
+        - containerPort: 8793
+          name: scheduler
+        env:
+        - name: AIRFLOW__CORE__SQL_ALCHEMY_CONN
+          value: "postgresql+psycopg2://airflow:$(AIRFLOW_DB_PASSWORD)@postgres-service:5432/airflow"
+        - name: AIRFLOW_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: airflow-secrets
+              key: db-password
+        - name: AIRFLOW__CORE__FERNET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: airflow-secrets
+              key: fernet-key
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-secret
+              key: password
+
+        # F1 Analytics DAG Configuration
+        - name: F1_DATA_INGESTION_SCHEDULE
+          value: "0 6 * * *"  # Daily at 6 AM UTC
+        - name: MODEL_TRAINING_SCHEDULE
+          value: "0 2 * * 0"  # Weekly on Sunday at 2 AM UTC
+        - name: ELO_UPDATE_SCHEDULE
+          value: "0 */6 * * *" # Every 6 hours
+        - name: PREDICTION_REFRESH_SCHEDULE
+          value: "0 */2 * * *" # Every 2 hours
+
+        livenessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - "import airflow.jobs.scheduler_job; print('healthy')"
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 5
+
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+
+        volumeMounts:
+        - name: airflow-config
+          mountPath: /opt/airflow/airflow.cfg
+          subPath: airflow.cfg
+        - name: dags-volume
+          mountPath: /opt/airflow/dags
+        - name: logs-volume
+          mountPath: /opt/airflow/logs
+        - name: tmp
+          mountPath: /tmp
+
+        securityContext:
+          runAsUser: 50000
+          runAsGroup: 50000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false  # Airflow needs write access for temporary files
+          capabilities:
+            drop:
+            - ALL
+
+      volumes:
+      - name: airflow-config
+        configMap:
+          name: airflow-config
+      - name: dags-volume
+        persistentVolumeClaim:
+          claimName: airflow-dags-pvc
+      - name: logs-volume
+        persistentVolumeClaim:
+          claimName: airflow-logs-pvc
+      - name: tmp
+        emptyDir: {}
+
+      securityContext:
+        fsGroup: 50000
+        runAsNonRoot: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-worker
+  namespace: f1-analytics
+  labels:
+    app: airflow-worker
+    component: worker
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: airflow-worker
+  template:
+    metadata:
+      labels:
+        app: airflow-worker
+        component: worker
+    spec:
+      containers:
+      - name: airflow-worker
+        image: f1-analytics/airflow:latest
+        command:
+        - airflow
+        - celery
+        - worker
+        env:
+        - name: AIRFLOW__CORE__SQL_ALCHEMY_CONN
+          value: "postgresql+psycopg2://airflow:$(AIRFLOW_DB_PASSWORD)@postgres-service:5432/airflow"
+        - name: AIRFLOW_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: airflow-secrets
+              key: db-password
+        - name: AIRFLOW__CORE__FERNET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: airflow-secrets
+              key: fernet-key
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-secret
+              key: password
+
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+
+        volumeMounts:
+        - name: airflow-config
+          mountPath: /opt/airflow/airflow.cfg
+          subPath: airflow.cfg
+        - name: dags-volume
+          mountPath: /opt/airflow/dags
+        - name: logs-volume
+          mountPath: /opt/airflow/logs
+        - name: tmp
+          mountPath: /tmp
+
+        securityContext:
+          runAsUser: 50000
+          runAsGroup: 50000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false  # Airflow needs write access for temporary files
+          capabilities:
+            drop:
+            - ALL
+
+      volumes:
+      - name: airflow-config
+        configMap:
+          name: airflow-config
+      - name: dags-volume
+        persistentVolumeClaim:
+          claimName: airflow-dags-pvc
+      - name: logs-volume
+        persistentVolumeClaim:
+          claimName: airflow-logs-pvc
+      - name: tmp
+        emptyDir: {}
+
+      securityContext:
+        fsGroup: 50000
+        runAsNonRoot: true
+---
+# Persistent Volume Claims for Airflow
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: airflow-dags-pvc
+  namespace: f1-analytics
+  labels:
+    app: airflow
+    component: dags
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: fast-ssd
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: airflow-logs-pvc
+  namespace: f1-analytics
+  labels:
+    app: airflow
+    component: logs
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: fast-ssd
+  resources:
+    requests:
+      storage: 20Gi
