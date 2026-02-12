@@ -71,6 +71,7 @@ def include_name(name, type_, parent_names):
     # Include all other objects (indexes, constraints, etc.)
     return True
 
+
 def run_migrations_offline() -> None:
     """
     Run migrations in 'offline' mode.
