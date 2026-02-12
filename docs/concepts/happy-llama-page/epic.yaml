@@ -1,0 +1,13 @@
+Epic: happy-llama-page
+Features:
+- Sprint: 1
+  dependencies: []
+  description: Create HTML page displaying 'Llamas are awesome!' with llama emoji
+  estimatedComplexity: low
+  files:
+  - index.html
+  id: happy-llama-page-feat-html-page
+  name: Llama Display Page
+  project: simple-spaghetti-repo
+  type: feature
+Version: v1alpha1

@@ -1,0 +1,19 @@
+# Project Timeline
+
+metadata:
+  generated: 2026-02-10T11:03:42Z
+  totalSprints: 1
+  totalDuration: 7 days
+
+sprints:
+  - number: 1
+    startDate: 2026-02-10
+    endDate: 2026-02-17
+    duration: 7 days
+    features:
+      - id: happy-llama-page-feat-html-page
+        name: Llama Display Page
+        type: feature
+
+criticalPath:
+  - happy-llama-page-feat-html-page

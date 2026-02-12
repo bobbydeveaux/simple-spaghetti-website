@@ -1,0 +1,104 @@
+GeneratedAt: "2026-02-10T21:20:37Z"
+Plan: library-api-plan
+Sprints:
+- Features:
+  - FeatureID: library-api-feat-data-and-auth
+    FeatureTitle: Data Store and Authentication
+    Tasks:
+    - AcceptanceCriteria:
+      - Data store contains all four entity dictionaries with auto-increment ID generators
+      - Validation functions correctly validate book, member, and loan data
+      - Sample data is pre-populated on module import
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Create in-memory data store with dictionaries for books, authors,
+        members, and loans. Implement validation functions for input data. Pre-populate
+        store with sample data (5 books, 3 authors, 2 members, 1 loan).
+      EstimatedEffort: S
+      Files:
+      - api/data_store.py
+      - api/validators.py
+      ID: task-library-api-feat-data-and-auth-1
+      Title: Implement data store and validators
+    - AcceptanceCriteria:
+      - generate_token function creates valid JWT with member_id and expiration
+      - token_required decorator validates Authorization header and extracts member_id
+      - Password verification works with werkzeug hashed passwords
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Create authentication module with JWT token generation and validation.
+        Implement token_required decorator for protected routes and password hashing/verification
+        using werkzeug. Configure 1-hour token expiration.
+      EstimatedEffort: S
+      Files:
+      - api/auth.py
+      ID: task-library-api-feat-data-and-auth-2
+      Title: Implement JWT authentication and password utilities
+    - AcceptanceCriteria:
+      - requirements.txt includes flask, pyjwt, and werkzeug with appropriate versions
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Add required Python packages (flask, pyjwt, werkzeug) to requirements.txt
+        for authentication and web framework support.
+      EstimatedEffort: S
+      Files:
+      - requirements.txt
+      ID: task-library-api-feat-data-and-auth-3
+      Title: Update dependencies
+  - FeatureID: library-api-feat-book-management
+    FeatureTitle: Book CRUD and Search
+    Tasks:
+    - AcceptanceCriteria:
+      - All CRUD endpoints (list, create, read, update, delete) return correct HTTP
+        status codes and JSON responses
+      - Search by title and/or author query parameters filters results correctly
+      - Authentication is enforced on POST, PUT, DELETE operations
+      - Manual testing with curl/Postman succeeds for all endpoints
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Implement all REST endpoints for book management in api/app.py
+        including GET /books (list with search), POST /books (create), GET /books/<id>,
+        PUT /books/<id>, and DELETE /books/<id>. Add query parameter support for searching
+        by title and author. Include JWT authentication requirements for write operations.
+      EstimatedEffort: M
+      Files:
+      - api/app.py
+      ID: task-library-api-feat-book-management-1
+      Title: Implement Book CRUD and Search endpoints
+  Sprint: 1
+- Features:
+  - FeatureID: library-api-feat-member-and-loan
+    FeatureTitle: Member Registration and Loan Management
+    Tasks:
+    - AcceptanceCriteria:
+      - POST /members accepts name and email, returns member with ID
+      - Duplicate email validation prevents duplicate registrations
+      - Member data persists to members.json file
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Add POST /members endpoint to api/app.py for member registration.
+        Include input validation, duplicate email checking, member ID generation,
+        and persistence to members.json. Return member details with generated ID.
+      EstimatedEffort: S
+      Files:
+      - api/app.py
+      ID: task-library-api-feat-member-and-loan-1
+      Title: Implement member registration endpoint
+    - AcceptanceCriteria:
+      - POST /loans creates loan record and decrements available_copies
+      - PUT /loans/<loan_id>/return marks loan returned and increments available_copies
+      - Cannot borrow books with 0 available copies
+      - Loan data persists to loans.json with timestamps
+      AgentType: backend-engineer
+      Dependencies:
+      - task-library-api-feat-member-and-loan-1
+      Description: Add POST /loans endpoint for borrowing books and PUT /loans/<loan_id>/return
+        endpoint for returns. Implement book availability tracking, loan record creation
+        with timestamps, and loan state management (borrowed/returned). Update book
+        available_copies count on borrow/return.
+      EstimatedEffort: M
+      Files:
+      - api/app.py
+      ID: task-library-api-feat-member-and-loan-2
+      Title: Implement borrow and return book endpoints
+  Sprint: 2

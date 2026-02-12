@@ -1,0 +1,11 @@
+{
+  "prNumber": 47,
+  "baseBranch": "main",
+  "headBranch": "feature/4-simple-spaghetti-website-sprint-1-issue-4",
+  "conflictedFiles": [
+    ".claude-output.json",
+    ".pr-number",
+    "index.html"
+  ],
+  "conflictCount": 3
+}

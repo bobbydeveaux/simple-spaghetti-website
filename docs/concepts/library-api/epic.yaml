@@ -1,0 +1,40 @@
+Epic: library-api
+Features:
+- Sprint: 1
+  dependencies: []
+  description: Mock data store with in-memory dictionaries for books, authors, members,
+    loans. JWT token generation/validation and password hashing utilities.
+  estimatedComplexity: medium
+  files:
+  - api/data_store.py
+  - api/auth.py
+  - api/validators.py
+  id: library-api-feat-data-and-auth
+  name: Data Store and Authentication
+  project: library-api
+  type: enabler
+- Sprint: 1
+  dependencies:
+  - library-api-feat-data-and-auth
+  description: REST endpoints for listing, creating, updating, deleting books. Search
+    functionality by title/author with query parameters.
+  estimatedComplexity: medium
+  files:
+  - api/app.py
+  id: library-api-feat-book-management
+  name: Book CRUD and Search
+  project: library-api
+  type: feature
+- Sprint: 2
+  dependencies:
+  - library-api-feat-data-and-auth
+  description: Member registration endpoint, borrow book endpoint, and return book
+    endpoint with availability tracking.
+  estimatedComplexity: medium
+  files:
+  - api/app.py
+  id: library-api-feat-member-and-loan
+  name: Member Registration and Loan Management
+  project: library-api
+  type: feature
+Version: v1alpha1

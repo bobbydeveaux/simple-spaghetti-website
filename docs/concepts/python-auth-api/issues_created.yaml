@@ -1,0 +1,27 @@
+GeneratedAt: "2026-02-10T19:28:25Z"
+Issues:
+- IssueNumber: 83
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/83
+  TaskID: task-python-auth-api-feat-core-infrastructure-1
+- IssueNumber: 84
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/84
+  TaskID: task-python-auth-api-feat-core-infrastructure-2
+- IssueNumber: 85
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/85
+  TaskID: task-python-auth-api-feat-core-infrastructure-3
+- IssueNumber: 86
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/86
+  TaskID: task-python-auth-api-feat-core-infrastructure-4
+- IssueNumber: 87
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/87
+  TaskID: task-python-auth-api-feat-authentication-1
+- IssueNumber: 88
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/88
+  TaskID: task-python-auth-api-feat-authentication-2
+- IssueNumber: 89
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/89
+  TaskID: task-python-auth-api-feat-authentication-3
+- IssueNumber: 90
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/90
+  TaskID: task-python-auth-api-feat-authentication-4
+Plan: python-auth-api-plan

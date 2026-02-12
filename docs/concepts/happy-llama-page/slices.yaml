@@ -1,0 +1,9 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: happy-llama-page-feat-html-page
+        name: Llama Display Page
+        type: feature
+        files: [index.html]

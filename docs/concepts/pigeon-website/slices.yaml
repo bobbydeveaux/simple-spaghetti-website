@@ -1,0 +1,9 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: pigeon-website-feat-main
+        name: Static HTML Page
+        type: feature
+        files: [index.html]

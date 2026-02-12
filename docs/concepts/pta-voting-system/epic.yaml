@@ -1,0 +1,90 @@
+Epic: pta-voting-system
+Features:
+- Sprint: 1
+  dependencies: []
+  description: In-memory data store with thread-safe access, voter email/code authentication,
+    and session management with JWT tokens
+  estimatedComplexity: medium
+  files:
+  - api/voting/data_store.py
+  - api/voting/models.py
+  - api/voting/middleware.py
+  - api/voting/services.py
+  id: pta-voting-system-feat-data-store-auth
+  name: Data Store and Authentication
+  project: simple-spaghetti-repo
+  type: enabler
+- Sprint: 2
+  dependencies:
+  - pta-voting-system-feat-data-store-auth
+  description: Admin functionality to add, edit, and manage candidates for each position
+    with profile information
+  estimatedComplexity: low
+  files:
+  - api/voting/admin_routes.py
+  - src/voting/pages/admin/CandidateManagement.jsx
+  - src/voting/components/CandidateCard.jsx
+  id: pta-voting-system-feat-candidate-management
+  name: Candidate Management
+  project: simple-spaghetti-repo
+  type: feature
+- Sprint: 3
+  dependencies:
+  - pta-voting-system-feat-data-store-auth
+  - pta-voting-system-feat-candidate-management
+  description: Voter ballot interface displaying all positions and candidates, vote
+    submission with duplicate prevention and anonymity guarantees
+  estimatedComplexity: high
+  files:
+  - api/voting/routes.py
+  - api/voting/services.py
+  - src/voting/pages/Ballot.jsx
+  - src/voting/components/PositionBallot.jsx
+  id: pta-voting-system-feat-ballot-voting
+  name: Ballot and Voting System
+  project: simple-spaghetti-repo
+  type: feature
+- Sprint: 4
+  dependencies:
+  - pta-voting-system-feat-ballot-voting
+  description: Public real-time results dashboard with vote counts, percentages, and
+    visual charts that update as votes are cast
+  estimatedComplexity: medium
+  files:
+  - api/voting/routes.py
+  - api/voting/services.py
+  - src/voting/pages/Results.jsx
+  id: pta-voting-system-feat-live-results
+  name: Live Results Dashboard
+  project: simple-spaghetti-repo
+  type: feature
+- Sprint: 2
+  dependencies:
+  - pta-voting-system-feat-data-store-auth
+  description: Admin dashboard for election configuration, audit log viewing, and
+    election status management
+  estimatedComplexity: medium
+  files:
+  - api/voting/admin_routes.py
+  - src/voting/pages/admin/Dashboard.jsx
+  - src/voting/pages/admin/ElectionManagement.jsx
+  - src/voting/pages/admin/AuditLogs.jsx
+  id: pta-voting-system-feat-admin-panel
+  name: Admin Panel and Audit Logs
+  project: simple-spaghetti-repo
+  type: feature
+- Sprint: 1
+  dependencies:
+  - pta-voting-system-feat-data-store-auth
+  description: Frontend voter login flow with email/code verification and session
+    management
+  estimatedComplexity: low
+  files:
+  - src/voting/pages/VoterLogin.jsx
+  - src/voting/context/AuthContext.jsx
+  - src/voting/api/votingApi.js
+  id: pta-voting-system-feat-voter-ui
+  name: Voter Authentication UI
+  project: simple-spaghetti-repo
+  type: feature
+Version: v1alpha1

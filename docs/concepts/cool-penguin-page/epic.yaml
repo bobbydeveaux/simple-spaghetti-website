@@ -1,0 +1,14 @@
+Epic: cool-penguin-page
+Features:
+- Sprint: 1
+  dependencies: []
+  description: "Create or verify index.html displays 'Penguins are cool!' with penguin
+    emoji (\U0001F427) using valid HTML5 structure"
+  estimatedComplexity: low
+  files:
+  - index.html
+  id: cool-penguin-page-feat-static-html-page
+  name: Static HTML Page with Penguin Content
+  project: simple-spaghetti-repo
+  type: feature
+Version: v1alpha1

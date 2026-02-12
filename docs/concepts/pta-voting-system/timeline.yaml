@@ -1,0 +1,52 @@
+# Project Timeline
+
+metadata:
+  generated: 2026-02-11T15:19:41Z
+  totalSprints: 4
+  totalDuration: 31 days
+
+sprints:
+  - number: 1
+    startDate: 2026-02-11
+    endDate: 2026-02-18
+    duration: 7 days
+    features:
+      - id: pta-voting-system-feat-data-store-auth
+        name: Data Store and Authentication
+        type: enabler
+      - id: pta-voting-system-feat-voter-ui
+        name: Voter Authentication UI
+        type: feature
+  - number: 2
+    startDate: 2026-02-19
+    endDate: 2026-02-26
+    duration: 7 days
+    features:
+      - id: pta-voting-system-feat-candidate-management
+        name: Candidate Management
+        type: feature
+      - id: pta-voting-system-feat-admin-panel
+        name: Admin Panel and Audit Logs
+        type: feature
+  - number: 3
+    startDate: 2026-02-27
+    endDate: 2026-03-06
+    duration: 7 days
+    features:
+      - id: pta-voting-system-feat-ballot-voting
+        name: Ballot and Voting System
+        type: feature
+  - number: 4
+    startDate: 2026-03-07
+    endDate: 2026-03-14
+    duration: 7 days
+    features:
+      - id: pta-voting-system-feat-live-results
+        name: Live Results Dashboard
+        type: feature
+
+criticalPath:
+  - pta-voting-system-feat-data-store-auth
+  - pta-voting-system-feat-candidate-management
+  - pta-voting-system-feat-ballot-voting
+  - pta-voting-system-feat-live-results

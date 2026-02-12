@@ -1,0 +1,42 @@
+GeneratedAt: "2026-02-11T15:22:29Z"
+Issues:
+- IssueNumber: 109
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/109
+  TaskID: task-pta-voting-system-feat-data-store-auth-1
+- IssueNumber: 110
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/110
+  TaskID: task-pta-voting-system-feat-data-store-auth-2
+- IssueNumber: 111
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/111
+  TaskID: task-pta-voting-system-feat-data-store-auth-3
+- IssueNumber: 112
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/112
+  TaskID: task-pta-voting-system-feat-data-store-auth-4
+- IssueNumber: 113
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/113
+  TaskID: task-pta-voting-system-feat-data-store-auth-5
+- IssueNumber: 114
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/114
+  TaskID: task-pta-voting-system-feat-voter-ui-1
+- IssueNumber: 115
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/115
+  TaskID: task-pta-voting-system-feat-voter-ui-2
+- IssueNumber: 116
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/116
+  TaskID: task-pta-voting-system-feat-candidate-management-1
+- IssueNumber: 117
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/117
+  TaskID: task-pta-voting-system-feat-candidate-management-2
+- IssueNumber: 118
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/118
+  TaskID: task-pta-voting-system-feat-admin-panel-1
+- IssueNumber: 119
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/119
+  TaskID: task-pta-voting-system-feat-admin-panel-2
+- IssueNumber: 120
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/120
+  TaskID: task-pta-voting-system-feat-admin-panel-3
+- IssueNumber: 121
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/121
+  TaskID: task-pta-voting-system-feat-admin-panel-4
+Plan: pta-voting-system-plan

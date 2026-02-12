@@ -1,0 +1,19 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: library-api-feat-data-and-auth
+        name: Data Store and Authentication
+        type: enabler
+        files: [api/data_store.py api/auth.py api/validators.py]
+      - id: library-api-feat-book-management
+        name: Book CRUD and Search
+        type: feature
+        files: [api/app.py]
+  - number: 2
+    features:
+      - id: library-api-feat-member-and-loan
+        name: Member Registration and Loan Management
+        type: feature
+        files: [api/app.py]
