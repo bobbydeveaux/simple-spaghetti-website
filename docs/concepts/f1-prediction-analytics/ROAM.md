@@ -1,109 +1,93 @@
 # ROAM Analysis: f1-prediction-analytics
 
 **Feature Count:** 14
-**Created:** 2026-02-12T15:22:07Z
+**Created:** 2026-02-12T15:24:24Z
 
 ## Risks
 
-1. **External API Dependency - Ergast API Reliability** (High): The Ergast API has no official SLA and could become unavailable, rate-limited, or deprecated. The entire data ingestion pipeline depends on this single source for historical F1 data (2010-present). If the API goes offline during race weekends, predictions cannot be updated, violating the 24-hour ingestion requirement (FR-001, FR-002).
+1. **External API Dependency Failure** (High): The system critically depends on Ergast API and OpenWeatherMap API for data ingestion. Ergast API has no official rate limits but could become unavailable, deprecated, or rate-limited without notice. Weather API has strict rate limits (1000 calls/day on free tier) that may be insufficient for historical data backfill.
 
-2. **ML Model Prediction Accuracy** (High): Achieving 70% race winner prediction accuracy is ambitious given F1's inherent unpredictability (crashes, mechanical failures, weather changes). If models underperform (<60% accuracy), user trust will erode and the core value proposition fails. Initial training on historical data may not generalize to future seasons with regulation changes.
+2. **ML Model Prediction Accuracy Below Target** (High): Achieving 70%+ race winner prediction accuracy is ambitious given F1's inherent unpredictability (crashes, mechanical failures, strategy variations). Historical data from 2010-present may not capture recent regulatory changes affecting car performance. Feature engineering complexity (ELO ratings, weather impact, track-specific performance) could lead to overfitting or underfitting.
 
-3. **Cold Start Problem - Insufficient Historical Data** (Medium): New drivers and teams entering F1 lack historical performance data for feature engineering. ELO ratings start at baseline (1500), but models trained on 2010-2024 data may not accurately predict performance for rookies or redesigned cars in 2026+. This creates prediction blind spots for 20-30% of the grid.
+3. **Data Quality and Consistency Issues** (Medium): Historical F1 data from Ergast may have missing records, inconsistent formatting, or incomplete weather data for races before 2015. Driver transfers between teams mid-season, team name changes, and circuit modifications could create data normalization challenges affecting model training.
 
-4. **Database Performance Under Load** (Medium): PostgreSQL queries for feature engineering (driver form, track-specific stats, ELO calculations) involve complex joins across 10M+ records. Even with partitioning and indexes, query times may exceed 5 seconds during model training, blocking the inference pipeline and violating the <500ms API response time requirement.
+4. **Infrastructure Scalability and Cost Overruns** (Medium): Kubernetes cluster (EKS), RDS PostgreSQL, ElastiCache Redis, and S3 storage costs could exceed budget projections, especially with GPU-enabled nodes for ML training. Autoscaling configurations may not trigger appropriately, leading to performance degradation or over-provisioning. Daily database backups and S3 model versioning could accumulate significant storage costs.
 
-5. **Model Retraining Pipeline Latency** (Medium): The requirement to retrain models within 48 hours post-race (FR-011) conflicts with the need for comprehensive feature engineering and hyperparameter tuning. If training takes >48 hours on historical data (2010-present), predictions for the next race (often 7 days later) will use stale models, reducing accuracy.
+5. **ML Model Training Pipeline Bottlenecks** (Medium): Retraining Random Forest and XGBoost models after each race (weekly during season) with 10M+ historical records could exceed 30-minute processing window. Feature engineering for all drivers across all historical races is computationally expensive and may require optimization. Model versioning and S3 upload times could delay prediction availability.
 
-6. **Redis Cache Invalidation Complexity** (Low): With distributed caching across prediction results, driver rankings, and race calendars, cache invalidation logic must handle partial updates (e.g., ELO ratings change but predictions don't). Stale cache bugs could show outdated probabilities for 24+ hours, confusing users and violating the "real-time" perception.
+6. **Authentication and Rate Limiting Bypass** (Medium): JWT tokens with 24-hour expiry could be stolen and reused. Redis-backed rate limiting (100 req/min per user) could be bypassed through multiple account creation or IP rotation. Lack of CAPTCHA on registration could enable bot abuse.
 
-7. **Frontend Performance with Large Datasets** (Low): Rendering 20+ driver probability bars with Chart.js animations on mobile devices may cause jank (>16ms frame time). If JavaScript bundle exceeds 500KB, initial page load will violate the 2-second requirement on 3G connections, degrading user experience for 30%+ of traffic.
+7. **Frontend Performance Degradation** (Low): React SPA with Chart.js visualizations may experience slow page load times on low-end devices or slow networks. Large prediction datasets (20+ drivers per race) could cause rendering delays. Client-side caching with React Query may not be sufficient for offline access or poor connectivity scenarios.
 
 ---
 
 ## Obstacles
 
-- **No Direct Access to Official F1 API**: The PRD mentions "Official Formula 1 API (if accessible)" but obtaining commercial API access requires partnerships/licensing that may not be feasible. Without it, we're limited to the community-maintained Ergast API, which lags official data by 2-4 hours and lacks telemetry details (tire strategies, pit stop timing).
+- **Ergast API Unofficial Status**: The Ergast Developer API is community-maintained and lacks official SLA or guaranteed uptime. There is no documented deprecation timeline, and the project could be discontinued without advance notice, requiring emergency migration to alternative data sources.
 
-- **Weather Data Historical Accuracy**: OpenWeatherMap's historical weather API only provides data for the past 5 years with limited granularity. For races before 2019, we'll need to manually source weather conditions from archives or use approximate data, introducing noise into the weather impact features and reducing model reliability.
+- **Historical Weather Data Acquisition**: OpenWeatherMap API provides current and forecast data but limited historical weather access. Obtaining accurate weather conditions (temperature, precipitation, wind) for races from 2010-2015 may require purchasing historical weather datasets or scraping unofficial sources, delaying Phase 2 data migration.
 
-- **GPU Resource Availability for Training**: The LLD specifies NVIDIA T4/A10G GPUs for XGBoost training acceleration, but AWS/GCP GPU instances have availability constraints and cost $1-3/hour. If budget limits GPU usage, training times could extend from 2 hours to 12+ hours on CPUs, blocking the 48-hour retraining window.
+- **ML Expertise Gap**: Implementing ELO rating systems, feature engineering pipelines, and ensemble model tuning (Random Forest + XGBoost) requires specialized machine learning expertise. Incorrect hyperparameter tuning or feature selection could result in models that fail to meet the 70% accuracy target, requiring iteration and research time.
 
-- **Team Familiarity with Apache Airflow**: The architecture depends on Airflow for orchestrating data ingestion and model training DAGs. If the team lacks Airflow expertise, debugging DAG failures, managing dependencies, and implementing custom operators will slow development by 2-3 weeks during Phase 2-3 deployment.
+- **Kubernetes Operational Complexity**: Managing Apache Airflow, PostgreSQL StatefulSets, Redis clustering, and GPU-enabled ML training pods in Kubernetes requires DevOps expertise. Debugging pod failures, configuring autoscaling policies, and optimizing resource requests/limits could consume significant time during Phases 1 and 4.
 
 ---
 
 ## Assumptions
 
-1. **Ergast API Stability**: We assume the Ergast API will remain available and maintain its current update cadence (2-4 hours post-race) throughout 2026. *Validation*: Monitor API uptime daily and establish contact with maintainers to get advance notice of deprecation.
+1. **Ergast API Availability**: We assume the Ergast Developer API will remain available and maintain current response formats for the duration of development and initial operation (6+ months). **Validation**: Monitor Ergast API uptime daily, establish contact with maintainers, and identify backup data sources (e.g., official F1 API access) within first 2 weeks.
 
-2. **ELO Ratings Predictive Power**: We assume driver/team ELO ratings calculated from finish positions will correlate strongly with win probability. *Validation*: Run backtesting on 2023-2025 seasons to verify ELO ratings alone achieve >50% top-3 accuracy before integrating into ensemble model.
+2. **Historical Data Completeness**: We assume race results, qualifying times, and driver/team data are complete and accurate in Ergast API from 2010-present, with <5% missing or malformed records. **Validation**: Run data quality audit during Phase 2 data migration, calculate missing data percentage per season, and document data gaps in PRD appendix.
 
-3. **70% Accuracy is Achievable**: We assume that combining Random Forest, XGBoost, ELO ratings, track-specific stats, and weather features can reach 70% winner prediction accuracy. *Validation*: Establish baseline accuracy using simpler models (e.g., ELO-only) in Phase 3, then incrementally add features and measure lift.
+3. **ML Model Training Feasibility**: We assume XGBoost and Random Forest models can achieve 70%+ winner prediction accuracy with available features (ELO ratings, recent form, track history, weather). **Validation**: Conduct initial model training on 2020-2023 data by end of Week 2, calculate baseline Brier score and accuracy metrics, and adjust target if baseline is <50%.
 
-4. **Weather Impact is Significant**: We assume wet/dry conditions and temperature materially affect race outcomes enough to justify the OpenWeatherMap API integration. *Validation*: Perform feature importance analysis after initial training to confirm weather features contribute >10% to model predictions.
+4. **AWS Infrastructure Budget**: We assume AWS costs for EKS cluster (3-10 nodes), RDS PostgreSQL (db.r5.large Multi-AZ), ElastiCache Redis (cache.r5.large 3 nodes), and S3 storage will stay under $2,000/month. **Validation**: Enable AWS Cost Explorer on day 1, set billing alerts at $1,500 and $2,000 thresholds, and review resource utilization weekly during Phases 1-3.
 
-5. **Users Accept 24-Hour Prediction Lag**: We assume users tolerate predictions generated up to 24 hours after race completion, rather than real-time updates during the race. *Validation*: Survey beta users in Phase 5 to confirm 24-hour freshness meets expectations for "next race" predictions 7+ days out.
+5. **User Authentication Sufficient**: We assume JWT-based authentication with bcrypt password hashing and Redis rate limiting (100 req/min) will prevent abuse and meet security requirements without implementing OAuth or 2FA initially. **Validation**: Conduct security audit (OWASP ZAP scan) during Phase 5, monitor failed login attempts and rate limit violations in production Week 1, and add CAPTCHA if bot traffic >10%.
 
 ---
 
 ## Mitigations
 
-### Risk 1: External API Dependency - Ergast API Reliability
+### Risk 1: External API Dependency Failure
+- **Mitigation 1.1**: Implement Ergast API health monitoring with Prometheus, alerting if consecutive failures >3 attempts. Create fallback mechanism to serve cached race calendar and predictions for up to 7 days without fresh data.
+- **Mitigation 1.2**: Research and document alternative F1 data sources (official F1 API, Motorsport Stats API) during Phase 1. Obtain API access credentials as backup and implement adapter pattern in `ergast_client.py` to enable quick source switching.
+- **Mitigation 1.3**: Upgrade OpenWeatherMap API to paid tier ($40/month for 100,000 calls/day) during Phase 2 to eliminate rate limit constraints for historical weather backfill. Store all historical weather data locally to avoid future API dependencies.
 
-**Mitigation 1.1**: Implement a fallback data source by scraping official Formula1.com race results as a secondary ingestion pipeline. Deploy a headless browser (Puppeteer) that activates if Ergast API returns 5xx errors for >30 minutes.
+### Risk 2: ML Model Prediction Accuracy Below Target
+- **Mitigation 2.1**: Establish baseline prediction accuracy early by training initial models on 2020-2023 data (Week 2). If baseline accuracy <50%, reduce target to "top-3 prediction accuracy >85%" instead of winner prediction >70%.
+- **Mitigation 2.2**: Implement feature importance analysis (SHAP values) to identify most predictive features. If ELO ratings or weather impact have low importance, remove or simplify features to reduce overfitting.
+- **Mitigation 2.3**: Add hyperparameter tuning via GridSearchCV during Phase 3 model training. Test Random Forest (n_estimators: 50-200, max_depth: 5-15) and XGBoost (learning_rate: 0.05-0.2, n_estimators: 100-300) combinations to optimize Brier score.
+- **Mitigation 2.4**: Incorporate additional features if initial accuracy is low: tire compound usage, pit stop timing, safety car probability. Allocate 1 week buffer in Phase 3 for feature engineering iteration.
 
-**Mitigation 1.2**: Cache all historical Ergast API responses (2010-2025) in S3 as JSON files during initial data migration (Phase 2). If API becomes unavailable, use cached data for model training and display a banner: "Predictions based on data through [last successful fetch date]."
+### Risk 3: Data Quality and Consistency Issues
+- **Mitigation 3.1**: Build comprehensive data validation pipeline in `transform.py` during Phase 2: check for null values in critical fields (driver_id, race_date, final_position), validate foreign key references, and flag anomalies (e.g., lap times <60 seconds, positions >30).
+- **Mitigation 3.2**: Create data quality dashboard in Grafana showing missing data percentage per season, driver name normalization conflicts, and circuit name inconsistencies. Review dashboard weekly during Phase 2-3.
+- **Mitigation 3.3**: Manually audit top 10 most recent races (2024-2025) against official F1 results to verify Ergast data accuracy. Document any discrepancies and create mapping tables for driver/team name variations.
 
-**Mitigation 1.3**: Establish a partnership inquiry with OpenF1.org or FastF1 Python library maintainers to negotiate API access or sponsorship, providing a community-supported alternative with better SLAs.
+### Risk 4: Infrastructure Scalability and Cost Overruns
+- **Mitigation 4.1**: Start with minimal resource allocation in Phase 1: EKS 3 nodes (t3.large), RDS db.t3.large (not r5), Redis cache.t3.medium. Monitor CPU/memory utilization and scale up only when sustained >70% for 10 minutes.
+- **Mitigation 4.2**: Implement S3 lifecycle policies during Phase 3: move model artifacts >30 days old to S3 Glacier (90% cost reduction), delete database backups >30 days old, and compress logs before archiving.
+- **Mitigation 4.3**: Use spot instances for ML training pods (60-90% cost savings vs on-demand). Configure Kubernetes jobs to tolerate interruptions and retry training from checkpoints stored in S3.
+- **Mitigation 4.4**: Set AWS budget alerts at $1,000, $1,500, $2,000 monthly thresholds with email and Slack notifications. Conduct cost review every Friday during Phases 1-4 and optimize expensive resources (RDS instance size, unnecessary data transfer).
 
-### Risk 2: ML Model Prediction Accuracy
+### Risk 5: ML Model Training Pipeline Bottlenecks
+- **Mitigation 5.1**: Profile model training time during Phase 3 with 2010-2023 data (13 seasons). If training exceeds 30 minutes, reduce historical data range to 2015-present (8 seasons) to decrease dataset size by ~40%.
+- **Mitigation 5.2**: Implement incremental model training: train full model monthly, but perform lightweight updates (fine-tuning last 10 estimators) after each race using only recent season data. This reduces weekly training time from 30 minutes to ~5 minutes.
+- **Mitigation 5.3**: Parallelize feature engineering across drivers using Celery workers (4-8 concurrent tasks). Cache extracted features in Redis for 24 hours to avoid recomputation if training is retriggered.
+- **Mitigation 5.4**: Upgrade ML training pod to GPU-enabled instance (g4dn.xlarge with NVIDIA T4) if XGBoost training time >15 minutes. XGBoost GPU acceleration can reduce training time by 10-50x for large datasets.
 
-**Mitigation 2.1**: Set tiered accuracy targets: 60% minimum viable (Phase 3), 65% acceptable (Phase 5 launch), 70% aspirational (6 months post-launch). Communicate accuracy metrics transparently on the dashboard to set user expectations.
+### Risk 6: Authentication and Rate Limiting Bypass
+- **Mitigation 6.1**: Implement JWT token refresh flow with short-lived access tokens (1 hour expiry) and long-lived refresh tokens (7 days). Store refresh tokens in HTTP-only cookies to prevent XSS theft.
+- **Mitigation 6.2**: Add email verification requirement on registration during Phase 4. Unverified accounts have restricted access (read-only predictions, no exports) until email is confirmed within 24 hours.
+- **Mitigation 6.3**: Implement IP-based rate limiting (500 req/hour per IP) in addition to user-based limits. Block IPs with >5 failed login attempts in 10 minutes for 1 hour.
+- **Mitigation 6.4**: Add Google reCAPTCHA v3 to registration and login forms during Phase 5 if bot traffic detected (>10 registrations/hour from single IP or unusual patterns in Grafana monitoring).
 
-**Mitigation 2.2**: Implement model ensembling with weighted voting (70% XGBoost, 20% Random Forest, 10% ELO baseline) to hedge against single-model overfitting. Add a "confidence interval" display showing prediction uncertainty (e.g., "35% ±8%").
-
-**Mitigation 2.3**: Collect user feedback via a "Was this prediction helpful?" button to identify races where models fail (e.g., chaotic conditions, Safety Car interventions). Use feedback to retrain models with augmented features like "Safety Car probability."
-
-### Risk 3: Cold Start Problem - Insufficient Historical Data
-
-**Mitigation 3.1**: For rookie drivers, initialize ELO ratings based on junior formula performance (F2/F3 championship results). Scrape DriverDB.com for career stats and apply a 0.8x discount factor to account for F1's higher competition level.
-
-**Mitigation 3.2**: Use team average performance as a proxy for new drivers during their first 3 races. If Driver X joins Team Y, assign them Team Y's average ELO until sufficient race data accumulates.
-
-**Mitigation 3.3**: Train a separate "rookie prediction model" using features like qualifying gap to teammate, junior career trajectory, and team resource allocation. Blend rookie model predictions with main model at 50/50 weight for first 5 races.
-
-### Risk 4: Database Performance Under Load
-
-**Mitigation 4.1**: Implement aggressive database query optimization: use covering indexes for feature extraction queries, pre-compute rolling averages (last 5 races) in a materialized view refreshed post-race, and leverage PostgreSQL's parallel query execution (max_parallel_workers=8).
-
-**Mitigation 4.2**: Offload feature engineering to a separate read replica dedicated to ML workloads. Route prediction API queries to the primary database and training queries to the replica to isolate load.
-
-**Mitigation 4.3**: Cache extracted features (driver stats, track history) in Redis with a 7-day TTL. Only recompute features when underlying race results change, reducing database hits by 90% during inference.
-
-### Risk 5: Model Retraining Pipeline Latency
-
-**Mitigation 5.1**: Implement incremental model retraining: instead of retraining on all historical data (2010-present), use online learning to update models with only the latest race results. This reduces training time from 4 hours to 30 minutes while maintaining 95% of full retrain accuracy.
-
-**Mitigation 5.2**: Parallelize hyperparameter tuning using Ray Tune or Optuna with distributed workers across 4 EC2 instances. This cuts grid search time from 8 hours to 2 hours.
-
-**Mitigation 5.3**: Pre-train models weekly during the off-season (December-February) to front-load computation. During race season, only fine-tune models on recent data, ensuring <24-hour retraining cycles.
-
-### Risk 6: Redis Cache Invalidation Complexity
-
-**Mitigation 6.1**: Use Redis pub/sub channels to broadcast cache invalidation events. When ELO ratings update, publish to `elo:update` channel; prediction service subscribes and flushes affected race caches atomically.
-
-**Mitigation 6.2**: Add cache versioning by appending model version to cache keys (e.g., `predictions:race:123:v2.1.0`). When deploying new models, the old cache naturally expires (7-day TTL) without manual invalidation.
-
-**Mitigation 6.3**: Implement a cache consistency test in integration tests: after updating race results, verify cache returns updated data within 10 seconds. Alert on cache staleness >5 minutes.
-
-### Risk 7: Frontend Performance with Large Datasets
-
-**Mitigation 7.1**: Enable code splitting and lazy loading: defer Chart.js library load until user navigates to Analytics page. Use React.lazy() for all non-critical components, reducing initial bundle to <200KB.
-
-**Mitigation 7.2**: Virtualize long lists (20+ drivers) using react-window to render only visible rows. This cuts DOM nodes from 500+ to 20, improving render time from 150ms to 30ms on mobile.
-
-**Mitigation 7.3**: Implement progressive enhancement: render static HTML server-side for initial page load, then hydrate with interactive Chart.js visualizations. Users on slow connections see content in <1 second, animations load later.
+### Risk 7: Frontend Performance Degradation
+- **Mitigation 7.1**: Implement code splitting and lazy loading for all routes during Phase 4 frontend development. Load HomePage bundle first (<200KB), defer CalendarPage and AnalyticsPage bundles until user navigates.
+- **Mitigation 7.2**: Use React.memo and useMemo for DriverProbabilityBar components to prevent unnecessary re-renders when prediction data hasn't changed. Profile render performance with React DevTools during development.
+- **Mitigation 7.3**: Implement virtualized scrolling for driver rankings tables (use react-window library) if tables exceed 50 rows. This reduces DOM nodes and improves scroll performance.
+- **Mitigation 7.4**: Enable service worker caching during Phase 5 to cache prediction responses and race calendar data for offline access. Set cache TTL to 24 hours for predictions and 7 days for historical data.
 
 ---
 
@@ -325,7 +309,7 @@ The predictions should update based on the F1 calendar and incorporate recent ra
 
 
 ### HLD
-[Full HLD content from above]
+[HLD content as provided above]
 
 ### LLD
-[Full LLD content from above]
+[LLD content as provided above]
