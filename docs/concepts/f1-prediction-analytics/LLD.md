@@ -1,238 +1,125 @@
 # Low-Level Design: simple-spaghetti-repo
 
-**Created:** 2026-02-12T15:15:08Z
+**Created:** 2026-02-12T22:45:01Z
 **Status:** Draft
 
 ## 1. Implementation Overview
 
-This LLD implements a Formula One prediction analytics platform as a new microservices-based system. The implementation will be organized in a new `f1-analytics/` directory structure to avoid conflicts with existing voting/recipe systems in the repository.
+The F1 Prediction Analytics system will be implemented as a Python/Flask backend API with a React frontend dashboard. The implementation extends the existing `f1-analytics/` directory structure with new modules for:
 
-The core implementation consists of:
-- **Backend Services**: Python FastAPI services for data ingestion, ML model training, prediction generation, and REST API
-- **Frontend Dashboard**: React/TypeScript SPA with Chart.js visualizations
-- **Infrastructure**: Docker containerization, PostgreSQL database, Redis cache, Apache Airflow for orchestration
-- **ML Pipeline**: scikit-learn Random Forest and XGBoost models with ELO rating calculation
+1. **Data Ingestion Pipeline**: Celery-based async jobs fetching from Ergast API and OpenWeatherMap, storing normalized data in PostgreSQL
+2. **ML Prediction Engine**: Modular scikit-learn/XGBoost models with ensemble logic, serialized as pickle files
+3. **REST API Layer**: Flask endpoints serving predictions, standings, and analytics with Redis caching
+4. **Dashboard SPA**: React components consuming API data with Chart.js visualizations
 
-All services follow a layered architecture with clear separation: data layer (models, repositories), business logic layer (services), and presentation layer (routes, controllers). The implementation prioritizes horizontal scalability through stateless services and distributed caching.
+The implementation leverages existing SQLAlchemy models in `f1-analytics/backend/app/models/` and extends them with new tables for ELO ratings and model accuracy tracking. Alembic migrations will create the schema incrementally. The modular architecture allows independent development of data ingestion, model training, and API/frontend components.
 
 ---
 
 ## 2. File Structure
 
-### New Backend Structure
-```
-f1-analytics/
-├── backend/
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   ├── pyproject.toml
-│   ├── alembic/
-│   │   ├── env.py
-│   │   ├── script.py.mako
-│   │   └── versions/
-│   │       └── 001_initial_schema.py
-│   ├── app/
-│   │   ├── __init__.py
-│   │   ├── main.py                    # FastAPI application entrypoint
-│   │   ├── config.py                  # Environment and database configuration
-│   │   ├── database.py                # SQLAlchemy engine and session management
-│   │   ├── dependencies.py            # FastAPI dependency injection providers
-│   │   ├── models/
-│   │   │   ├── __init__.py
-│   │   │   ├── driver.py              # Driver ORM model
-│   │   │   ├── team.py                # Team/Constructor ORM model
-│   │   │   ├── circuit.py             # Circuit ORM model
-│   │   │   ├── race.py                # Race ORM model
-│   │   │   ├── race_result.py         # RaceResult ORM model
-│   │   │   ├── qualifying_result.py   # QualifyingResult ORM model
-│   │   │   ├── weather_data.py        # WeatherData ORM model
-│   │   │   ├── prediction.py          # Prediction ORM model
-│   │   │   ├── prediction_accuracy.py # PredictionAccuracy ORM model
-│   │   │   └── user.py                # User authentication model
-│   │   ├── schemas/
-│   │   │   ├── __init__.py
-│   │   │   ├── driver.py              # Pydantic schemas for Driver
-│   │   │   ├── race.py                # Pydantic schemas for Race
-│   │   │   ├── prediction.py          # Pydantic schemas for Prediction
-│   │   │   ├── auth.py                # Auth request/response schemas
-│   │   │   └── analytics.py           # Analytics response schemas
-│   │   ├── repositories/
-│   │   │   ├── __init__.py
-│   │   │   ├── base.py                # Base repository with CRUD operations
-│   │   │   ├── driver_repository.py
-│   │   │   ├── race_repository.py
-│   │   │   ├── prediction_repository.py
-│   │   │   └── user_repository.py
-│   │   ├── services/
-│   │   │   ├── __init__.py
-│   │   │   ├── auth_service.py        # JWT authentication and user management
-│   │   │   ├── prediction_service.py  # Prediction retrieval and caching
-│   │   │   ├── analytics_service.py   # Accuracy metrics and rankings
-│   │   │   ├── export_service.py      # CSV/JSON export functionality
-│   │   │   └── cache_service.py       # Redis caching abstraction
-│   │   ├── routes/
-│   │   │   ├── __init__.py
-│   │   │   ├── auth.py                # /api/v1/auth/* endpoints
-│   │   │   ├── predictions.py         # /api/v1/predictions/* endpoints
-│   │   │   ├── races.py               # /api/v1/races/* endpoints
-│   │   │   ├── analytics.py           # /api/v1/analytics/* endpoints
-│   │   │   └── export.py              # /api/v1/export/* endpoints
-│   │   └── middleware/
-│   │       ├── __init__.py
-│   │       ├── auth_middleware.py     # JWT validation middleware
-│   │       ├── rate_limiter.py        # Redis-backed rate limiting
-│   │       └── error_handler.py       # Global exception handling
-│   ├── data_ingestion/
-│   │   ├── __init__.py
-│   │   ├── ergast_client.py           # Ergast API HTTP client
-│   │   ├── weather_client.py          # OpenWeatherMap API client
-│   │   ├── ingest_races.py            # Race results ingestion script
-│   │   ├── ingest_qualifying.py       # Qualifying data ingestion
-│   │   ├── ingest_weather.py          # Weather data ingestion
-│   │   └── transform.py               # Data validation and normalization
-│   ├── ml/
-│   │   ├── __init__.py
-│   │   ├── feature_engineering.py     # Feature extraction from raw data
-│   │   ├── elo_calculator.py          # ELO rating calculation algorithm
-│   │   ├── models/
-│   │   │   ├── __init__.py
-│   │   │   ├── random_forest.py       # Random Forest classifier
-│   │   │   ├── xgboost_model.py       # XGBoost classifier
-│   │   │   └── ensemble.py            # Ensemble prediction averaging
-│   │   ├── training.py                # Model training orchestration
-│   │   ├── inference.py               # Real-time prediction generation
-│   │   └── evaluation.py              # Accuracy metrics calculation
-│   ├── airflow/
-│   │   ├── dags/
-│   │   │   ├── daily_ingestion.py     # Daily data ingestion DAG
-│   │   │   └── model_training.py      # Post-race model retraining DAG
-│   │   └── operators/
-│   │       └── custom_operators.py    # Custom Airflow operators
-│   └── tests/
-│       ├── __init__.py
-│       ├── conftest.py                # Pytest fixtures
-│       ├── unit/
-│       │   ├── test_models.py
-│       │   ├── test_services.py
-│       │   ├── test_elo_calculator.py
-│       │   └── test_feature_engineering.py
-│       ├── integration/
-│       │   ├── test_api_endpoints.py
-│       │   ├── test_ingestion_pipeline.py
-│       │   └── test_ml_training.py
-│       └── e2e/
-│           └── test_prediction_workflow.py
-├── frontend/
-│   ├── Dockerfile
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── vite.config.ts
-│   ├── tailwind.config.js
-│   ├── public/
-│   │   └── f1-logo.svg
-│   ├── src/
-│   │   ├── main.tsx
-│   │   ├── App.tsx
-│   │   ├── vite-env.d.ts
-│   │   ├── api/
-│   │   │   ├── client.ts              # Axios instance with interceptors
-│   │   │   ├── authApi.ts             # Authentication API calls
-│   │   │   ├── predictionsApi.ts      # Predictions API calls
-│   │   │   ├── racesApi.ts            # Race data API calls
-│   │   │   └── analyticsApi.ts        # Analytics API calls
-│   │   ├── components/
-│   │   │   ├── common/
-│   │   │   │   ├── Header.tsx
-│   │   │   │   ├── Footer.tsx
-│   │   │   │   ├── Spinner.tsx
-│   │   │   │   └── ErrorBoundary.tsx
-│   │   │   ├── auth/
-│   │   │   │   ├── LoginForm.tsx
-│   │   │   │   └── RegisterForm.tsx
-│   │   │   ├── predictions/
-│   │   │   │   ├── PredictionCard.tsx
-│   │   │   │   ├── DriverProbabilityBar.tsx
-│   │   │   │   └── NextRaceHeader.tsx
-│   │   │   ├── calendar/
-│   │   │   │   ├── RaceCalendar.tsx
-│   │   │   │   └── RaceCard.tsx
-│   │   │   ├── analytics/
-│   │   │   │   ├── AccuracyChart.tsx
-│   │   │   │   ├── DriverRankingsTable.tsx
-│   │   │   │   └── TeamRankingsTable.tsx
-│   │   │   └── charts/
-│   │   │       ├── BarChart.tsx
-│   │   │       ├── LineChart.tsx
-│   │   │       └── PieChart.tsx
-│   │   ├── pages/
-│   │   │   ├── HomePage.tsx           # Next race predictions
-│   │   │   ├── CalendarPage.tsx       # Race calendar
-│   │   │   ├── AnalyticsPage.tsx      # Historical accuracy
-│   │   │   ├── RankingsPage.tsx       # Driver/team rankings
-│   │   │   ├── LoginPage.tsx
-│   │   │   └── RegisterPage.tsx
-│   │   ├── context/
-│   │   │   ├── AuthContext.tsx        # Authentication state management
-│   │   │   └── ThemeContext.tsx       # Theme preferences
-│   │   ├── hooks/
-│   │   │   ├── useAuth.ts
-│   │   │   ├── usePredictions.ts      # React Query hook for predictions
-│   │   │   ├── useRaces.ts            # React Query hook for races
-│   │   │   └── useAnalytics.ts        # React Query hook for analytics
-│   │   ├── types/
-│   │   │   ├── driver.ts
-│   │   │   ├── race.ts
-│   │   │   ├── prediction.ts
-│   │   │   └── auth.ts
-│   │   ├── utils/
-│   │   │   ├── formatDate.ts
-│   │   │   ├── exportData.ts
-│   │   │   └── constants.ts
-│   │   └── styles/
-│   │       └── globals.css
-│   └── tests/
-│       ├── unit/
-│       │   └── components.test.tsx
-│       └── e2e/
-│           └── prediction-flow.spec.ts
-├── infrastructure/
-│   ├── docker-compose.yml             # Local development setup
-│   ├── docker-compose.prod.yml        # Production configuration
-│   ├── kubernetes/
-│   │   ├── namespace.yaml
-│   │   ├── api-gateway-deployment.yaml
-│   │   ├── prediction-service-deployment.yaml
-│   │   ├── frontend-deployment.yaml
-│   │   ├── postgres-statefulset.yaml
-│   │   ├── redis-deployment.yaml
-│   │   ├── airflow-deployment.yaml
-│   │   ├── ingress.yaml
-│   │   └── secrets.yaml
-│   ├── terraform/
-│   │   ├── main.tf
-│   │   ├── variables.tf
-│   │   ├── outputs.tf
-│   │   └── modules/
-│   │       ├── eks/
-│   │       ├── rds/
-│   │       └── elasticache/
-│   └── monitoring/
-│       ├── prometheus-config.yaml
-│       ├── grafana-dashboards/
-│       │   ├── system-health.json
-│       │   └── ml-pipeline.json
-│       └── alertmanager-config.yaml
-└── scripts/
-    ├── init_db.sh                     # Database initialization
-    ├── seed_data.py                   # Load historical F1 data
-    ├── generate_predictions.py        # Manual prediction generation
-    └── deploy.sh                      # Deployment automation
-```
+### New Files
+
+**Backend - Data Ingestion**
+- `f1-analytics/backend/app/services/ergast_client.py` - Ergast API client with retry logic
+- `f1-analytics/backend/app/services/weather_client.py` - OpenWeatherMap API client
+- `f1-analytics/backend/app/services/data_importer.py` - Orchestrates data imports, populates database
+- `f1-analytics/backend/app/tasks/celery_app.py` - Celery application configuration
+- `f1-analytics/backend/app/tasks/import_tasks.py` - Celery tasks for scheduled imports
+- `f1-analytics/backend/app/tasks/training_tasks.py` - Celery tasks for model training
+
+**Backend - ML Models**
+- `f1-analytics/backend/app/ml/__init__.py` - ML module initialization
+- `f1-analytics/backend/app/ml/base_model.py` - Abstract base class for prediction models
+- `f1-analytics/backend/app/ml/regression_model.py` - Linear regression implementation
+- `f1-analytics/backend/app/ml/random_forest_model.py` - Random Forest implementation
+- `f1-analytics/backend/app/ml/xgboost_model.py` - XGBoost implementation
+- `f1-analytics/backend/app/ml/elo_model.py` - ELO rating calculation
+- `f1-analytics/backend/app/ml/ensemble.py` - Ensemble prediction logic
+- `f1-analytics/backend/app/ml/feature_engineering.py` - Feature extraction from raw data
+- `f1-analytics/backend/app/ml/model_manager.py` - Load/save trained models, version management
+
+**Backend - API Routes**
+- `f1-analytics/backend/app/routes/predictions.py` - Prediction endpoints
+- `f1-analytics/backend/app/routes/standings.py` - Standings endpoints
+- `f1-analytics/backend/app/routes/calendar.py` - Calendar endpoints
+- `f1-analytics/backend/app/routes/analytics.py` - Analytics endpoints
+
+**Backend - Schemas**
+- `f1-analytics/backend/app/schemas/prediction_schema.py` - Marshmallow schemas for predictions
+- `f1-analytics/backend/app/schemas/standings_schema.py` - Marshmallow schemas for standings
+- `f1-analytics/backend/app/schemas/calendar_schema.py` - Marshmallow schemas for calendar
+
+**Backend - Repositories**
+- `f1-analytics/backend/app/repositories/prediction_repository.py` - Prediction data access
+- `f1-analytics/backend/app/repositories/standings_repository.py` - Standings data access
+- `f1-analytics/backend/app/repositories/race_repository.py` - Race data access
+
+**Backend - Models (Extensions)**
+- `f1-analytics/backend/app/models/elo_rating.py` - ELO rating model
+- `f1-analytics/backend/app/models/model.py` - Model metadata model
+- `f1-analytics/backend/app/models/constructor_standing.py` - Constructor standings model
+- `f1-analytics/backend/app/models/driver_standing.py` - Driver standings model
+
+**Backend - Utilities**
+- `f1-analytics/backend/app/utils/cache.py` - Redis cache wrapper with decorators
+- `f1-analytics/backend/app/utils/retry.py` - Retry decorator for API calls
+- `f1-analytics/backend/app/utils/validators.py` - Input validation helpers
+
+**Backend - Configuration**
+- `f1-analytics/backend/app/core/celery_config.py` - Celery broker/backend configuration
+- `f1-analytics/backend/requirements-ml.txt` - ML-specific dependencies (scikit-learn, xgboost)
+
+**Backend - Migrations**
+- `f1-analytics/backend/alembic/versions/002_add_elo_and_model_tables.py` - New tables migration
+- `f1-analytics/backend/alembic/versions/003_add_standing_tables.py` - Standings tables migration
+
+**Frontend - Components**
+- `f1-analytics/frontend/src/components/PredictionTable.tsx` - Display prediction results
+- `f1-analytics/frontend/src/components/ModelComparison.tsx` - Compare model predictions
+- `f1-analytics/frontend/src/components/StandingsTable.tsx` - Display driver/constructor standings
+- `f1-analytics/frontend/src/components/RaceCalendar.tsx` - Display race calendar
+- `f1-analytics/frontend/src/components/PerformanceChart.tsx` - Chart.js wrapper for performance graphs
+- `f1-analytics/frontend/src/components/AccuracyMetrics.tsx` - Display model accuracy metrics
+
+**Frontend - Services**
+- `f1-analytics/frontend/src/services/api.ts` - Axios client with interceptors
+- `f1-analytics/frontend/src/services/predictions.ts` - Prediction API calls
+- `f1-analytics/frontend/src/services/standings.ts` - Standings API calls
+- `f1-analytics/frontend/src/services/calendar.ts` - Calendar API calls
+- `f1-analytics/frontend/src/services/analytics.ts` - Analytics API calls
+
+**Frontend - Types**
+- `f1-analytics/frontend/src/types/prediction.ts` - TypeScript interfaces for predictions
+- `f1-analytics/frontend/src/types/standings.ts` - TypeScript interfaces for standings
+- `f1-analytics/frontend/src/types/race.ts` - TypeScript interfaces for races
+
+**Frontend - Contexts**
+- `f1-analytics/frontend/src/contexts/DashboardContext.tsx` - Global dashboard state
+
+**Frontend - Pages**
+- `f1-analytics/frontend/src/pages/Dashboard.tsx` - Main dashboard page
+- `f1-analytics/frontend/src/pages/PredictionsPage.tsx` - Predictions detail page
+- `f1-analytics/frontend/src/pages/AnalyticsPage.tsx` - Analytics page
+
+**Infrastructure**
+- `f1-analytics/infrastructure/docker-compose.dev.yml` - Development with Celery workers
+- `f1-analytics/backend/Dockerfile.worker` - Celery worker Dockerfile
+- `f1-analytics/infrastructure/kubernetes/celery-deployment.yaml` - Celery worker K8s deployment
+
+**Scripts**
+- `f1-analytics/scripts/train_models.py` - Manual model training script
+- `f1-analytics/scripts/import_historical_data.py` - Backfill historical data
+- `f1-analytics/scripts/generate_predictions.py` - Generate predictions for upcoming race
 
 ### Modified Files
-- `requirements.txt` - Add f1-analytics dependencies (isolated in comments)
-- `package.json` - Add frontend dependencies for f1-analytics (scoped)
-- `.gitignore` - Add f1-analytics/backend/.env, model artifacts, __pycache__
+
+- `f1-analytics/backend/app/main.py` - Register new routes, initialize cache, add health checks
+- `f1-analytics/backend/app/config.py` - Add Ergast/Weather API keys, Redis config, Celery config
+- `f1-analytics/backend/requirements.txt` - Add celery, redis, requests, scikit-learn, xgboost
+- `f1-analytics/frontend/src/App.tsx` - Add routing for new pages
+- `f1-analytics/frontend/package.json` - Add chart.js, axios, react-router-dom
+- `f1-analytics/infrastructure/docker-compose.yml` - Add Redis and Celery worker services
 
 ---
 
@@ -240,1247 +127,1431 @@ f1-analytics/
 
 ### 3.1 Data Ingestion Service
 
-**Purpose**: Fetch, validate, and store race data from external APIs
+**Module:** `f1-analytics/backend/app/services/ergast_client.py`
 
-**Components**:
-- `ErgastClient`: HTTP client for Ergast API with retry logic
-- `WeatherClient`: HTTP client for OpenWeatherMap API
-- `DataTransformer`: Validates and normalizes raw API responses
-- `IngestionOrchestrator`: Coordinates ingestion tasks
+**Purpose:** Fetch F1 data from Ergast API with rate limiting and error handling.
 
-**Key Classes**:
-
+**Key Classes:**
 ```python
-# data_ingestion/ergast_client.py
 class ErgastClient:
-    def __init__(self, base_url: str, session: httpx.AsyncClient):
-        self.base_url = base_url
-        self.session = session
-    
-    async def fetch_race_results(self, season: int, round: int) -> dict:
-        """Fetch race results for given season and round"""
-        
-    async def fetch_qualifying_results(self, season: int, round: int) -> dict:
-        """Fetch qualifying results"""
-        
-    async def fetch_driver_standings(self, season: int) -> dict:
-        """Fetch driver championship standings"""
-        
-    async def fetch_constructor_standings(self, season: int) -> dict:
-        """Fetch constructor standings"""
-
-# data_ingestion/transform.py
-class DataTransformer:
-    def validate_race_result(self, raw_data: dict) -> RaceResultCreate:
-        """Validate and transform race result to Pydantic schema"""
-        
-    def normalize_driver_name(self, driver_name: str) -> str:
-        """Standardize driver name format"""
-        
-    def convert_lap_time(self, lap_time_str: str) -> float:
-        """Convert lap time string to seconds"""
+    def __init__(self, base_url: str, rate_limit_per_hour: int = 200)
+    def get_race_schedule(self, season: int) -> List[Dict]
+    def get_race_results(self, season: int, round: int) -> List[Dict]
+    def get_qualifying_results(self, season: int, round: int) -> List[Dict]
+    def get_driver_standings(self, season: int, round: int = None) -> List[Dict]
+    def get_constructor_standings(self, season: int, round: int = None) -> List[Dict]
+    def _make_request(self, endpoint: str, params: Dict) -> Dict
+    def _handle_rate_limit(self) -> None
 ```
 
-**Workflow**:
-1. Airflow triggers daily ingestion DAG at 2am UTC
-2. `ErgastClient` fetches latest race results with exponential backoff retry (3 attempts)
-3. `DataTransformer` validates data against Pydantic schemas
-4. Repositories persist validated data to PostgreSQL
-5. On success, publish message to RabbitMQ to trigger model retraining
-6. On failure, log error and alert via Alertmanager
+**Implementation Details:**
+- Uses `requests` library with custom retry strategy (exponential backoff: 1s, 2s, 4s, 8s)
+- Rate limiter tracks request timestamps in Redis (key: `ergast:rate_limit`, sliding window)
+- Converts XML responses to JSON if necessary
+- Raises `ErgastAPIError` on failures, logged with structured logging
 
-### 3.2 ML Model Training Service
+**Module:** `f1-analytics/backend/app/services/weather_client.py`
 
-**Purpose**: Train and persist ML models for race winner prediction
+**Purpose:** Fetch weather data from OpenWeatherMap API.
 
-**Components**:
-- `FeatureEngineering`: Extract features from historical data
-- `ELOCalculator`: Calculate and update ELO ratings
-- `ModelTrainer`: Train Random Forest and XGBoost models
-- `ModelEvaluator`: Calculate accuracy metrics on validation set
+**Key Classes:**
+```python
+class WeatherClient:
+    def __init__(self, api_key: str, base_url: str = "https://api.openweathermap.org/data/2.5")
+    def get_historical_weather(self, lat: float, lon: float, date: datetime) -> Dict
+    def get_forecast(self, lat: float, lon: float) -> Dict
+    def _make_request(self, endpoint: str, params: Dict) -> Dict
+```
 
-**Key Classes**:
+**Implementation Details:**
+- Converts circuit locations to lat/lon (stored in `circuits` table)
+- Gracefully degrades if API fails (logs warning, continues without weather data)
+- Caches weather data in Redis (TTL: 24 hours for historical, 1 hour for forecasts)
+
+**Module:** `f1-analytics/backend/app/services/data_importer.py`
+
+**Purpose:** Orchestrates importing data from external APIs into database.
+
+**Key Classes:**
+```python
+class DataImporter:
+    def __init__(self, db_session: Session, ergast_client: ErgastClient, weather_client: WeatherClient)
+    def import_season_schedule(self, season: int) -> None
+    def import_race_results(self, race_id: int) -> None
+    def import_qualifying_results(self, race_id: int) -> None
+    def import_standings(self, season: int, round: int = None) -> None
+    def import_weather_data(self, race_id: int) -> None
+    def backfill_historical_data(self, start_season: int, end_season: int) -> None
+```
+
+**Implementation Details:**
+- Wrapped in database transactions (rollback on failure)
+- Checks for duplicate data before insertion (upsert logic based on unique constraints)
+- Emits Celery events: `data.imported` triggers model retraining
+
+### 3.2 ML Prediction Engine
+
+**Module:** `f1-analytics/backend/app/ml/base_model.py`
+
+**Purpose:** Abstract interface for all prediction models.
+
+**Key Classes:**
+```python
+class BaseModel(ABC):
+    def __init__(self, model_id: str, version: str)
+    
+    @abstractmethod
+    def train(self, features: pd.DataFrame, labels: pd.Series) -> None
+    
+    @abstractmethod
+    def predict(self, features: pd.DataFrame) -> np.ndarray
+    
+    def save(self, path: str) -> None
+    def load(self, path: str) -> None
+    def get_feature_names(self) -> List[str]
+```
+
+**Module:** `f1-analytics/backend/app/ml/feature_engineering.py`
+
+**Purpose:** Extract features from raw database tables.
+
+**Key Functions:**
+```python
+def extract_driver_features(driver_id: int, race_id: int, db_session: Session) -> Dict:
+    """
+    Returns:
+    {
+        'recent_avg_finish': float,  # Avg finish position last 5 races
+        'recent_points': int,  # Points in last 5 races
+        'current_elo': float,  # Current ELO rating
+        'wins_this_season': int,
+        'podiums_this_season': int,
+        'avg_grid_position': float,  # Avg starting position last 5 races
+        'dnf_rate': float  # DNF percentage last 10 races
+    }
+```
 
 ```python
-# ml/feature_engineering.py
-class FeatureEngineering:
-    def extract_driver_features(self, driver_id: int, race_id: int) -> pd.DataFrame:
+def extract_constructor_features(constructor_id: int, race_id: int, db_session: Session) -> Dict:
+    """
+    Returns:
+    {
+        'current_elo': float,
+        'wins_this_season': int,
+        'avg_points_per_race': float,
+        'reliability_score': float  # 1 - DNF_rate
+    }
+```
+
+```python
+def extract_circuit_features(circuit_id: int, driver_id: int, db_session: Session) -> Dict:
+    """
+    Returns:
+    {
+        'driver_wins_at_circuit': int,
+        'driver_avg_finish_at_circuit': float,
+        'track_length_km': float,
+        'turn_count': int,
+        'elevation_variance': float  # Parsed from elevation_profile_json
+    }
+```
+
+```python
+def extract_weather_features(race_id: int, db_session: Session) -> Dict:
+    """
+    Returns:
+    {
+        'temperature_c': float,
+        'precipitation_mm': float,
+        'wind_speed_kmh': float,
+        'is_wet': bool
+    }
+```
+
+```python
+def build_feature_matrix(race_id: int, db_session: Session) -> pd.DataFrame:
+    """
+    Combines all features for all drivers in a race.
+    Rows: one per driver
+    Columns: all features concatenated
+    """
+```
+
+**Module:** `f1-analytics/backend/app/ml/elo_model.py`
+
+**Purpose:** Calculate and update ELO ratings for drivers and constructors.
+
+**Key Classes:**
+```python
+class EloModel(BaseModel):
+    K_FACTOR = 32  # Adjustment rate
+    
+    def calculate_expected_score(self, rating_a: float, rating_b: float) -> float:
+        """Expected win probability using logistic function"""
+        return 1 / (1 + 10 ** ((rating_b - rating_a) / 400))
+    
+    def update_ratings(self, race_results: List[RaceResult]) -> Dict[int, float]:
         """
-        Extract features:
-        - Current ELO rating
-        - Recent form (avg position last 5 races)
-        - Track-specific win rate at this circuit
-        - Team performance (avg team position last 5 races)
+        Updates driver ELO ratings based on race results.
+        Returns: {driver_id: new_rating}
         """
+        # Pairwise comparisons: each driver vs every other driver
+        # Winner gets positive adjustment, loser gets negative
         
-    def extract_weather_features(self, race_id: int) -> pd.DataFrame:
-        """Extract weather impact features"""
-        
-    def build_feature_matrix(self, race_id: int) -> pd.DataFrame:
-        """Combine all features for all drivers in race"""
-
-# ml/elo_calculator.py
-class ELOCalculator:
-    def __init__(self, k_factor: int = 32, base_rating: int = 1500):
-        self.k_factor = k_factor
-        self.base_rating = base_rating
-    
-    def calculate_expected_score(self, rating_a: int, rating_b: int) -> float:
-        """ELO expected score formula"""
-        
-    def update_ratings(self, race_result: RaceResult) -> dict[int, int]:
-        """Update all driver ELO ratings based on race finish positions"""
-
-# ml/models/ensemble.py
-class EnsemblePredictor:
-    def __init__(self, random_forest_path: str, xgboost_path: str):
-        self.rf_model = joblib.load(random_forest_path)
-        self.xgb_model = joblib.load(xgboost_path)
-    
-    def predict_probabilities(self, features: pd.DataFrame) -> np.ndarray:
-        """Average RF and XGBoost probabilities"""
-        rf_probs = self.rf_model.predict_proba(features)[:, 1]
-        xgb_probs = self.xgb_model.predict_proba(features)[:, 1]
-        return (rf_probs + xgb_probs) / 2
-```
-
-**Training Pipeline**:
-1. Celery task triggered by RabbitMQ message after race completion
-2. Load historical race data (2010-present) from PostgreSQL
-3. Calculate/update ELO ratings for all drivers and teams
-4. Engineer features for each race (driver form, weather, track stats)
-5. Split data: 80% train, 20% validation (stratified by season)
-6. Train Random Forest (100 estimators, max_depth=10)
-7. Train XGBoost (learning_rate=0.1, n_estimators=200)
-8. Evaluate on validation set (Brier score, log loss, accuracy)
-9. Save models to S3 with versioning (model_v{timestamp}.pkl)
-10. Update `model_version` metadata in database
-
-### 3.3 Prediction Service
-
-**Purpose**: Generate race winner predictions using trained models
-
-**Components**:
-- `ModelLoader`: Load latest models from S3
-- `InferenceEngine`: Generate predictions for upcoming race
-- `CacheManager`: Cache predictions in Redis
-
-**Key Classes**:
-
-```python
-# ml/inference.py
-class InferenceEngine:
-    def __init__(self, ensemble_model: EnsemblePredictor, db_session: Session):
-        self.model = ensemble_model
-        self.db = db_session
-    
-    def predict_next_race(self) -> list[PredictionCreate]:
+    def predict(self, features: pd.DataFrame) -> np.ndarray:
         """
-        Generate predictions for next scheduled race:
-        1. Find next race from calendar
-        2. Get active drivers and teams
-        3. Extract features for each driver
-        4. Run ensemble model inference
-        5. Normalize probabilities to sum to 100%
-        6. Return predictions sorted by probability descending
+        Returns win probability based on ELO ratings.
+        Probability = current_elo / sum(all_elos_in_race)
         """
-        
-    def predict_race_by_id(self, race_id: int) -> list[PredictionCreate]:
-        """Generate predictions for specific historical/future race"""
+```
 
-# services/cache_service.py
-class CacheService:
-    def __init__(self, redis_client: redis.Redis):
-        self.redis = redis_client
+**Module:** `f1-analytics/backend/app/ml/regression_model.py`
+
+**Purpose:** Linear regression baseline model.
+
+**Key Classes:**
+```python
+class RegressionModel(BaseModel):
+    def __init__(self):
+        self.model = LinearRegression()
     
-    def get_predictions(self, race_id: int) -> Optional[list[dict]]:
-        """Retrieve cached predictions for race"""
-        
-    def set_predictions(self, race_id: int, predictions: list[dict], ttl: int = 604800):
-        """Cache predictions with 7-day TTL"""
-        
-    def invalidate_race(self, race_id: int):
-        """Clear cache for race when new predictions generated"""
+    def train(self, features: pd.DataFrame, labels: pd.Series) -> None:
+        """
+        Labels: 1 if driver won, 0 otherwise
+        Learns weights for each feature
+        """
+        self.model.fit(features, labels)
+    
+    def predict(self, features: pd.DataFrame) -> np.ndarray:
+        """Returns raw predicted probabilities (may need normalization)"""
+        raw_probs = self.model.predict(features)
+        return self._normalize_probabilities(raw_probs)
+    
+    def _normalize_probabilities(self, probs: np.ndarray) -> np.ndarray:
+        """Ensure probabilities sum to 1"""
+        return probs / probs.sum()
 ```
 
-**Prediction Flow**:
-1. API receives request for next race predictions
-2. Check Redis cache for race_id
-3. If cached, return from Redis (sub-10ms)
-4. If cache miss, load latest model from S3
-5. Extract features for all active drivers
-6. Run inference (Random Forest + XGBoost ensemble)
-7. Normalize probabilities, persist to database
-8. Cache in Redis with 7-day TTL
-9. Return JSON response (<5 seconds total)
+**Module:** `f1-analytics/backend/app/ml/random_forest_model.py`
 
-### 3.4 API Gateway (FastAPI)
+**Key Classes:**
+```python
+class RandomForestModel(BaseModel):
+    def __init__(self, n_estimators: int = 100, max_depth: int = 10):
+        self.model = RandomForestClassifier(
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            random_state=42
+        )
+    
+    def train(self, features: pd.DataFrame, labels: pd.Series) -> None:
+        self.model.fit(features, labels)
+    
+    def predict(self, features: pd.DataFrame) -> np.ndarray:
+        """Returns probability of winning (predict_proba[:, 1])"""
+        return self.model.predict_proba(features)[:, 1]
+```
 
-**Purpose**: Expose REST endpoints for frontend and external consumers
+**Module:** `f1-analytics/backend/app/ml/xgboost_model.py`
 
-**Components**:
-- `AuthMiddleware`: JWT validation on protected routes
-- `RateLimiter`: Redis-backed rate limiting (100 req/min per user)
-- `ErrorHandler`: Global exception handling with user-friendly messages
-- Route handlers for auth, predictions, races, analytics, export
+**Key Classes:**
+```python
+class XGBoostModel(BaseModel):
+    def __init__(self, n_estimators: int = 100, learning_rate: float = 0.1):
+        self.model = XGBClassifier(
+            n_estimators=n_estimators,
+            learning_rate=learning_rate,
+            max_depth=6,
+            random_state=42
+        )
+    
+    def train(self, features: pd.DataFrame, labels: pd.Series) -> None:
+        self.model.fit(features, labels)
+    
+    def predict(self, features: pd.DataFrame) -> np.ndarray:
+        return self.model.predict_proba(features)[:, 1]
+```
 
-**Key Route Handlers**:
+**Module:** `f1-analytics/backend/app/ml/ensemble.py`
+
+**Purpose:** Combine predictions from multiple models.
+
+**Key Classes:**
+```python
+class EnsembleModel:
+    def __init__(self, models: List[BaseModel], weights: List[float] = None):
+        """
+        If weights not provided, use equal weighting.
+        """
+        self.models = models
+        self.weights = weights or [1.0 / len(models)] * len(models)
+    
+    def predict(self, features: pd.DataFrame) -> np.ndarray:
+        """Weighted average of model predictions"""
+        predictions = [model.predict(features) for model in self.models]
+        weighted_avg = np.average(predictions, axis=0, weights=self.weights)
+        return weighted_avg
+    
+    def calculate_confidence_interval(self, predictions: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        95% confidence interval based on prediction variance across models.
+        Returns: (lower_bound, upper_bound)
+        """
+        std_dev = np.std(predictions, axis=0)
+        lower = predictions.mean(axis=0) - 1.96 * std_dev
+        upper = predictions.mean(axis=0) + 1.96 * std_dev
+        return np.clip(lower, 0, 1), np.clip(upper, 0, 1)
+```
+
+**Module:** `f1-analytics/backend/app/ml/model_manager.py`
+
+**Purpose:** Load, save, version models.
+
+**Key Classes:**
+```python
+class ModelManager:
+    def __init__(self, storage_path: str = "/app/models"):
+        self.storage_path = storage_path
+    
+    def save_model(self, model: BaseModel, metadata: Dict) -> str:
+        """
+        Saves model to disk as pickle file.
+        Metadata stored in database (models table).
+        Returns: model_id
+        """
+        filename = f"{model.__class__.__name__}_{metadata['version']}.pkl"
+        filepath = os.path.join(self.storage_path, filename)
+        model.save(filepath)
+        
+        # Insert into database
+        db_model = Model(
+            name=model.__class__.__name__,
+            type=metadata['type'],
+            version=metadata['version'],
+            trained_at=datetime.utcnow(),
+            hyperparameters_json=json.dumps(metadata.get('hyperparameters', {}))
+        )
+        db.session.add(db_model)
+        db.session.commit()
+        return db_model.model_id
+    
+    def load_model(self, model_id: int) -> BaseModel:
+        """Load model from disk and return instance"""
+        db_model = db.session.query(Model).get(model_id)
+        filepath = os.path.join(self.storage_path, f"{db_model.name}_{db_model.version}.pkl")
+        
+        # Instantiate correct class based on type
+        model_class = self._get_model_class(db_model.type)
+        model = model_class()
+        model.load(filepath)
+        return model
+    
+    def get_latest_model(self, model_type: str) -> BaseModel:
+        """Get most recently trained model of given type"""
+        db_model = db.session.query(Model).filter_by(type=model_type).order_by(Model.trained_at.desc()).first()
+        return self.load_model(db_model.model_id)
+```
+
+### 3.3 Web API Service
+
+**Module:** `f1-analytics/backend/app/routes/predictions.py`
+
+**Endpoints:**
 
 ```python
-# routes/predictions.py
-@router.get("/api/v1/predictions/next-race", response_model=NextRacePredictionResponse)
-async def get_next_race_predictions(
-    current_user: User = Depends(get_current_user),
-    prediction_service: PredictionService = Depends(get_prediction_service)
-):
+@predictions_bp.route('/api/v1/predictions/next-race', methods=['GET'])
+@cache_response(ttl=3600)  # Cache for 1 hour
+def get_next_race_predictions():
     """
-    1. Validate JWT token from Authorization header
-    2. Call prediction_service.get_next_race_predictions()
-    3. Check cache first, generate if needed
-    4. Return predictions with race metadata
+    Returns predictions for the next upcoming race.
+    
+    Logic:
+    1. Query races table for next race after today
+    2. Query predictions table for that race_id (ensemble model)
+    3. Join with drivers, constructors tables
+    4. Format response per API contract
     """
-
-# routes/analytics.py
-@router.get("/api/v1/analytics/accuracy", response_model=AccuracyMetricsResponse)
-async def get_accuracy_metrics(
-    season: int = Query(..., ge=2010, le=2030),
-    analytics_service: AnalyticsService = Depends(get_analytics_service)
-):
-    """
-    1. Retrieve all completed races for season
-    2. Calculate Brier score, log loss, correct winner %
-    3. Aggregate by race for detailed breakdown
-    4. Return metrics with confidence intervals
-    """
-
-# routes/export.py
-@router.get("/api/v1/export/predictions")
-async def export_predictions(
-    race_id: int = Query(...),
-    format: ExportFormat = Query(ExportFormat.JSON),
-    export_service: ExportService = Depends(get_export_service)
-):
-    """
-    1. Fetch predictions for race_id
-    2. Format as CSV or JSON based on query param
-    3. Return StreamingResponse with file download
-    """
+    next_race = db.session.query(Race).filter(Race.date > datetime.now()).order_by(Race.date).first()
+    if not next_race:
+        return jsonify({'error': 'No upcoming races'}), 404
+    
+    predictions = db.session.query(Prediction).filter(
+        Prediction.race_id == next_race.race_id,
+        Prediction.model_id == get_ensemble_model_id()
+    ).all()
+    
+    schema = PredictionResponseSchema(many=True)
+    return jsonify({
+        'race': RaceSchema().dump(next_race),
+        'predictions': schema.dump(predictions),
+        'generated_at': datetime.utcnow().isoformat()
+    })
 ```
 
-**Middleware Stack**:
 ```python
-# middleware/auth_middleware.py
-class JWTAuthMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        if request.url.path.startswith("/api/v1/auth"):
-            return await call_next(request)
-        
-        token = request.headers.get("Authorization", "").replace("Bearer ", "")
-        if not token:
-            return JSONResponse({"error": "Missing token"}, status_code=401)
-        
-        try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-            request.state.user_id = payload["sub"]
-        except jwt.ExpiredSignatureError:
-            return JSONResponse({"error": "Token expired"}, status_code=401)
-        except jwt.JWTError:
-            return JSONResponse({"error": "Invalid token"}, status_code=401)
-        
-        return await call_next(request)
-
-# middleware/rate_limiter.py
-class RateLimitMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        user_id = request.state.user_id
-        key = f"rate_limit:{user_id}"
-        
-        current = await redis_client.incr(key)
-        if current == 1:
-            await redis_client.expire(key, 60)
-        
-        if current > 100:
-            return JSONResponse({"error": "Rate limit exceeded"}, status_code=429)
-        
-        response = await call_next(request)
-        response.headers["X-RateLimit-Remaining"] = str(100 - current)
-        return response
+@predictions_bp.route('/api/v1/predictions/race/<int:race_id>', methods=['GET'])
+@cache_response(ttl=3600)
+def get_race_predictions(race_id: int):
+    """
+    Returns predictions for a specific race.
+    Query param: model_id (optional) - filter by specific model
+    """
+    model_id = request.args.get('model_id', type=int)
+    
+    query = db.session.query(Prediction).filter(Prediction.race_id == race_id)
+    if model_id:
+        query = query.filter(Prediction.model_id == model_id)
+    
+    predictions = query.all()
+    schema = PredictionResponseSchema(many=True)
+    return jsonify(schema.dump(predictions))
 ```
 
-### 3.5 Web Dashboard (React/TypeScript)
-
-**Purpose**: Interactive UI for viewing predictions and analytics
-
-**Components**:
-- `AuthContext`: Manages JWT tokens and user state
-- `usePredictions` hook: React Query data fetching for predictions
-- `PredictionCard`: Displays next race predictions with bar charts
-- `AccuracyChart`: Line chart of historical prediction accuracy
-
-**Key Components**:
-
-```typescript
-// pages/HomePage.tsx
-export const HomePage: React.FC = () => {
-  const { data: predictions, isLoading } = usePredictions();
-  
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <NextRaceHeader race={predictions?.race} />
-      <div className="grid grid-cols-1 gap-4">
-        {predictions?.predictions.map(p => (
-          <DriverProbabilityBar 
-            key={p.driver_id}
-            driverName={p.driver_name}
-            probability={p.win_probability}
-            teamColor={p.team_color}
-          />
-        ))}
-      </div>
-    </div>
-  );
-};
-
-// components/predictions/DriverProbabilityBar.tsx
-interface DriverProbabilityBarProps {
-  driverName: string;
-  probability: number;
-  teamColor: string;
-}
-
-export const DriverProbabilityBar: React.FC<DriverProbabilityBarProps> = ({
-  driverName, probability, teamColor
-}) => {
-  return (
-    <div className="flex items-center gap-4 p-4 bg-white rounded-lg shadow">
-      <span className="w-40 font-semibold">{driverName}</span>
-      <div className="flex-1 bg-gray-200 rounded-full h-8">
-        <div 
-          className="h-8 rounded-full flex items-center justify-end px-2"
-          style={{ width: `${probability}%`, backgroundColor: teamColor }}
-        >
-          <span className="text-white font-bold">{probability.toFixed(1)}%</span>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// hooks/usePredictions.ts
-export const usePredictions = () => {
-  return useQuery({
-    queryKey: ['predictions', 'next-race'],
-    queryFn: async () => {
-      const response = await api.get('/api/v1/predictions/next-race');
-      return response.data as NextRacePredictionResponse;
-    },
-    staleTime: 1000 * 60 * 60, // 1 hour
-    cacheTime: 1000 * 60 * 60 * 24, // 24 hours
-  });
-};
-
-// context/AuthContext.tsx
-export const AuthContext = createContext<AuthContextType | null>(null);
-
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [token, setToken] = useState<string | null>(localStorage.getItem('jwt'));
-  
-  const login = async (email: string, password: string) => {
-    const response = await authApi.login({ email, password });
-    setToken(response.token);
-    localStorage.setItem('jwt', response.token);
-  };
-  
-  const logout = () => {
-    setToken(null);
-    localStorage.removeItem('jwt');
-  };
-  
-  return (
-    <AuthContext.Provider value={{ token, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
-```
-
-**Routing**:
-```typescript
-// App.tsx
-const router = createBrowserRouter([
-  {
-    path: "/f1-analytics",
-    element: <Layout />,
-    children: [
-      { path: "", element: <HomePage /> },
-      { path: "calendar", element: <CalendarPage /> },
-      { path: "analytics", element: <AnalyticsPage /> },
-      { path: "rankings", element: <RankingsPage /> },
-      { path: "login", element: <LoginPage /> },
-    ],
-  },
-]);
-```
-
-### 3.6 Database Service (PostgreSQL)
-
-**Purpose**: Persistent storage for F1 data and predictions
-
-**Design**:
-- PostgreSQL 15 with TimescaleDB extension for time-series optimization
-- Table partitioning by `season_year` for RaceResult, Prediction tables
-- Indexes on foreign keys and frequently queried columns
-- Read replicas for query distribution (2 replicas)
-
-**Connection Pooling**:
 ```python
-# database.py
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import QueuePool
+@predictions_bp.route('/api/v1/predictions/compare/<int:race_id>', methods=['GET'])
+@cache_response(ttl=3600)
+def compare_models(race_id: int):
+    """
+    Returns predictions from all models for comparison.
+    
+    Response format:
+    {
+        'race_id': 123,
+        'models': [
+            {'model_name': 'regression', 'predictions': [...]},
+            {'model_name': 'random_forest', 'predictions': [...]},
+            ...
+        ]
+    }
+    """
+    models = db.session.query(Model).all()
+    comparison = []
+    
+    for model in models:
+        predictions = db.session.query(Prediction).filter(
+            Prediction.race_id == race_id,
+            Prediction.model_id == model.model_id
+        ).all()
+        comparison.append({
+            'model_name': model.name,
+            'predictions': PredictionResponseSchema(many=True).dump(predictions)
+        })
+    
+    return jsonify({'race_id': race_id, 'models': comparison})
+```
 
-engine = create_engine(
-    DATABASE_URL,
-    poolclass=QueuePool,
-    pool_size=20,
-    max_overflow=10,
-    pool_pre_ping=True,
-    echo=False
+**Module:** `f1-analytics/backend/app/routes/standings.py`
+
+**Endpoints:**
+
+```python
+@standings_bp.route('/api/v1/standings/drivers', methods=['GET'])
+@cache_response(ttl=86400)  # Cache for 24 hours
+def get_driver_standings():
+    """
+    Returns current season driver standings.
+    Query param: season (optional, defaults to current year)
+    """
+    season = request.args.get('season', type=int, default=datetime.now().year)
+    
+    # Get latest race in season
+    latest_race = db.session.query(Race).filter(
+        Race.season_id == get_season_id(season),
+        Race.date <= datetime.now()
+    ).order_by(Race.date.desc()).first()
+    
+    if not latest_race:
+        return jsonify({'error': 'No completed races in season'}), 404
+    
+    standings = db.session.query(DriverStanding).filter(
+        DriverStanding.race_id == latest_race.race_id
+    ).order_by(DriverStanding.position).all()
+    
+    schema = DriverStandingSchema(many=True)
+    return jsonify({
+        'season': season,
+        'standings': schema.dump(standings)
+    })
+```
+
+```python
+@standings_bp.route('/api/v1/standings/constructors', methods=['GET'])
+@cache_response(ttl=86400)
+def get_constructor_standings():
+    """Similar logic to driver standings"""
+    # Implementation follows same pattern as get_driver_standings
+```
+
+**Module:** `f1-analytics/backend/app/routes/calendar.py`
+
+**Endpoints:**
+
+```python
+@calendar_bp.route('/api/v1/calendar/<int:year>', methods=['GET'])
+@cache_response(ttl=86400)
+def get_calendar(year: int):
+    """
+    Returns race calendar for a season.
+    Includes prediction_available flag (true if predictions exist for race).
+    """
+    races = db.session.query(Race).join(Season).filter(Season.year == year).order_by(Race.date).all()
+    
+    calendar = []
+    for race in races:
+        prediction_exists = db.session.query(Prediction).filter(Prediction.race_id == race.race_id).first() is not None
+        calendar.append({
+            'round': race.round_number,
+            'name': race.name,
+            'date': race.date.isoformat(),
+            'circuit': race.circuit.name,
+            'prediction_available': prediction_exists
+        })
+    
+    return jsonify({'season': year, 'races': calendar})
+```
+
+**Module:** `f1-analytics/backend/app/routes/analytics.py`
+
+**Endpoints:**
+
+```python
+@analytics_bp.route('/api/v1/analytics/model-accuracy', methods=['GET'])
+@cache_response(ttl=3600)
+def get_model_accuracy():
+    """
+    Returns accuracy metrics for models.
+    Query params: model_id, season
+    """
+    model_id = request.args.get('model_id', type=int)
+    season = request.args.get('season', type=int)
+    
+    query = db.session.query(ModelAccuracy)
+    if model_id:
+        query = query.filter(ModelAccuracy.model_id == model_id)
+    if season:
+        query = query.join(Race).join(Season).filter(Season.year == season)
+    
+    accuracies = query.all()
+    schema = ModelAccuracySchema(many=True)
+    return jsonify(schema.dump(accuracies))
+```
+
+```python
+@analytics_bp.route('/api/v1/analytics/driver-performance/<int:driver_id>', methods=['GET'])
+@cache_response(ttl=3600)
+def get_driver_performance(driver_id: int):
+    """
+    Returns historical performance metrics and ELO evolution.
+    """
+    # Get race results for driver
+    results = db.session.query(RaceResult).filter(RaceResult.driver_id == driver_id).order_by(RaceResult.race_id).all()
+    
+    # Get ELO evolution
+    elo_ratings = db.session.query(EloRating).filter(EloRating.driver_id == driver_id).order_by(EloRating.race_id).all()
+    
+    return jsonify({
+        'driver_id': driver_id,
+        'results': RaceResultSchema(many=True).dump(results),
+        'elo_evolution': EloRatingSchema(many=True).dump(elo_ratings)
+    })
+```
+
+**Module:** `f1-analytics/backend/app/utils/cache.py`
+
+**Purpose:** Redis caching decorator.
+
+```python
+def cache_response(ttl: int = 3600):
+    """
+    Decorator to cache API responses in Redis.
+    Cache key format: "cache:{endpoint}:{query_params_hash}"
+    """
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            # Generate cache key from request path and args
+            cache_key = f"cache:{request.path}:{hash(frozenset(request.args.items()))}"
+            
+            # Check cache
+            cached = redis_client.get(cache_key)
+            if cached:
+                return jsonify(json.loads(cached))
+            
+            # Execute function
+            response = f(*args, **kwargs)
+            
+            # Store in cache
+            redis_client.setex(cache_key, ttl, json.dumps(response.get_json()))
+            return response
+        return wrapper
+    return decorator
+```
+
+### 3.4 Task Scheduler
+
+**Module:** `f1-analytics/backend/app/tasks/celery_app.py`
+
+**Purpose:** Configure Celery application.
+
+```python
+from celery import Celery
+from celery.schedules import crontab
+
+celery_app = Celery(
+    'f1_analytics',
+    broker='redis://redis:6379/0',
+    backend='redis://redis:6379/0'
 )
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+celery_app.conf.update(
+    task_serializer='json',
+    accept_content=['json'],
+    result_serializer='json',
+    timezone='UTC',
+    enable_utc=True,
+    beat_schedule={
+        'import-race-results-daily': {
+            'task': 'app.tasks.import_tasks.import_latest_race_results',
+            'schedule': crontab(hour=12, minute=0),  # Daily at noon UTC
+        },
+        'update-standings-daily': {
+            'task': 'app.tasks.import_tasks.import_current_standings',
+            'schedule': crontab(hour=13, minute=0),
+        },
+        'retrain-models-weekly': {
+            'task': 'app.tasks.training_tasks.retrain_all_models',
+            'schedule': crontab(day_of_week='monday', hour=2, minute=0),
+        },
+    }
+)
+```
+
+**Module:** `f1-analytics/backend/app/tasks/import_tasks.py`
+
+**Purpose:** Celery tasks for data import.
+
+```python
+@celery_app.task(bind=True, max_retries=3)
+def import_latest_race_results(self):
+    """
+    Imports results for the most recent completed race.
+    Triggered daily to catch newly available data.
+    """
+    try:
+        db_session = get_db_session()
+        ergast_client = ErgastClient(base_url=config.ERGAST_API_URL)
+        weather_client = WeatherClient(api_key=config.WEATHER_API_KEY)
+        importer = DataImporter(db_session, ergast_client, weather_client)
+        
+        # Find most recent race
+        latest_race = db_session.query(Race).filter(
+            Race.date <= datetime.now()
+        ).order_by(Race.date.desc()).first()
+        
+        if not latest_race:
+            return "No completed races found"
+        
+        # Check if results already imported
+        existing_results = db_session.query(RaceResult).filter(RaceResult.race_id == latest_race.race_id).first()
+        if existing_results:
+            return f"Results already imported for race {latest_race.race_id}"
+        
+        # Import data
+        importer.import_race_results(latest_race.race_id)
+        importer.import_qualifying_results(latest_race.race_id)
+        importer.import_weather_data(latest_race.race_id)
+        
+        # Trigger model retraining
+        retrain_all_models.delay()
+        
+        return f"Successfully imported data for race {latest_race.race_id}"
+        
+    except Exception as e:
+        logger.error(f"Failed to import race results: {e}")
+        raise self.retry(exc=e, countdown=3600)  # Retry in 1 hour
+```
+
+```python
+@celery_app.task(bind=True, max_retries=3)
+def import_current_standings(self):
+    """Imports current season standings"""
+    # Similar pattern to import_latest_race_results
+```
+
+**Module:** `f1-analytics/backend/app/tasks/training_tasks.py`
+
+**Purpose:** Celery tasks for model training.
+
+```python
+@celery_app.task(bind=True, max_retries=1)
+def retrain_all_models(self):
+    """
+    Retrains all prediction models with latest data.
+    Triggered after new race data imported.
+    """
+    try:
+        db_session = get_db_session()
+        model_manager = ModelManager()
+        
+        # Get all historical race data for training
+        races = db_session.query(Race).filter(Race.date < datetime.now()).all()
+        
+        # Build feature matrix and labels
+        X_train, y_train = [], []
+        for race in races:
+            features = build_feature_matrix(race.race_id, db_session)
+            labels = get_race_winner_labels(race.race_id, db_session)
+            X_train.append(features)
+            y_train.append(labels)
+        
+        X_train = pd.concat(X_train)
+        y_train = pd.concat(y_train)
+        
+        # Train each model
+        models = [
+            RegressionModel(),
+            RandomForestModel(n_estimators=100, max_depth=10),
+            XGBoostModel(n_estimators=100, learning_rate=0.1),
+            EloModel()
+        ]
+        
+        for model in models:
+            model.train(X_train, y_train)
+            model_manager.save_model(model, {
+                'version': f'v{datetime.now().strftime("%Y%m%d_%H%M%S")}',
+                'type': model.__class__.__name__,
+                'hyperparameters': model.get_hyperparameters()
+            })
+        
+        # Generate predictions for next race
+        generate_next_race_predictions.delay()
+        
+        return "Successfully retrained all models"
+        
+    except Exception as e:
+        logger.error(f"Failed to retrain models: {e}")
+        raise self.retry(exc=e, countdown=7200)  # Retry in 2 hours
+```
+
+```python
+@celery_app.task
+def generate_next_race_predictions():
+    """
+    Generates predictions for the next upcoming race.
+    Stores predictions in database and invalidates cache.
+    """
+    db_session = get_db_session()
+    model_manager = ModelManager()
+    
+    # Get next race
+    next_race = db_session.query(Race).filter(Race.date > datetime.now()).order_by(Race.date).first()
+    if not next_race:
+        return "No upcoming races"
+    
+    # Load models
+    models = [
+        model_manager.get_latest_model('RegressionModel'),
+        model_manager.get_latest_model('RandomForestModel'),
+        model_manager.get_latest_model('XGBoostModel'),
+        model_manager.get_latest_model('EloModel')
+    ]
+    ensemble = EnsembleModel(models)
+    
+    # Build feature matrix for next race
+    features = build_feature_matrix(next_race.race_id, db_session)
+    
+    # Generate predictions
+    predictions = ensemble.predict(features)
+    lower_ci, upper_ci = ensemble.calculate_confidence_interval(predictions)
+    
+    # Store in database
+    for idx, driver_id in enumerate(features['driver_id']):
+        prediction = Prediction(
+            race_id=next_race.race_id,
+            model_id=get_ensemble_model_id(),
+            driver_id=driver_id,
+            win_probability=predictions[idx],
+            confidence_interval_lower=lower_ci[idx],
+            confidence_interval_upper=upper_ci[idx],
+            created_at=datetime.utcnow()
+        )
+        db_session.add(prediction)
+    
+    db_session.commit()
+    
+    # Invalidate cache
+    redis_client.delete_pattern('cache:*')
+    
+    return f"Generated predictions for race {next_race.race_id}"
+```
+
+### 3.5 Dashboard Application
+
+**Module:** `f1-analytics/frontend/src/services/api.ts`
+
+**Purpose:** Axios client with error handling.
+
+```typescript
+import axios, { AxiosInstance, AxiosError } from 'axios';
+
+const api: AxiosInstance = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Response interceptor for error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError) => {
+    if (error.response?.status === 429) {
+      // Rate limited
+      console.error('Rate limit exceeded. Please try again later.');
+    } else if (error.response?.status >= 500) {
+      // Server error
+      console.error('Server error. Please try again later.');
+    }
+    return Promise.reject(error);
+  }
+);
+
+export default api;
+```
+
+**Module:** `f1-analytics/frontend/src/services/predictions.ts`
+
+**Purpose:** API calls for predictions.
+
+```typescript
+import api from './api';
+import { PredictionResponse, RacePrediction } from '../types/prediction';
+
+export const getNextRacePredictions = async (): Promise<PredictionResponse> => {
+  const response = await api.get('/api/v1/predictions/next-race');
+  return response.data;
+};
+
+export const getRacePredictions = async (raceId: number, modelId?: number): Promise<RacePrediction[]> => {
+  const params = modelId ? { model_id: modelId } : {};
+  const response = await api.get(`/api/v1/predictions/race/${raceId}`, { params });
+  return response.data;
+};
+
+export const compareModels = async (raceId: number): Promise<ModelComparisonResponse> => {
+  const response = await api.get(`/api/v1/predictions/compare/${raceId}`);
+  return response.data;
+};
+```
+
+**Module:** `f1-analytics/frontend/src/components/PredictionTable.tsx`
+
+**Purpose:** Display prediction results in table format.
+
+```typescript
+import React from 'react';
+import { RacePrediction } from '../types/prediction';
+
+interface PredictionTableProps {
+  predictions: RacePrediction[];
+}
+
+export const PredictionTable: React.FC<PredictionTableProps> = ({ predictions }) => {
+  // Sort by win probability descending
+  const sortedPredictions = [...predictions].sort((a, b) => b.win_probability - a.win_probability);
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-full bg-white border border-gray-300">
+        <thead className="bg-gray-100">
+          <tr>
+            <th className="px-4 py-2 border">Rank</th>
+            <th className="px-4 py-2 border">Driver</th>
+            <th className="px-4 py-2 border">Constructor</th>
+            <th className="px-4 py-2 border">Win Probability</th>
+            <th className="px-4 py-2 border">Confidence Interval</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sortedPredictions.map((pred, idx) => (
+            <tr key={pred.driver} className={idx % 2 === 0 ? 'bg-gray-50' : ''}>
+              <td className="px-4 py-2 border text-center">{idx + 1}</td>
+              <td className="px-4 py-2 border">{pred.driver}</td>
+              <td className="px-4 py-2 border">{pred.constructor}</td>
+              <td className="px-4 py-2 border text-center">
+                {(pred.win_probability * 100).toFixed(1)}%
+              </td>
+              <td className="px-4 py-2 border text-center">
+                [{(pred.confidence_interval[0] * 100).toFixed(1)}%, {(pred.confidence_interval[1] * 100).toFixed(1)}%]
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+```
+
+**Module:** `f1-analytics/frontend/src/components/PerformanceChart.tsx`
+
+**Purpose:** Chart.js wrapper for performance visualizations.
+
+```typescript
+import React from 'react';
+import { Line } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+
+interface PerformanceChartProps {
+  data: {
+    labels: string[];
+    datasets: {
+      label: string;
+      data: number[];
+      borderColor: string;
+      backgroundColor: string;
+    }[];
+  };
+  title: string;
+}
+
+export const PerformanceChart: React.FC<PerformanceChartProps> = ({ data, title }) => {
+  const options = {
+    responsive: true,
+    plugins: {
+      legend: { position: 'top' as const },
+      title: { display: true, text: title },
+    },
+    scales: {
+      y: { beginAtZero: true },
+    },
+  };
+
+  return <Line options={options} data={data} />;
+};
+```
+
+**Module:** `f1-analytics/frontend/src/pages/Dashboard.tsx`
+
+**Purpose:** Main dashboard page layout.
+
+```typescript
+import React, { useEffect, useState } from 'react';
+import { getNextRacePredictions } from '../services/predictions';
+import { PredictionTable } from '../components/PredictionTable';
+import { PredictionResponse } from '../types/prediction';
+
+export const Dashboard: React.FC = () => {
+  const [data, setData] = useState<PredictionResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const result = await getNextRacePredictions();
+        setData(result);
+      } catch (err) {
+        setError('Failed to load predictions');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  if (loading) return <div className="text-center py-8">Loading...</div>;
+  if (error) return <div className="text-red-600 text-center py-8">{error}</div>;
+  if (!data) return null;
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-4">F1 Prediction Analytics</h1>
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-2xl font-semibold mb-2">{data.race.name}</h2>
+        <p className="text-gray-600 mb-1">{data.race.circuit}</p>
+        <p className="text-gray-600 mb-4">{new Date(data.race.date).toLocaleDateString()}</p>
+        <PredictionTable predictions={data.predictions} />
+        <p className="text-sm text-gray-500 mt-4">
+          Generated: {new Date(data.generated_at).toLocaleString()}
+        </p>
+      </div>
+    </div>
+  );
+};
 ```
 
 ---
 
 ## 4. Database Schema Changes
 
-### Migration Script: 001_initial_schema.py
-
-```sql
--- Alembic migration for initial F1 analytics schema
-
-CREATE TABLE drivers (
-    driver_id SERIAL PRIMARY KEY,
-    driver_code VARCHAR(3) UNIQUE NOT NULL,
-    driver_name VARCHAR(100) NOT NULL,
-    nationality VARCHAR(50),
-    date_of_birth DATE,
-    current_team_id INTEGER,
-    current_elo_rating INTEGER DEFAULT 1500,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE INDEX idx_drivers_code ON drivers(driver_code);
-CREATE INDEX idx_drivers_elo ON drivers(current_elo_rating DESC);
-
-CREATE TABLE teams (
-    team_id SERIAL PRIMARY KEY,
-    team_name VARCHAR(100) UNIQUE NOT NULL,
-    nationality VARCHAR(50),
-    current_elo_rating INTEGER DEFAULT 1500,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE TABLE circuits (
-    circuit_id SERIAL PRIMARY KEY,
-    circuit_name VARCHAR(100) UNIQUE NOT NULL,
-    location VARCHAR(100),
-    country VARCHAR(50),
-    track_length_km DECIMAL(5, 2),
-    track_type VARCHAR(20) CHECK (track_type IN ('street', 'permanent')),
-    created_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE TABLE races (
-    race_id SERIAL PRIMARY KEY,
-    season_year INTEGER NOT NULL,
-    round_number INTEGER NOT NULL,
-    circuit_id INTEGER REFERENCES circuits(circuit_id),
-    race_date DATE NOT NULL,
-    race_name VARCHAR(100) NOT NULL,
-    status VARCHAR(20) DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'completed', 'cancelled')),
-    created_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE(season_year, round_number)
-);
-
-CREATE INDEX idx_races_date ON races(race_date);
-CREATE INDEX idx_races_season ON races(season_year, round_number);
-CREATE INDEX idx_races_status ON races(status);
-
-CREATE TABLE race_results (
-    result_id SERIAL PRIMARY KEY,
-    race_id INTEGER REFERENCES races(race_id),
-    driver_id INTEGER REFERENCES drivers(driver_id),
-    team_id INTEGER REFERENCES teams(team_id),
-    grid_position INTEGER,
-    final_position INTEGER,
-    points DECIMAL(4, 1),
-    fastest_lap_time INTERVAL,
-    status VARCHAR(20) DEFAULT 'finished' CHECK (status IN ('finished', 'retired', 'dnf', 'disqualified')),
-    created_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE(race_id, driver_id)
-) PARTITION BY RANGE (race_id);
-
-CREATE TABLE race_results_2020_2025 PARTITION OF race_results
-    FOR VALUES FROM (1) TO (500);
-
-CREATE TABLE race_results_2026_2030 PARTITION OF race_results
-    FOR VALUES FROM (500) TO (1000);
-
-CREATE INDEX idx_race_results_race ON race_results(race_id);
-CREATE INDEX idx_race_results_driver ON race_results(driver_id);
-
-CREATE TABLE qualifying_results (
-    qualifying_id SERIAL PRIMARY KEY,
-    race_id INTEGER REFERENCES races(race_id),
-    driver_id INTEGER REFERENCES drivers(driver_id),
-    q1_time INTERVAL,
-    q2_time INTERVAL,
-    q3_time INTERVAL,
-    final_grid_position INTEGER,
-    created_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE(race_id, driver_id)
-);
-
-CREATE INDEX idx_qualifying_race ON qualifying_results(race_id);
-
-CREATE TABLE weather_data (
-    weather_id SERIAL PRIMARY KEY,
-    race_id INTEGER UNIQUE REFERENCES races(race_id),
-    temperature_celsius DECIMAL(4, 1),
-    precipitation_mm DECIMAL(5, 2),
-    wind_speed_kph DECIMAL(5, 2),
-    conditions VARCHAR(20) CHECK (conditions IN ('dry', 'wet', 'mixed')),
-    created_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE TABLE predictions (
-    prediction_id SERIAL PRIMARY KEY,
-    race_id INTEGER REFERENCES races(race_id),
-    driver_id INTEGER REFERENCES drivers(driver_id),
-    predicted_win_probability DECIMAL(5, 2) CHECK (predicted_win_probability >= 0 AND predicted_win_probability <= 100),
-    model_version VARCHAR(50) NOT NULL,
-    prediction_timestamp TIMESTAMP DEFAULT NOW(),
-    created_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE(race_id, driver_id, model_version)
-) PARTITION BY RANGE (race_id);
-
-CREATE TABLE predictions_2020_2025 PARTITION OF predictions
-    FOR VALUES FROM (1) TO (500);
-
-CREATE TABLE predictions_2026_2030 PARTITION OF predictions
-    FOR VALUES FROM (500) TO (1000);
-
-CREATE INDEX idx_predictions_race ON predictions(race_id);
-CREATE INDEX idx_predictions_timestamp ON predictions(prediction_timestamp DESC);
-
-CREATE TABLE prediction_accuracy (
-    accuracy_id SERIAL PRIMARY KEY,
-    race_id INTEGER UNIQUE REFERENCES races(race_id),
-    brier_score DECIMAL(6, 4),
-    log_loss DECIMAL(6, 4),
-    correct_winner BOOLEAN,
-    top_3_accuracy BOOLEAN,
-    created_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE INDEX idx_accuracy_race ON prediction_accuracy(race_id);
-
-CREATE TABLE users (
-    user_id SERIAL PRIMARY KEY,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW(),
-    last_login TIMESTAMP,
-    role VARCHAR(20) DEFAULT 'user' CHECK (role IN ('user', 'admin'))
-);
-
-CREATE INDEX idx_users_email ON users(email);
-
--- Add foreign key constraint for drivers.current_team_id
-ALTER TABLE drivers ADD CONSTRAINT fk_drivers_team 
-    FOREIGN KEY (current_team_id) REFERENCES teams(team_id);
-
--- Create materialized view for driver rankings (performance optimization)
-CREATE MATERIALIZED VIEW driver_rankings AS
-SELECT 
-    d.driver_id,
-    d.driver_name,
-    d.current_elo_rating,
-    COUNT(CASE WHEN rr.final_position = 1 THEN 1 END) as wins,
-    SUM(rr.points) as total_points,
-    MAX(r.season_year) as latest_season
-FROM drivers d
-LEFT JOIN race_results rr ON d.driver_id = rr.driver_id
-LEFT JOIN races r ON rr.race_id = r.race_id
-GROUP BY d.driver_id, d.driver_name, d.current_elo_rating
-ORDER BY d.current_elo_rating DESC;
-
-CREATE UNIQUE INDEX idx_driver_rankings_driver ON driver_rankings(driver_id);
-
--- Refresh materialized view daily via cron job
-```
-
-### Pydantic Models (ORM)
+### Migration: `002_add_elo_and_model_tables.py`
 
 ```python
-# models/driver.py
-from sqlalchemy import Column, Integer, String, Date, ForeignKey
-from sqlalchemy.orm import relationship
-from app.database import Base
+"""Add ELO ratings and model metadata tables"""
 
-class Driver(Base):
-    __tablename__ = "drivers"
-    
-    driver_id = Column(Integer, primary_key=True, index=True)
-    driver_code = Column(String(3), unique=True, nullable=False)
-    driver_name = Column(String(100), nullable=False)
-    nationality = Column(String(50))
-    date_of_birth = Column(Date)
-    current_team_id = Column(Integer, ForeignKey("teams.team_id"))
-    current_elo_rating = Column(Integer, default=1500)
-    
-    team = relationship("Team", back_populates="drivers")
-    race_results = relationship("RaceResult", back_populates="driver")
+from alembic import op
+import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
-# models/prediction.py
-class Prediction(Base):
-    __tablename__ = "predictions"
-    
-    prediction_id = Column(Integer, primary_key=True, index=True)
-    race_id = Column(Integer, ForeignKey("races.race_id"), nullable=False)
-    driver_id = Column(Integer, ForeignKey("drivers.driver_id"), nullable=False)
-    predicted_win_probability = Column(Numeric(5, 2), nullable=False)
-    model_version = Column(String(50), nullable=False)
-    prediction_timestamp = Column(DateTime, default=datetime.utcnow)
-    
-    race = relationship("Race", back_populates="predictions")
-    driver = relationship("Driver")
+def upgrade():
+    # Models table
+    op.create_table(
+        'models',
+        sa.Column('model_id', sa.Integer(), nullable=False),
+        sa.Column('name', sa.String(100), nullable=False),
+        sa.Column('type', sa.String(50), nullable=False),
+        sa.Column('version', sa.String(50), nullable=False),
+        sa.Column('trained_at', sa.DateTime(), nullable=False),
+        sa.Column('hyperparameters_json', postgresql.JSON(), nullable=True),
+        sa.PrimaryKeyConstraint('model_id')
+    )
+    op.create_index('idx_models_type_version', 'models', ['type', 'version'])
+
+    # ELO ratings table
+    op.create_table(
+        'elo_ratings',
+        sa.Column('rating_id', sa.Integer(), nullable=False),
+        sa.Column('driver_id', sa.Integer(), nullable=True),
+        sa.Column('constructor_id', sa.Integer(), nullable=True),
+        sa.Column('race_id', sa.Integer(), nullable=False),
+        sa.Column('rating_value', sa.Float(), nullable=False),
+        sa.Column('calculated_at', sa.DateTime(), nullable=False),
+        sa.PrimaryKeyConstraint('rating_id'),
+        sa.ForeignKeyConstraint(['driver_id'], ['drivers.driver_id']),
+        sa.ForeignKeyConstraint(['constructor_id'], ['constructors.constructor_id']),
+        sa.ForeignKeyConstraint(['race_id'], ['races.race_id'])
+    )
+    op.create_index('idx_elo_driver_race', 'elo_ratings', ['driver_id', 'race_id'])
+    op.create_index('idx_elo_constructor_race', 'elo_ratings', ['constructor_id', 'race_id'])
+
+    # Model accuracy table
+    op.create_table(
+        'model_accuracy',
+        sa.Column('accuracy_id', sa.Integer(), nullable=False),
+        sa.Column('model_id', sa.Integer(), nullable=False),
+        sa.Column('race_id', sa.Integer(), nullable=False),
+        sa.Column('brier_score', sa.Float(), nullable=True),
+        sa.Column('top3_accuracy', sa.Float(), nullable=True),
+        sa.Column('predicted_winner_id', sa.Integer(), nullable=True),
+        sa.Column('actual_winner_id', sa.Integer(), nullable=True),
+        sa.PrimaryKeyConstraint('accuracy_id'),
+        sa.ForeignKeyConstraint(['model_id'], ['models.model_id']),
+        sa.ForeignKeyConstraint(['race_id'], ['races.race_id']),
+        sa.ForeignKeyConstraint(['predicted_winner_id'], ['drivers.driver_id']),
+        sa.ForeignKeyConstraint(['actual_winner_id'], ['drivers.driver_id'])
+    )
+    op.create_index('idx_accuracy_model_race', 'model_accuracy', ['model_id', 'race_id'])
+
+def downgrade():
+    op.drop_table('model_accuracy')
+    op.drop_table('elo_ratings')
+    op.drop_table('models')
+```
+
+### Migration: `003_add_standing_tables.py`
+
+```python
+"""Add driver and constructor standings tables"""
+
+from alembic import op
+import sqlalchemy as sa
+
+def upgrade():
+    # Driver standings table
+    op.create_table(
+        'driver_standings',
+        sa.Column('standing_id', sa.Integer(), nullable=False),
+        sa.Column('race_id', sa.Integer(), nullable=False),
+        sa.Column('driver_id', sa.Integer(), nullable=False),
+        sa.Column('position', sa.Integer(), nullable=False),
+        sa.Column('points', sa.Float(), nullable=False),
+        sa.Column('wins', sa.Integer(), nullable=False, server_default='0'),
+        sa.PrimaryKeyConstraint('standing_id'),
+        sa.ForeignKeyConstraint(['race_id'], ['races.race_id']),
+        sa.ForeignKeyConstraint(['driver_id'], ['drivers.driver_id']),
+        sa.UniqueConstraint('race_id', 'driver_id', name='uq_driver_standing_race')
+    )
+    op.create_index('idx_driver_standings_race', 'driver_standings', ['race_id'])
+
+    # Constructor standings table
+    op.create_table(
+        'constructor_standings',
+        sa.Column('standing_id', sa.Integer(), nullable=False),
+        sa.Column('race_id', sa.Integer(), nullable=False),
+        sa.Column('constructor_id', sa.Integer(), nullable=False),
+        sa.Column('position', sa.Integer(), nullable=False),
+        sa.Column('points', sa.Float(), nullable=False),
+        sa.Column('wins', sa.Integer(), nullable=False, server_default='0'),
+        sa.PrimaryKeyConstraint('standing_id'),
+        sa.ForeignKeyConstraint(['race_id'], ['races.race_id']),
+        sa.ForeignKeyConstraint(['constructor_id'], ['constructors.constructor_id']),
+        sa.UniqueConstraint('race_id', 'constructor_id', name='uq_constructor_standing_race')
+    )
+    op.create_index('idx_constructor_standings_race', 'constructor_standings', ['race_id'])
+
+def downgrade():
+    op.drop_table('constructor_standings')
+    op.drop_table('driver_standings')
+```
+
+### Schema Indexes (Performance Optimization)
+
+```sql
+-- Add indexes for common query patterns
+CREATE INDEX idx_predictions_race_model ON predictions(race_id, model_id);
+CREATE INDEX idx_race_results_driver ON race_results(driver_id, race_id);
+CREATE INDEX idx_races_date ON races(date);
+CREATE INDEX idx_races_season ON races(season_id);
 ```
 
 ---
 
 ## 5. API Implementation Details
 
-### Authentication Endpoints
+### 5.1 Request/Response Validation
 
-**POST /api/v1/auth/register**
+**Module:** `f1-analytics/backend/app/schemas/prediction_schema.py`
 
 ```python
-# routes/auth.py
-@router.post("/register", response_model=TokenResponse, status_code=201)
-async def register_user(
-    user_data: UserRegisterRequest,
-    auth_service: AuthService = Depends(get_auth_service)
-):
-    """
-    Request validation:
-    - Email format (RFC 5322)
-    - Password min 8 chars, 1 uppercase, 1 lowercase, 1 digit
-    
-    Steps:
-    1. Check if email already exists (raise 409 Conflict)
-    2. Hash password with bcrypt (12 rounds)
-    3. Create user in database
-    4. Generate JWT token (24h expiry)
-    5. Return token and user_id
-    
-    Error handling:
-    - 400: Invalid email/password format
-    - 409: Email already registered
-    - 500: Database error
-    """
-    if await auth_service.user_exists(user_data.email):
-        raise HTTPException(status_code=409, detail="Email already registered")
-    
-    user = await auth_service.create_user(user_data)
-    token = auth_service.generate_token(user.user_id)
-    
-    return TokenResponse(
-        user_id=str(user.user_id),
-        token=token,
-        expires_at=(datetime.utcnow() + timedelta(hours=24)).isoformat()
-    )
+from marshmallow import Schema, fields, validate
+
+class PredictionResponseSchema(Schema):
+    driver = fields.String(required=True)
+    constructor = fields.String(required=True)
+    win_probability = fields.Float(required=True, validate=validate.Range(min=0, max=1))
+    confidence_interval = fields.List(fields.Float(), validate=validate.Length(equal=2))
+    model = fields.String(required=True)
+
+class RaceSchema(Schema):
+    race_id = fields.Integer(required=True)
+    name = fields.String(required=True)
+    date = fields.DateTime(required=True)
+    circuit = fields.String(required=True)
 ```
 
-**POST /api/v1/auth/login**
+### 5.2 Error Response Format
 
-```python
-@router.post("/login", response_model=TokenResponse)
-async def login_user(
-    credentials: UserLoginRequest,
-    auth_service: AuthService = Depends(get_auth_service)
-):
-    """
-    Steps:
-    1. Retrieve user by email
-    2. Verify password with bcrypt.checkpw()
-    3. Update last_login timestamp
-    4. Generate JWT token
-    5. Return token
-    
-    Error handling:
-    - 401: Invalid credentials (generic message for security)
-    - 500: Database error
-    """
-    user = await auth_service.authenticate(credentials.email, credentials.password)
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    
-    token = auth_service.generate_token(user.user_id)
-    await auth_service.update_last_login(user.user_id)
-    
-    return TokenResponse(token=token, expires_at=...)
+All API errors follow consistent format:
+
+```json
+{
+  "error": "Human-readable error message",
+  "code": "ERROR_CODE",
+  "details": {
+    "field": "specific error details"
+  }
+}
 ```
 
-### Prediction Endpoints
+**Error Codes:**
+- `RACE_NOT_FOUND` - Requested race does not exist
+- `NO_PREDICTIONS_AVAILABLE` - Predictions not yet generated for race
+- `INVALID_PARAMETER` - Query parameter validation failed
+- `RATE_LIMIT_EXCEEDED` - Too many requests
+- `INTERNAL_ERROR` - Server error
 
-**GET /api/v1/predictions/next-race**
+### 5.3 Rate Limiting
+
+Implemented via `flask-limiter`:
 
 ```python
-@router.get("/next-race", response_model=NextRacePredictionResponse)
-async def get_next_race_predictions(
-    current_user: User = Depends(get_current_user),
-    prediction_service: PredictionService = Depends(get_prediction_service),
-    cache_service: CacheService = Depends(get_cache_service)
-):
-    """
-    Steps:
-    1. Find next scheduled race (status='scheduled', race_date >= today)
-    2. Check Redis cache for predictions (key: f"predictions:race:{race_id}")
-    3. If cache hit, deserialize and return (avg 8ms)
-    4. If cache miss:
-       a. Load latest ML model from S3
-       b. Generate predictions via inference engine
-       c. Persist predictions to database
-       d. Cache in Redis (TTL 7 days)
-    5. Return predictions sorted by probability descending
-    
-    Performance:
-    - Cache hit: <50ms
-    - Cache miss: <5s (model inference)
-    
-    Error handling:
-    - 404: No upcoming races found
-    - 500: Model inference failure (return last cached predictions)
-    """
-    next_race = await prediction_service.get_next_race()
-    if not next_race:
-        raise HTTPException(status_code=404, detail="No upcoming races")
-    
-    cached = await cache_service.get_predictions(next_race.race_id)
-    if cached:
-        return NextRacePredictionResponse(**cached)
-    
-    predictions = await prediction_service.generate_predictions(next_race.race_id)
-    await cache_service.set_predictions(next_race.race_id, predictions)
-    
-    return NextRacePredictionResponse(
-        race_id=next_race.race_id,
-        race_name=next_race.race_name,
-        race_date=next_race.race_date.isoformat(),
-        circuit=next_race.circuit.circuit_name,
-        predictions=predictions,
-        model_version=predictions[0].model_version,
-        generated_at=datetime.utcnow().isoformat()
-    )
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
+limiter = Limiter(
+    app,
+    key_func=get_remote_address,
+    default_limits=["100 per minute"],
+    storage_uri="redis://redis:6379/1"
+)
+
+@predictions_bp.route('/api/v1/predictions/next-race')
+@limiter.limit("20 per minute")  # Stricter limit for expensive endpoint
+def get_next_race_predictions():
+    # ...
 ```
 
-### Analytics Endpoints
-
-**GET /api/v1/analytics/accuracy?season=2026**
+### 5.4 CORS Configuration
 
 ```python
-@router.get("/accuracy", response_model=AccuracyMetricsResponse)
-async def get_accuracy_metrics(
-    season: int = Query(..., ge=2010, le=2030),
-    analytics_service: AnalyticsService = Depends(get_analytics_service)
-):
-    """
-    Steps:
-    1. Fetch all completed races for season
-    2. Join predictions and actual results
-    3. Calculate metrics:
-       - Brier score: mean((p - actual)^2)
-       - Correct winner %: count(predicted_winner == actual_winner) / total_races
-       - Top-3 accuracy: count(actual_winner in top_3_predicted)
-    4. Group by race for detailed breakdown
-    5. Return aggregated and per-race metrics
-    
-    Database query optimization:
-    - Use materialized view for pre-aggregated stats
-    - Query only completed races (status='completed')
-    - Leverage race_id partition for fast filtering
-    
-    Error handling:
-    - 400: Invalid season parameter
-    - 404: No completed races for season
-    """
-    metrics = await analytics_service.calculate_season_accuracy(season)
-    return AccuracyMetricsResponse(**metrics)
-```
+from flask_cors import CORS
 
-### Export Endpoints
-
-**GET /api/v1/export/race-results?season=2026&format=csv**
-
-```python
-@router.get("/race-results")
-async def export_race_results(
-    season: int = Query(...),
-    format: ExportFormat = Query(ExportFormat.JSON),
-    export_service: ExportService = Depends(get_export_service)
-):
-    """
-    Steps:
-    1. Query race results for season with joins (driver, team, circuit)
-    2. Format data based on export format:
-       - CSV: pandas.DataFrame.to_csv()
-       - JSON: json.dumps() with pretty printing
-    3. Return StreamingResponse with appropriate Content-Type
-    
-    Headers:
-    - Content-Disposition: attachment; filename="race_results_2026.csv"
-    - Content-Type: text/csv or application/json
-    
-    Performance:
-    - Stream data to avoid memory issues with large datasets
-    - Use database cursor for chunked retrieval
-    
-    Error handling:
-    - 400: Invalid format parameter
-    - 404: No results for season
-    """
-    results = await export_service.get_race_results(season)
-    
-    if format == ExportFormat.CSV:
-        output = export_service.to_csv(results)
-        return StreamingResponse(
-            io.BytesIO(output.encode()),
-            media_type="text/csv",
-            headers={"Content-Disposition": f"attachment; filename=race_results_{season}.csv"}
-        )
-    else:
-        return JSONResponse(content=results)
+CORS(app, resources={
+    r"/api/*": {
+        "origins": ["http://localhost:3000", "https://dashboard.f1analytics.com"],
+        "methods": ["GET", "OPTIONS"],
+        "allow_headers": ["Content-Type"]
+    }
+})
 ```
 
 ---
 
 ## 6. Function Signatures
 
-### Services Layer
+### 6.1 Data Ingestion
 
 ```python
-# services/auth_service.py
-class AuthService:
-    def __init__(self, user_repo: UserRepository, jwt_manager: JWTManager):
-        self.user_repo = user_repo
-        self.jwt_manager = jwt_manager
-    
-    async def create_user(self, user_data: UserRegisterRequest) -> User:
-        """Hash password and create user in database"""
-    
-    async def authenticate(self, email: str, password: str) -> Optional[User]:
-        """Verify credentials and return user if valid"""
-    
-    def generate_token(self, user_id: int) -> str:
-        """Generate JWT with 24h expiry"""
-    
-    def verify_token(self, token: str) -> dict:
-        """Decode and validate JWT, raise if invalid/expired"""
-    
-    async def user_exists(self, email: str) -> bool:
-        """Check if email already registered"""
+# ergast_client.py
+class ErgastClient:
+    def get_race_schedule(self, season: int) -> List[Dict[str, Any]]
+    def get_race_results(self, season: int, round: int) -> List[Dict[str, Any]]
+    def get_qualifying_results(self, season: int, round: int) -> List[Dict[str, Any]]
+    def get_driver_standings(self, season: int, round: int = None) -> List[Dict[str, Any]]
 
-# services/prediction_service.py
-class PredictionService:
-    def __init__(
-        self, 
-        race_repo: RaceRepository,
-        prediction_repo: PredictionRepository,
-        inference_engine: InferenceEngine,
-        cache_service: CacheService
-    ):
-        ...
-    
-    async def get_next_race(self) -> Optional[Race]:
-        """Find next scheduled race after today"""
-    
-    async def generate_predictions(self, race_id: int) -> list[PredictionCreate]:
-        """
-        Generate predictions for race using ML models.
-        Returns list of predictions sorted by probability descending.
-        """
-    
-    async def get_predictions_by_race(self, race_id: int) -> list[Prediction]:
-        """Retrieve predictions from database/cache"""
-    
-    async def invalidate_cache(self, race_id: int):
-        """Clear cached predictions after model update"""
+# weather_client.py
+class WeatherClient:
+    def get_historical_weather(self, lat: float, lon: float, date: datetime) -> Dict[str, Any]
+    def get_forecast(self, lat: float, lon: float) -> Dict[str, Any]
 
-# services/analytics_service.py
-class AnalyticsService:
-    async def calculate_season_accuracy(self, season: int) -> dict:
-        """
-        Calculate prediction accuracy metrics for season.
-        Returns: {
-            "season": int,
-            "races_completed": int,
-            "correct_winner_percentage": float,
-            "top_3_accuracy": float,
-            "average_brier_score": float,
-            "by_race": list[dict]
-        }
-        """
-    
-    async def get_driver_rankings(self, season: int) -> list[dict]:
-        """
-        Retrieve driver rankings with ELO, points, wins.
-        Uses materialized view for performance.
-        """
-    
-    async def get_team_rankings(self, season: int) -> list[dict]:
-        """Retrieve constructor standings"""
+# data_importer.py
+class DataImporter:
+    def import_season_schedule(self, season: int) -> None
+    def import_race_results(self, race_id: int) -> None
+    def import_qualifying_results(self, race_id: int) -> None
+    def import_standings(self, season: int, round: int = None) -> None
+    def backfill_historical_data(self, start_season: int, end_season: int) -> None
 ```
 
-### ML Layer
+### 6.2 ML Models
 
 ```python
-# ml/feature_engineering.py
-class FeatureEngineering:
-    def __init__(self, db_session: Session):
-        self.db = db_session
-    
-    def extract_driver_features(self, driver_id: int, race_id: int) -> pd.Series:
-        """
-        Extract features for driver at race:
-        - current_elo_rating
-        - avg_position_last_5_races
-        - wins_at_circuit
-        - team_avg_position_last_5
-        - qualifying_position (if available)
-        Returns: pandas Series with feature names as index
-        """
-    
-    def extract_weather_features(self, race_id: int) -> pd.Series:
-        """
-        Extract weather features:
-        - temperature_celsius
-        - is_wet (bool)
-        - wind_speed_kph
-        Returns: pandas Series
-        """
-    
-    def build_feature_matrix(self, race_id: int) -> pd.DataFrame:
-        """
-        Build feature matrix for all drivers in race.
-        Returns: DataFrame with shape (n_drivers, n_features)
-        """
+# base_model.py
+class BaseModel(ABC):
+    @abstractmethod
+    def train(self, features: pd.DataFrame, labels: pd.Series) -> None
+    @abstractmethod
+    def predict(self, features: pd.DataFrame) -> np.ndarray
+    def save(self, path: str) -> None
+    def load(self, path: str) -> None
+    def get_feature_names(self) -> List[str]
 
-# ml/elo_calculator.py
-class ELOCalculator:
-    def __init__(self, k_factor: int = 32, base_rating: int = 1500):
-        self.k_factor = k_factor
-        self.base_rating = base_rating
-    
-    def calculate_expected_score(self, rating_a: int, rating_b: int) -> float:
-        """Calculate expected score using ELO formula: 1 / (1 + 10^((Rb - Ra)/400))"""
-    
-    def update_ratings(self, race_result: list[tuple[int, int]]) -> dict[int, int]:
-        """
-        Update ELO ratings based on race finish positions.
-        Args:
-            race_result: List of (driver_id, final_position) tuples
-        Returns:
-            Dict mapping driver_id to new ELO rating
-        """
-    
-    def get_rating_change(self, actual_position: int, expected_position: float) -> int:
-        """Calculate ELO change based on actual vs expected performance"""
+# feature_engineering.py
+def extract_driver_features(driver_id: int, race_id: int, db_session: Session) -> Dict[str, float]
+def extract_constructor_features(constructor_id: int, race_id: int, db_session: Session) -> Dict[str, float]
+def extract_circuit_features(circuit_id: int, driver_id: int, db_session: Session) -> Dict[str, float]
+def extract_weather_features(race_id: int, db_session: Session) -> Dict[str, float]
+def build_feature_matrix(race_id: int, db_session: Session) -> pd.DataFrame
 
-# ml/training.py
-class ModelTrainer:
-    def __init__(self, db_session: Session, s3_client: S3Client):
-        self.db = db_session
-        self.s3 = s3_client
-    
-    def prepare_training_data(self, start_season: int = 2010) -> tuple[pd.DataFrame, pd.Series]:
-        """
-        Prepare training data from historical races.
-        Returns: (X_features, y_labels) where y is binary (1=winner, 0=not winner)
-        """
-    
-    def train_random_forest(self, X: pd.DataFrame, y: pd.Series) -> RandomForestClassifier:
-        """
-        Train Random Forest with hyperparameters:
-        - n_estimators=100
-        - max_depth=10
-        - min_samples_split=5
-        - class_weight='balanced' (handle imbalanced classes)
-        Returns: Trained model
-        """
-    
-    def train_xgboost(self, X: pd.DataFrame, y: pd.Series) -> XGBClassifier:
-        """
-        Train XGBoost with hyperparameters:
-        - learning_rate=0.1
-        - n_estimators=200
-        - max_depth=6
-        - scale_pos_weight (handle class imbalance)
-        Returns: Trained model
-        """
-    
-    def evaluate_model(self, model, X_val: pd.DataFrame, y_val: pd.Series) -> dict:
-        """
-        Evaluate model on validation set.
-        Returns: {"brier_score": float, "log_loss": float, "accuracy": float}
-        """
-    
-    def save_model(self, model, model_type: str, version: str):
-        """Save model to S3 with versioning: s3://bucket/models/{model_type}_{version}.pkl"""
+# ensemble.py
+class EnsembleModel:
+    def predict(self, features: pd.DataFrame) -> np.ndarray
+    def calculate_confidence_interval(self, predictions: np.ndarray) -> Tuple[np.ndarray, np.ndarray]
 
-# ml/inference.py
-class InferenceEngine:
-    def __init__(self, ensemble_model: EnsemblePredictor, feature_engineering: FeatureEngineering):
-        self.model = ensemble_model
-        self.feature_eng = feature_engineering
-    
-    def predict_race(self, race_id: int) -> list[tuple[int, float]]:
-        """
-        Generate predictions for race.
-        Returns: List of (driver_id, win_probability) tuples, normalized to sum=100
-        """
-    
-    def normalize_probabilities(self, raw_probs: np.ndarray) -> np.ndarray:
-        """Normalize probabilities to sum to 100%"""
+# model_manager.py
+class ModelManager:
+    def save_model(self, model: BaseModel, metadata: Dict[str, Any]) -> str
+    def load_model(self, model_id: int) -> BaseModel
+    def get_latest_model(self, model_type: str) -> BaseModel
 ```
 
-### Repository Layer
+### 6.3 API Routes
 
 ```python
-# repositories/base.py
-class BaseRepository(Generic[T]):
-    def __init__(self, model: Type[T], db: Session):
-        self.model = model
-        self.db = db
-    
-    async def get_by_id(self, id: int) -> Optional[T]:
-        """Retrieve entity by primary key"""
-    
-    async def get_all(self, skip: int = 0, limit: int = 100) -> list[T]:
-        """Paginated retrieval"""
-    
-    async def create(self, obj: T) -> T:
-        """Insert new entity"""
-    
-    async def update(self, id: int, updates: dict) -> T:
-        """Update entity fields"""
-    
-    async def delete(self, id: int) -> bool:
-        """Delete entity"""
+# predictions.py
+def get_next_race_predictions() -> Response
+def get_race_predictions(race_id: int) -> Response
+def compare_models(race_id: int) -> Response
 
-# repositories/race_repository.py
-class RaceRepository(BaseRepository[Race]):
-    async def get_next_race(self) -> Optional[Race]:
-        """Find next scheduled race after today"""
-        return self.db.query(Race).filter(
-            Race.status == "scheduled",
-            Race.race_date >= datetime.now().date()
-        ).order_by(Race.race_date).first()
-    
-    async def get_races_by_season(self, season: int) -> list[Race]:
-        """Get all races for season ordered by round"""
-    
-    async def get_completed_races(self, season: int) -> list[Race]:
-        """Get completed races for accuracy calculation"""
+# standings.py
+def get_driver_standings() -> Response
+def get_constructor_standings() -> Response
+
+# calendar.py
+def get_calendar(year: int) -> Response
+
+# analytics.py
+def get_model_accuracy() -> Response
+def get_driver_performance(driver_id: int) -> Response
+def get_track_coefficients(circuit_id: int) -> Response
+```
+
+### 6.4 Celery Tasks
+
+```python
+# import_tasks.py
+@celery_app.task(bind=True, max_retries=3)
+def import_latest_race_results(self) -> str
+
+@celery_app.task(bind=True, max_retries=3)
+def import_current_standings(self) -> str
+
+# training_tasks.py
+@celery_app.task(bind=True, max_retries=1)
+def retrain_all_models(self) -> str
+
+@celery_app.task
+def generate_next_race_predictions() -> str
 ```
 
 ---
 
 ## 7. State Management
 
-### Backend State Management
+### 7.1 Backend State
 
-**Database as Source of Truth**:
-- All persistent state stored in PostgreSQL (drivers, races, predictions, users)
-- No in-memory application state (enables horizontal scaling)
-- Database transactions ensure ACID properties for critical operations (ELO updates, prediction generation)
+**Database as Source of Truth:**
+- All persistent state stored in PostgreSQL
+- No in-memory session state (API is stateless)
+- Redis used only for caching and Celery message broker
 
-**Redis for Transient State**:
-- **Prediction Cache**: Key format `predictions:race:{race_id}`, value: JSON serialized predictions, TTL: 7 days
-- **User Sessions**: Key format `session:{user_id}`, value: JWT metadata, TTL: 24 hours
-- **Rate Limit Counters**: Key format `rate_limit:{user_id}`, value: request count, TTL: 60 seconds
-- **Cache Invalidation**: Pub/Sub pattern - when new predictions generated, publish message to invalidate race cache
+**Cache State:**
+- Redis TTL-based expiration
+- Cache keys prefixed by endpoint: `cache:/api/v1/predictions/next-race:{hash}`
+- Invalidation via pattern matching: `redis_client.delete_pattern('cache:*')`
 
-**Celery Task State**:
-- Task results stored in Redis backend
-- Task states: PENDING, STARTED, SUCCESS, FAILURE, RETRY
-- Retry logic with exponential backoff for failed ingestion/training tasks
+### 7.2 Frontend State
 
-### Frontend State Management
+**React Context API:**
 
-**React Query for Server State**:
 ```typescript
-// Query cache configuration
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      cacheTime: 1000 * 60 * 30, // 30 minutes
-      refetchOnWindowFocus: false,
-      retry: 3,
-    },
-  },
-});
+// DashboardContext.tsx
+interface DashboardState {
+  nextRacePredictions: PredictionResponse | null;
+  selectedRaceId: number | null;
+  loading: boolean;
+  error: string | null;
+}
 
-// Example query with automatic caching
-const { data: predictions } = useQuery({
-  queryKey: ['predictions', 'next-race'],
-  queryFn: fetchNextRacePredictions,
-  staleTime: 1000 * 60 * 60, // Predictions valid for 1 hour
-});
+const DashboardContext = createContext<DashboardState | undefined>(undefined);
+
+export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [state, setState] = useState<DashboardState>({
+    nextRacePredictions: null,
+    selectedRaceId: null,
+    loading: false,
+    error: null,
+  });
+
+  // Context methods to update state
+  const loadNextRacePredictions = async () => {
+    setState(prev => ({ ...prev, loading: true }));
+    try {
+      const data = await getNextRacePredictions();
+      setState(prev => ({ ...prev, nextRacePredictions: data, loading: false }));
+    } catch (error) {
+      setState(prev => ({ ...prev, error: 'Failed to load predictions', loading: false }));
+    }
+  };
+
+  return (
+    <DashboardContext.Provider value={{ state, loadNextRacePredictions }}>
+      {children}
+    </DashboardContext.Provider>
+  );
+};
 ```
 
-**Context API for Client State**:
-- `AuthContext`: JWT token, user profile, login/logout functions
-- `ThemeContext`: Dark/light mode preference (persisted to localStorage)
-
-**LocalStorage for Persistence**:
-- JWT token stored at key `f1_analytics_jwt`
-- Theme preference stored at key `f1_analytics_theme`
-- Cleared on logout
+**Local Component State:**
+- Chart zoom/pan state
+- Table sorting preferences
+- UI toggles (expanded sections, etc.)
 
 ---
 
 ## 8. Error Handling Strategy
 
-### Backend Error Handling
+### 8.1 Backend Error Handling
 
-**HTTP Error Codes**:
-- `400 Bad Request`: Invalid request parameters (e.g., malformed email, invalid season)
-- `401 Unauthorized`: Missing or invalid JWT token
-- `403 Forbidden`: Valid token but insufficient permissions (admin-only endpoints)
-- `404 Not Found`: Resource doesn't exist (e.g., race_id not found)
-- `409 Conflict`: Resource conflict (e.g., email already registered)
-- `429 Too Many Requests`: Rate limit exceeded
-- `500 Internal Server Error`: Unhandled exceptions, database errors
-- `503 Service Unavailable`: Dependent service down (Ergast API, Redis)
+**Exception Hierarchy:**
 
-**Global Exception Handler**:
 ```python
-# middleware/error_handler.py
-from fastapi import Request, HTTPException
-from fastapi.responses import JSONResponse
+# app/core/exceptions.py
+class F1AnalyticsError(Exception):
+    """Base exception for all application errors"""
+    pass
 
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    # Log full traceback for debugging
-    logger.exception(f"Unhandled exception: {exc}")
-    
-    # Return sanitized error to user
-    if isinstance(exc, HTTPException):
-        return JSONResponse(
-            status_code=exc.status_code,
-            content={"error": exc.detail, "error_code": exc.status_code}
-        )
-    
-    # Hide internal errors from users
-    return JSONResponse(
-        status_code=500,
-        content={"error": "Internal server error", "error_code": 500}
-    )
+class ExternalAPIError(F1AnalyticsError):
+    """Raised when external API (Ergast, Weather) fails"""
+    pass
+
+class DataImportError(F1AnalyticsError):
+    """Raised when data import fails"""
+    pass
+
+class ModelTrainingError(F1AnalyticsError):
+    """Raised when model training fails"""
+    pass
+
+class ValidationError(F1AnalyticsError):
+    """Raised when input validation fails"""
+    pass
 ```
 
-**Service-Specific Errors**:
+**Error Handler Registration:**
+
 ```python
-class PredictionServiceError(Exception):
-    """Base exception for prediction service"""
+# app/main.py
+@app.errorhandler(ValidationError)
+def handle_validation_error(e):
+    return jsonify({'error': str(e), 'code': 'INVALID_PARAMETER'}), 400
 
-class ModelNotFoundError(PredictionServiceError):
-    """Raised when ML model file not found in S3"""
+@app.errorhandler(ExternalAPIError)
+def handle_external_api_error(e):
+    logger.error(f"External API error: {e}")
+    return jsonify({'error': 'External service unavailable', 'code': 'EXTERNAL_SERVICE_ERROR'}), 503
 
-class InferenceError(PredictionServiceError):
-    """Raised when model inference fails"""
-
-# Usage in service
-try:
-    model = load_model_from_s3(version)
-except FileNotFoundError:
-    raise ModelNotFoundError(f"Model version {version} not found")
+@app.errorhandler(500)
+def handle_internal_error(e):
+    logger.exception("Internal server error")
+    return jsonify({'error': 'Internal server error', 'code': 'INTERNAL_ERROR'}), 500
 ```
 
-**Retry Logic for External APIs**:
+**Retry Logic:**
+
 ```python
-# data_ingestion/ergast_client.py
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=2, max=10),
-    retry=retry_if_exception_type(httpx.HTTPStatusError)
-)
-async def fetch_race_results(self, season: int, round: int) -> dict:
-    response = await self.session.get(f"/api/f1/{season}/{round}/results.json")
-    response.raise_for_status()
-    return response.json()
+# app/utils/retry.py
+from functools import wraps
+import time
+
+def retry_on_failure(max_retries=3, backoff_base=2):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except ExternalAPIError as e:
+                    if attempt == max_retries - 1:
+                        raise
+                    wait_time = backoff_base ** attempt
+                    logger.warning(f"Attempt {attempt + 1} failed, retrying in {wait_time}s")
+                    time.sleep(wait_time)
+        return wrapper
+    return decorator
 ```
 
-**Graceful Degradation**:
-- If Redis cache unavailable, bypass cache and query database directly (slower but functional)
-- If ML model inference fails, return last successfully cached predictions with warning
-- If data ingestion fails, alert admins but don't block API serving cached data
+### 8.2 Frontend Error Handling
 
-### Frontend Error Handling
+**Error Boundary Component:**
 
-**API Error Responses**:
 ```typescript
-// api/client.ts
-import axios from 'axios';
-
-const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
-});
-
-apiClient.interceptors.response.use(
-  response => response,
-  error => {
-    if (error.response?.status === 401) {
-      // Token expired, redirect to login
-      localStorage.removeItem('f1_analytics_jwt');
-      window.location.href = '/f1-analytics/login';
-    } else if (error.response?.status === 429) {
-      // Rate limit exceeded
-      toast.error('Too many requests. Please try again later.');
-    } else if (error.response?.status >= 500) {
-      // Server error
-      toast.error('Server error. Please try again later.');
-    }
-    return Promise.reject(error);
+// ErrorBoundary.tsx
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean}> {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
   }
-);
-```
 
-**React Error Boundaries**:
-```typescript
-// components/common/ErrorBoundary.tsx
-export class ErrorBoundary extends React.Component<Props, State> {
-  state = { hasError: false, error: null };
-  
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error };
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
   }
-  
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('React error boundary caught:', error, errorInfo);
+
+  componentDidCatch(error, errorInfo) {
+    console.error('ErrorBoundary caught:', error, errorInfo);
   }
-  
+
   render() {
     if (this.state.hasError) {
       return (
-        <div className="error-container">
-          <h1>Something went wrong</h1>
-          <button onClick={() => window.location.reload()}>Reload Page</button>
+        <div className="text-center py-8">
+          <h2 className="text-xl font-semibold text-red-600">Something went wrong</h2>
+          <p className="text-gray-600">Please refresh the page</p>
         </div>
       );
     }
@@ -1489,10 +1560,15 @@ export class ErrorBoundary extends React.Component<Props, State> {
 }
 ```
 
-**User-Friendly Messages**:
-- Network errors: "Unable to connect to server. Check your internet connection."
-- Validation errors: Display field-specific messages (e.g., "Password must be at least 8 characters")
-- Not found errors: "No predictions available for this race yet."
+**User-Facing Error Messages:**
+
+| Error Code | User Message |
+|------------|--------------|
+| RACE_NOT_FOUND | "Race not found. Please check the race ID." |
+| NO_PREDICTIONS_AVAILABLE | "Predictions are not yet available for this race." |
+| RATE_LIMIT_EXCEEDED | "Too many requests. Please wait a moment." |
+| EXTERNAL_SERVICE_ERROR | "Data temporarily unavailable. Please try again later." |
+| INTERNAL_ERROR | "An unexpected error occurred. Please try again." |
 
 ---
 
@@ -1500,542 +1576,503 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
 ### Unit Tests
 
-**Backend Unit Tests** (pytest):
+**Backend Unit Tests:**
 
 ```python
-# tests/unit/test_elo_calculator.py
-def test_elo_expected_score():
-    calculator = ELOCalculator()
-    # Equal ratings should give 0.5 expected score
-    assert calculator.calculate_expected_score(1500, 1500) == pytest.approx(0.5)
-    # Higher rating should have higher expected score
-    assert calculator.calculate_expected_score(1600, 1500) > 0.5
-
-def test_elo_update_ratings():
-    calculator = ELOCalculator(k_factor=32)
-    race_result = [(1, 1), (2, 2), (3, 3)]  # (driver_id, position)
-    initial_ratings = {1: 1500, 2: 1500, 3: 1500}
-    
-    new_ratings = calculator.update_ratings(race_result, initial_ratings)
-    # Winner should gain points, losers should lose points
-    assert new_ratings[1] > 1500
-    assert new_ratings[3] < 1500
-
-# tests/unit/test_services.py
-@pytest.mark.asyncio
-async def test_auth_service_create_user(db_session):
-    auth_service = AuthService(UserRepository(db_session), JWTManager())
-    user_data = UserRegisterRequest(email="test@example.com", password="SecurePass123")
-    
-    user = await auth_service.create_user(user_data)
-    assert user.email == "test@example.com"
-    assert user.password_hash != "SecurePass123"  # Should be hashed
-
-@pytest.mark.asyncio
-async def test_prediction_service_get_next_race(db_session):
-    # Seed database with test races
-    future_race = Race(season_year=2026, round_number=5, race_date=date.today() + timedelta(days=7), status="scheduled")
-    db_session.add(future_race)
-    db_session.commit()
-    
-    prediction_service = PredictionService(...)
-    next_race = await prediction_service.get_next_race()
-    assert next_race.race_id == future_race.race_id
-
 # tests/unit/test_feature_engineering.py
-def test_extract_driver_features(db_session):
-    feature_eng = FeatureEngineering(db_session)
-    features = feature_eng.extract_driver_features(driver_id=1, race_id=100)
-    
-    assert "current_elo_rating" in features.index
-    assert "avg_position_last_5_races" in features.index
-    assert features["current_elo_rating"] > 0
+def test_extract_driver_features():
+    """Test driver feature extraction calculates correct averages"""
+    # Setup: Create 5 mock race results for driver
+    # Assert: recent_avg_finish matches expected value
+
+def test_extract_circuit_features():
+    """Test circuit-specific features for driver"""
+    # Setup: Create historical results at circuit
+    # Assert: driver_wins_at_circuit is correct
+
+def test_elo_calculation():
+    """Test ELO rating update after race"""
+    # Setup: Two drivers with known ratings
+    # Assert: Winner rating increases, loser rating decreases
+
+# tests/unit/test_models.py
+def test_regression_model_train():
+    """Test regression model training"""
+    # Setup: Synthetic feature matrix and labels
+    # Assert: Model learns weights, predict() returns probabilities
+
+def test_ensemble_prediction():
+    """Test ensemble combines model predictions correctly"""
+    # Setup: Mock models with known predictions
+    # Assert: Weighted average matches expected value
+
+def test_confidence_interval_calculation():
+    """Test confidence interval bounds"""
+    # Setup: Predictions with known variance
+    # Assert: Lower/upper bounds are within [0, 1]
+
+# tests/unit/test_ergast_client.py
+def test_get_race_results_success():
+    """Test Ergast client parses race results correctly"""
+    # Setup: Mock HTTP response with sample data
+    # Assert: Returned list contains expected drivers
+
+def test_rate_limiting():
+    """Test rate limiter prevents excessive requests"""
+    # Setup: Make 201 requests in rapid succession
+    # Assert: Raises RateLimitError after 200 requests
+
+# tests/unit/test_cache.py
+def test_cache_hit():
+    """Test cache decorator returns cached response"""
+    # Setup: Populate cache with mock data
+    # Assert: Function not called, cached data returned
+
+def test_cache_expiration():
+    """Test cache TTL expires correctly"""
+    # Setup: Set cache with 1-second TTL
+    # Assert: After 2 seconds, cache miss occurs
 ```
 
-**Frontend Unit Tests** (Vitest + React Testing Library):
+**Frontend Unit Tests:**
 
 ```typescript
-// tests/unit/components.test.tsx
-import { render, screen } from '@testing-library/react';
-import { DriverProbabilityBar } from '@/components/predictions/DriverProbabilityBar';
-
-test('renders driver name and probability', () => {
-  render(
-    <DriverProbabilityBar 
-      driverName="Max Verstappen" 
-      probability={35.2} 
-      teamColor="#0600EF" 
-    />
-  );
-  
-  expect(screen.getByText('Max Verstappen')).toBeInTheDocument();
-  expect(screen.getByText('35.2%')).toBeInTheDocument();
+// tests/PredictionTable.test.tsx
+test('renders predictions sorted by win probability', () => {
+  const predictions = [
+    { driver: 'Driver A', win_probability: 0.2, ... },
+    { driver: 'Driver B', win_probability: 0.5, ... },
+  ];
+  render(<PredictionTable predictions={predictions} />);
+  const rows = screen.getAllByRole('row');
+  expect(rows[1]).toHaveTextContent('Driver B'); // Higher probability first
 });
 
-test('probability bar width matches percentage', () => {
-  const { container } = render(
-    <DriverProbabilityBar driverName="Test" probability={50} teamColor="#000" />
-  );
-  
-  const bar = container.querySelector('[style*="width: 50%"]');
-  expect(bar).toBeInTheDocument();
+// tests/api.test.ts
+test('api client retries on 500 error', async () => {
+  // Mock axios to return 500, then 200
+  // Assert: Second request succeeds
 });
 ```
-
-**Coverage Target**: 80% line coverage for critical paths (auth, prediction generation, ELO calculation)
 
 ### Integration Tests
 
-**API Endpoint Integration Tests**:
+**Backend Integration Tests:**
 
 ```python
-# tests/integration/test_api_endpoints.py
-from fastapi.testclient import TestClient
-
-@pytest.fixture
-def client():
-    return TestClient(app)
-
-@pytest.fixture
-def auth_token(client):
-    # Register and login to get token
-    client.post("/api/v1/auth/register", json={"email": "test@test.com", "password": "Pass123"})
-    response = client.post("/api/v1/auth/login", json={"email": "test@test.com", "password": "Pass123"})
-    return response.json()["token"]
-
-def test_get_next_race_predictions_authenticated(client, auth_token, db_session):
-    # Seed database with race and predictions
-    race = create_test_race(db_session)
-    create_test_predictions(db_session, race.race_id)
+# tests/integration/test_data_import_pipeline.py
+def test_import_race_results_end_to_end(db_session, ergast_client):
+    """Test full data import workflow"""
+    # Setup: Mock Ergast API responses
+    importer = DataImporter(db_session, ergast_client, weather_client)
+    importer.import_race_results(race_id=123)
     
-    response = client.get(
-        "/api/v1/predictions/next-race",
-        headers={"Authorization": f"Bearer {auth_token}"}
-    )
+    # Assert: Database contains race results
+    results = db_session.query(RaceResult).filter_by(race_id=123).all()
+    assert len(results) == 20  # Full grid
+
+# tests/integration/test_prediction_api.py
+def test_get_next_race_predictions_api(client, db_session):
+    """Test /api/v1/predictions/next-race endpoint"""
+    # Setup: Populate database with upcoming race and predictions
+    response = client.get('/api/v1/predictions/next-race')
+    
     assert response.status_code == 200
-    data = response.json()
-    assert data["race_id"] == race.race_id
-    assert len(data["predictions"]) > 0
-    assert sum(p["win_probability"] for p in data["predictions"]) == pytest.approx(100, rel=0.1)
+    data = response.get_json()
+    assert 'race' in data
+    assert 'predictions' in data
+    assert len(data['predictions']) > 0
 
-def test_get_predictions_unauthenticated(client):
-    response = client.get("/api/v1/predictions/next-race")
-    assert response.status_code == 401
-
-def test_rate_limiting(client, auth_token):
-    # Send 101 requests rapidly
-    for i in range(101):
-        response = client.get("/api/v1/races/calendar", headers={"Authorization": f"Bearer {auth_token}"})
-        if i < 100:
-            assert response.status_code == 200
-        else:
-            assert response.status_code == 429  # Rate limit exceeded
+# tests/integration/test_model_training.py
+def test_model_training_with_real_data(db_session):
+    """Test model training with realistic dataset"""
+    # Setup: Import 2 seasons of historical data
+    model = RandomForestModel()
+    features, labels = build_training_data(db_session)
+    
+    model.train(features, labels)
+    predictions = model.predict(features[:20])  # Predict on first race
+    
+    assert predictions.shape == (20,)  # One prediction per driver
+    assert all(0 <= p <= 1 for p in predictions)  # Valid probabilities
 ```
 
-**Data Ingestion Pipeline Tests**:
+**Frontend Integration Tests:**
 
-```python
-# tests/integration/test_ingestion_pipeline.py
-@pytest.mark.asyncio
-async def test_ergast_ingestion_workflow(db_session, mock_ergast_api):
-    # Mock Ergast API responses
-    mock_ergast_api.get("/api/f1/2025/1/results.json").return_value = mock_race_results_json
-    
-    # Run ingestion
-    ingestion_service = DataIngestionService(db_session, ErgastClient())
-    await ingestion_service.ingest_race_results(season=2025, round=1)
-    
-    # Verify data in database
-    race = db_session.query(Race).filter_by(season_year=2025, round_number=1).first()
-    assert race is not None
-    assert len(race.race_results) == 20  # 20 drivers
+```typescript
+// tests/integration/Dashboard.integration.test.tsx
+test('Dashboard loads and displays predictions from API', async () => {
+  // Mock API response
+  server.use(
+    rest.get('/api/v1/predictions/next-race', (req, res, ctx) => {
+      return res(ctx.json(mockPredictionData));
+    })
+  );
 
-@pytest.mark.asyncio
-async def test_weather_ingestion(db_session, mock_weather_api):
-    mock_weather_api.get("/data/2.5/weather").return_value = {"temp": 25, "weather": [{"main": "Clear"}]}
-    
-    weather_service = WeatherIngestionService(db_session, WeatherClient())
-    await weather_service.ingest_weather(race_id=1)
-    
-    weather = db_session.query(WeatherData).filter_by(race_id=1).first()
-    assert weather.temperature_celsius == 25
-    assert weather.conditions == "dry"
-```
-
-**ML Training Integration Tests**:
-
-```python
-# tests/integration/test_ml_training.py
-def test_end_to_end_training_pipeline(db_session, s3_mock):
-    # Seed database with historical race data
-    seed_historical_races(db_session, seasons=[2020, 2021, 2022])
-    
-    # Run training
-    trainer = ModelTrainer(db_session, s3_mock)
-    rf_model, xgb_model = trainer.train_models()
-    
-    # Verify models saved to S3
-    assert s3_mock.object_exists("models/random_forest_v1.pkl")
-    assert s3_mock.object_exists("models/xgboost_v1.pkl")
-    
-    # Verify model can make predictions
-    inference_engine = InferenceEngine(EnsemblePredictor(...), ...)
-    predictions = inference_engine.predict_race(race_id=100)
-    assert len(predictions) == 20  # 20 drivers
-    assert all(0 <= prob <= 100 for _, prob in predictions)
+  render(<Dashboard />);
+  
+  // Wait for data to load
+  await waitFor(() => {
+    expect(screen.getByText('Monaco Grand Prix')).toBeInTheDocument();
+  });
+  
+  // Verify table renders
+  expect(screen.getByRole('table')).toBeInTheDocument();
+});
 ```
 
 ### E2E Tests
 
-**Frontend E2E Tests** (Playwright):
+**Playwright E2E Tests:**
 
 ```typescript
-// tests/e2e/prediction-flow.spec.ts
-import { test, expect } from '@playwright/test';
-
-test('user can view next race predictions', async ({ page }) => {
-  // Navigate to homepage
-  await page.goto('http://localhost:5173/f1-analytics');
-  
-  // Should redirect to login if not authenticated
-  await expect(page).toHaveURL(/.*login/);
-  
-  // Login
-  await page.fill('input[name="email"]', 'test@example.com');
-  await page.fill('input[name="password"]', 'SecurePass123');
-  await page.click('button[type="submit"]');
-  
-  // Should redirect to homepage after login
-  await expect(page).toHaveURL('http://localhost:5173/f1-analytics');
+// e2e/dashboard.spec.ts
+test('User can view predictions for next race', async ({ page }) => {
+  await page.goto('http://localhost:3000');
   
   // Wait for predictions to load
-  await page.waitForSelector('[data-testid="prediction-card"]');
+  await page.waitForSelector('table');
   
-  // Verify predictions displayed
-  const predictions = await page.locator('[data-testid="driver-probability"]').count();
-  expect(predictions).toBeGreaterThan(0);
+  // Verify race name displayed
+  await expect(page.locator('h2')).toContainText('Monaco Grand Prix');
   
-  // Verify race details shown
-  await expect(page.locator('[data-testid="race-name"]')).toBeVisible();
-  await expect(page.locator('[data-testid="race-date"]')).toBeVisible();
+  // Verify table contains drivers
+  const rows = await page.locator('tbody tr').count();
+  expect(rows).toBeGreaterThan(0);
+  
+  // Verify win probabilities displayed as percentages
+  const firstProbability = await page.locator('tbody tr:first-child td:nth-child(4)').textContent();
+  expect(firstProbability).toMatch(/\d+\.\d+%/);
 });
 
-test('user can export predictions', async ({ page }) => {
-  await page.goto('http://localhost:5173/f1-analytics');
-  // Assume user is logged in
+test('User can compare models for a race', async ({ page }) => {
+  await page.goto('http://localhost:3000/compare/123');
   
-  // Click export button
-  const downloadPromise = page.waitForEvent('download');
-  await page.click('[data-testid="export-csv-button"]');
-  const download = await downloadPromise;
+  // Verify multiple model tabs/sections
+  await expect(page.locator('text=Regression')).toBeVisible();
+  await expect(page.locator('text=Random Forest')).toBeVisible();
+  await expect(page.locator('text=XGBoost')).toBeVisible();
   
-  // Verify file downloaded
-  expect(download.suggestedFilename()).toMatch(/predictions.*\.csv/);
+  // Click on Random Forest tab
+  await page.click('text=Random Forest');
+  
+  // Verify table updates
+  await page.waitForSelector('table');
+});
+
+test('User can view historical accuracy metrics', async ({ page }) => {
+  await page.goto('http://localhost:3000/analytics');
+  
+  // Verify chart renders
+  await page.waitForSelector('canvas');
+  
+  // Verify accuracy metrics displayed
+  await expect(page.locator('text=Brier Score')).toBeVisible();
+  await expect(page.locator('text=Top 3 Accuracy')).toBeVisible();
 });
 ```
 
-**Performance Tests**:
-```python
-# tests/performance/test_load.py
-from locust import HttpUser, task, between
+### Test Coverage Goals
 
-class F1AnalyticsUser(HttpUser):
-    wait_time = between(1, 3)
-    
-    def on_start(self):
-        # Login to get token
-        response = self.client.post("/api/v1/auth/login", json={
-            "email": "load_test@example.com",
-            "password": "Pass123"
-        })
-        self.token = response.json()["token"]
-    
-    @task(3)
-    def get_predictions(self):
-        self.client.get(
-            "/api/v1/predictions/next-race",
-            headers={"Authorization": f"Bearer {self.token}"}
-        )
-    
-    @task(1)
-    def get_calendar(self):
-        self.client.get("/api/v1/races/calendar?season=2026")
-
-# Run with: locust -f tests/performance/test_load.py --users 1000 --spawn-rate 50
-# Target: <500ms p95 latency at 1000 concurrent users
-```
+- **Backend:** 80% code coverage
+- **Frontend:** 70% code coverage
+- **Critical paths:** 100% coverage (data import, prediction generation, API endpoints)
 
 ---
 
 ## 10. Migration Strategy
 
-### Phase 1: Infrastructure Setup (Week 1)
+### 10.1 Database Migration
 
-1. **Provision Cloud Resources**:
-   - Create AWS EKS cluster via Terraform
-   - Provision RDS PostgreSQL instance (db.r5.large, Multi-AZ)
-   - Create ElastiCache Redis cluster (cache.r5.large, 3 nodes)
-   - Set up S3 buckets for model storage and backups
-   - Configure VPC, subnets, security groups
+**Step 1: Run Alembic Migrations**
 
-2. **Deploy Base Services**:
-   - Deploy PostgreSQL with initial schema via Alembic
-   - Deploy Redis with basic configuration
-   - Set up RabbitMQ or AWS SQS for message queue
-   - Configure monitoring (Prometheus, Grafana, ELK stack)
+```bash
+cd f1-analytics/backend
+alembic upgrade head
+```
 
-3. **CI/CD Pipeline**:
-   - Create GitHub Actions workflows for backend/frontend
-   - Set up Docker image registry (AWS ECR)
-   - Configure staging and production environments
-   - Implement blue-green deployment strategy
+This creates new tables: `models`, `elo_ratings`, `model_accuracy`, `driver_standings`, `constructor_standings`.
 
-### Phase 2: Data Migration (Week 2)
+**Step 2: Backfill Historical Data**
 
-1. **Historical Data Ingestion**:
-   - Run `scripts/seed_data.py` to fetch F1 data from 2010-present via Ergast API
-   - Batch import race results, qualifying times, driver/team profiles
-   - Import weather data for historical races
-   - Validate data integrity (foreign keys, null checks)
+```bash
+python scripts/import_historical_data.py --start-season 2020 --end-season 2025
+```
 
-2. **Initial ELO Calculation**:
-   - Run ELO calculator on all historical races in chronological order
-   - Persist ELO ratings to drivers and teams tables
-   - Verify ratings are reasonable (top drivers >2000, rookies ~1500)
+Script logic:
+- Fetch race schedules for each season
+- Import race results, qualifying results
+- Import standings after each race
+- Fetch weather data for each race (graceful degradation if unavailable)
 
-3. **Data Quality Checks**:
-   - Verify all races have results and weather data
-   - Check for missing drivers or teams
-   - Validate qualifying-race linkage
+**Step 3: Initial Model Training**
 
-### Phase 3: ML Model Training (Week 2-3)
+```bash
+python scripts/train_models.py
+```
 
-1. **Feature Engineering**:
-   - Extract features from historical data
-   - Generate training dataset (80/20 train/val split)
-   - Validate feature distributions (no NaNs, outliers)
+Trains all models on historical data and saves to `f1-analytics/backend/models/`.
 
-2. **Model Training**:
-   - Train Random Forest and XGBoost on historical data
-   - Evaluate on validation set (target Brier score <0.20)
-   - Hyperparameter tuning via grid search
-   - Save trained models to S3 with version v1.0.0
+**Step 4: Generate Initial Predictions**
 
-3. **Generate Historical Predictions**:
-   - Backtest models on past seasons (2023-2025)
-   - Calculate accuracy metrics to validate model quality
-   - Persist predictions and accuracy to database
+```bash
+python scripts/generate_predictions.py --next-race
+```
 
-### Phase 4: Backend Deployment (Week 3-4)
+Generates predictions for next upcoming race.
 
-1. **Deploy API Gateway**:
-   - Build Docker image for FastAPI application
-   - Deploy to Kubernetes with 3 replicas
-   - Configure load balancer and ingress
-   - Test API endpoints with Postman/curl
+### 10.2 Application Deployment
 
-2. **Deploy Prediction Service**:
-   - Deploy inference service with model loading from S3
-   - Configure Redis caching
-   - Test prediction generation for upcoming race
+**Development Environment:**
 
-3. **Deploy Data Ingestion Service**:
-   - Deploy Airflow with daily ingestion DAG
-   - Schedule first run to verify end-to-end workflow
-   - Configure alerting for ingestion failures
+```bash
+cd f1-analytics
+docker-compose -f infrastructure/docker-compose.dev.yml up -d
+```
 
-### Phase 5: Frontend Deployment (Week 4)
+Starts:
+- PostgreSQL
+- Redis
+- Flask API
+- Celery workers (3 instances)
+- Celery beat scheduler
+- React dev server
 
-1. **Build and Deploy Dashboard**:
-   - Build React app with Vite (`npm run build`)
-   - Deploy to Nginx container or AWS S3 + CloudFront
-   - Configure API_URL environment variable
-   - Test authentication and data fetching
+**Production Environment:**
 
-2. **Integration Testing**:
-   - Run E2E tests in staging environment
-   - Verify all features work end-to-end
-   - Load test with 1000 concurrent users
+```bash
+# Build images
+docker build -t f1-api:latest -f backend/Dockerfile backend/
+docker build -t f1-worker:latest -f backend/Dockerfile.worker backend/
+docker build -t f1-frontend:latest -f frontend/Dockerfile frontend/
 
-### Phase 6: Production Launch (Week 5)
+# Deploy with Kubernetes
+kubectl apply -f infrastructure/kubernetes/namespace.yaml
+kubectl apply -f infrastructure/kubernetes/postgres-statefulset.yaml
+kubectl apply -f infrastructure/kubernetes/redis-deployment.yaml
+kubectl apply -f infrastructure/kubernetes/api-gateway-deployment.yaml
+kubectl apply -f infrastructure/kubernetes/celery-deployment.yaml
+kubectl apply -f infrastructure/kubernetes/frontend-deployment.yaml
+kubectl apply -f infrastructure/kubernetes/ingress.yaml
+```
 
-1. **Pre-Launch Checklist**:
-   - Database backups configured and tested
-   - Monitoring dashboards validated
-   - Alert routing to PagerDuty/Slack confirmed
-   - Security scan (OWASP ZAP) passed
-   - SSL/TLS certificates installed
+### 10.3 Data Migration
 
-2. **Gradual Rollout**:
-   - Deploy to production with traffic routing disabled
-   - Smoke test critical paths
-   - Enable traffic routing with canary (10% users)
-   - Monitor error rates and latency for 24 hours
-   - Full rollout if metrics healthy
-
-3. **Post-Launch Monitoring**:
-   - Monitor system metrics for first week
-   - Track prediction accuracy as new races complete
-   - Gather user feedback for improvements
+No existing data to migrate (new feature). Existing F1 database schema is extended, not replaced.
 
 ---
 
 ## 11. Rollback Plan
 
-### Automated Rollback Triggers
+### 11.1 Database Rollback
 
-**Health Check Failures**:
-- If >50% of pods fail readiness checks for 5 minutes, trigger automatic rollback
-- If API error rate >10% for 3 minutes, rollback to previous version
+**Alembic Downgrade:**
 
-**Performance Degradation**:
-- If p95 latency exceeds 2 seconds for 5 minutes, rollback
-- If database connection pool exhausted, rollback and investigate
-
-### Manual Rollback Procedures
-
-**Kubernetes Rollback**:
 ```bash
-# Rollback to previous deployment
-kubectl rollout undo deployment/api-gateway -n production
-kubectl rollout undo deployment/prediction-service -n production
-kubectl rollout undo deployment/frontend -n production
-
-# Verify rollback status
-kubectl rollout status deployment/api-gateway -n production
-
-# Check pod health
-kubectl get pods -n production -w
+alembic downgrade -1  # Roll back one migration
+alembic downgrade base  # Roll back all migrations
 ```
 
-**Database Rollback**:
-```bash
-# Rollback Alembic migration
-alembic downgrade -1
+Removes new tables without affecting existing `circuits`, `drivers`, `races`, etc.
 
-# Restore database from backup (if data corruption)
-pg_restore -h db-host -U admin -d f1_analytics /backups/f1_analytics_2026_02_11.dump
+### 11.2 Application Rollback
+
+**Kubernetes Rollback:**
+
+```bash
+kubectl rollout undo deployment/api-gateway
+kubectl rollout undo deployment/prediction-service
+kubectl rollout undo deployment/frontend
 ```
 
-**Model Rollback**:
+**Docker Compose Rollback:**
+
+```bash
+# Revert to previous image tags
+docker-compose -f infrastructure/docker-compose.prod.yml up -d
+```
+
+### 11.3 Feature Flag
+
+Introduce environment variable `ENABLE_PREDICTIONS=false` to disable prediction endpoints without full rollback.
+
 ```python
-# Update model version pointer in database to previous version
-UPDATE model_metadata SET active_version = 'v1.2.0' WHERE id = 1;
-
-# Clear Redis cache to force reload
-FLUSHDB
+# app/routes/predictions.py
+if not os.getenv('ENABLE_PREDICTIONS', 'true').lower() == 'true':
+    abort(404)
 ```
 
-### Rollback Testing
+### 11.4 Cache Invalidation
 
-**Pre-Deployment**:
-- Test rollback procedure in staging environment
-- Verify previous version still functional after rollback
-- Document rollback time (target: <5 minutes)
+If bad predictions deployed, invalidate cache to prevent serving stale data:
 
-**Post-Rollback**:
-- Verify all services healthy
-- Check data integrity (no data loss)
-- Analyze root cause of failure
-- Create post-mortem document
+```bash
+redis-cli FLUSHDB
+```
 
 ---
 
 ## 12. Performance Considerations
 
-### Database Optimizations
+### 12.1 Database Optimizations
 
-**Indexing Strategy**:
-```sql
--- Composite indexes for common queries
-CREATE INDEX idx_races_season_status ON races(season_year, status);
-CREATE INDEX idx_predictions_race_prob ON predictions(race_id, predicted_win_probability DESC);
-CREATE INDEX idx_race_results_driver_date ON race_results(driver_id, race_id);
+**Indexes:**
+- `idx_predictions_race_model` on `predictions(race_id, model_id)` - Fast prediction lookups
+- `idx_race_results_driver` on `race_results(driver_id, race_id)` - Feature extraction queries
+- `idx_races_date` on `races(date)` - Next race queries
+- `idx_elo_driver_race` on `elo_ratings(driver_id, race_id)` - ELO history queries
 
--- Partial index for active races
-CREATE INDEX idx_races_upcoming ON races(race_date) WHERE status = 'scheduled';
+**Connection Pooling:**
+
+```python
+# app/database.py
+engine = create_engine(
+    DATABASE_URL,
+    pool_size=20,  # Max 20 connections
+    max_overflow=10,  # Allow 10 overflow connections
+    pool_pre_ping=True  # Test connections before use
+)
 ```
 
-**Query Optimization**:
-- Use `EXPLAIN ANALYZE` to identify slow queries
-- Implement materialized views for complex aggregations (driver rankings, accuracy metrics)
-- Refresh materialized views daily via cron job
-- Use database connection pooling (max 20 connections per service)
+**Query Optimization:**
 
-**Partitioning**:
-- Partition `race_results` and `predictions` tables by race_id range
-- Prune old partitions (pre-2018) to archive storage
+```python
+# Use eager loading to avoid N+1 queries
+predictions = db.session.query(Prediction).options(
+    joinedload(Prediction.driver),
+    joinedload(Prediction.constructor),
+    joinedload(Prediction.race)
+).filter(Prediction.race_id == race_id).all()
+```
 
-### Caching Strategy
+### 12.2 Caching Strategy
 
-**Redis Caching Layers**:
-1. **Prediction Cache**: TTL 7 days, invalidate on new model deployment
-2. **Race Calendar Cache**: TTL 24 hours, invalidate on schedule updates
-3. **Driver Rankings Cache**: TTL 1 hour, invalidate on race completion
-4. **Query Result Cache**: Cache expensive database queries (top 10 drivers, season standings)
+**Redis Cache Layers:**
 
-**Cache Warming**:
-- Pre-warm cache with next race predictions on deployment
-- Background job refreshes frequently accessed data (driver rankings) hourly
+| Data Type | TTL | Invalidation |
+|-----------|-----|--------------|
+| Next race predictions | 1 hour | On new prediction generation |
+| Historical race predictions | 24 hours | Never (immutable) |
+| Driver standings | 24 hours | On standings update |
+| Race calendar | 7 days | Manual/weekly refresh |
 
-**Cache Eviction**:
-- LRU eviction policy for memory management
-- Monitor cache hit ratio (target >80%)
+**Preload Cache on Startup:**
 
-### API Performance
+```python
+# app/main.py
+@app.before_first_request
+def warm_cache():
+    """Preload frequently accessed data into cache"""
+    get_next_race_predictions()  # Cache next race
+    get_driver_standings()  # Cache current standings
+```
 
-**Response Optimization**:
-- Enable gzip compression for API responses (reduces payload by ~70%)
-- Implement pagination for large result sets (max 100 records per page)
-- Use HTTP caching headers (ETag, Cache-Control) for static data
+### 12.3 Model Serving Optimization
 
-**Async Processing**:
-- Use FastAPI's async/await for non-blocking I/O
-- Background tasks (Celery) for expensive operations (model training, data export)
-- Streaming responses for file downloads
+**Preload Models into Memory:**
 
-### Frontend Performance
+```python
+# app/main.py
+model_cache = {}
 
-**Code Splitting**:
+@app.before_first_request
+def load_models():
+    """Load trained models into memory to avoid disk I/O per request"""
+    model_manager = ModelManager()
+    model_cache['regression'] = model_manager.get_latest_model('RegressionModel')
+    model_cache['random_forest'] = model_manager.get_latest_model('RandomForestModel')
+    model_cache['xgboost'] = model_manager.get_latest_model('XGBoostModel')
+    model_cache['elo'] = model_manager.get_latest_model('EloModel')
+```
+
+**Batch Predictions:**
+
+Generate predictions for all drivers in single `model.predict()` call (vectorized operation).
+
+```python
+# Instead of:
+for driver in drivers:
+    prediction = model.predict(driver_features)  # Slow
+
+# Do:
+all_features = build_feature_matrix(race_id, db_session)
+predictions = model.predict(all_features)  # Fast (vectorized)
+```
+
+### 12.4 Frontend Optimizations
+
+**Code Splitting:**
+
 ```typescript
-// Lazy load routes
-const CalendarPage = lazy(() => import('./pages/CalendarPage'));
-const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
+// Lazy load heavy components
+const AnalyticsPage = React.lazy(() => import('./pages/AnalyticsPage'));
 
-<Route path="calendar" element={<Suspense fallback={<Spinner />}><CalendarPage /></Suspense>} />
+<Suspense fallback={<div>Loading...</div>}>
+  <AnalyticsPage />
+</Suspense>
 ```
 
-**Asset Optimization**:
-- Minify and bundle JavaScript/CSS with Vite
-- Compress images (WebP format, lazy loading)
-- Use CDN for static asset delivery (CloudFront)
-- Implement service worker for offline caching
+**Chart.js Performance:**
 
-**React Optimization**:
-- Memoize expensive components with `React.memo`
-- Use `useMemo` for expensive calculations (probability sorting)
-- Debounce search inputs to reduce API calls
+```typescript
+// Limit data points rendered in charts
+const chartData = {
+  labels: eloHistory.slice(-20).map(r => r.race_date),  // Last 20 races only
+  datasets: [...]
+};
+```
 
-### ML Inference Performance
+**API Request Debouncing:**
 
-**Model Optimization**:
-- Use GPU acceleration for XGBoost training (NVIDIA T4)
-- Quantize models to reduce size and inference time (int8 quantization)
-- Batch predictions for all drivers in single inference call
+```typescript
+// Debounce search/filter inputs to reduce API calls
+const debouncedSearch = debounce((query) => {
+  fetchPredictions(query);
+}, 500);
+```
 
-**Feature Caching**:
-- Cache feature extraction results in Redis (driver stats, weather data)
-- Recompute features only when underlying data changes
+### 12.5 Celery Task Optimization
 
-### Monitoring Performance
+**Worker Concurrency:**
 
-**Key Metrics**:
-- API latency: p50, p95, p99 per endpoint
-- Database query execution time (slow query log)
-- Cache hit ratio (target >80%)
-- Model inference time (target <5 seconds)
-- Frontend page load time (target <2 seconds)
+```yaml
+# infrastructure/kubernetes/celery-deployment.yaml
+spec:
+  replicas: 3
+  template:
+    spec:
+      containers:
+      - name: celery-worker
+        args: ["celery", "-A", "app.tasks.celery_app", "worker", "--concurrency=4"]
+```
 
-**Alerting Thresholds**:
-- Warning: p95 latency >1 second
-- Critical: p95 latency >2 seconds or error rate >5%
+3 workers × 4 concurrent tasks = 12 parallel tasks.
+
+**Task Prioritization:**
+
+```python
+# High priority for prediction generation
+generate_next_race_predictions.apply_async(priority=9)
+
+# Low priority for historical backfill
+backfill_historical_data.apply_async(priority=1)
+```
+
+### 12.6 CDN for Static Assets
+
+Serve React build artifacts via CDN (CloudFlare, AWS CloudFront):
+
+```nginx
+# nginx.conf
+location /static/ {
+    alias /app/frontend/dist/assets/;
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+}
+```
+
+---
+
+## Appendix: Existing Repository Structure
+
+[Repository structure already provided in prompt - omitted for brevity]
