@@ -1,0 +1,97 @@
+# AWS IAM Role for Service Account (IRSA) Configuration
+# This replaces hardcoded AWS credentials with secure IAM role authentication
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: external-secrets-sa
+  namespace: external-secrets
+  annotations:
+    # Replace with your actual AWS account ID and IAM role ARN
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/ExternalSecretsRole
+  labels:
+    app: external-secrets
+    component: authentication
+---
+# ClusterRole for external-secrets-operator
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: external-secrets-operator
+  labels:
+    app: external-secrets
+    component: rbac
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+- apiGroups: ["external-secrets.io"]
+  resources: ["externalsecrets", "secretstores", "clustersecretstores"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["external-secrets.io"]
+  resources: ["externalsecrets/status", "secretstores/status", "clustersecretstores/status"]
+  verbs: ["update", "patch"]
+---
+# ClusterRoleBinding for external-secrets-operator
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: external-secrets-operator
+  labels:
+    app: external-secrets
+    component: rbac
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: external-secrets-operator
+subjects:
+- kind: ServiceAccount
+  name: external-secrets-sa
+  namespace: external-secrets
+---
+# AWS IAM Role Policy Document (for reference - to be created in AWS)
+# This should be created in AWS IAM and attached to the ExternalSecretsRole
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aws-iam-policy-reference
+  namespace: external-secrets
+  labels:
+    app: external-secrets
+    component: documentation
+data:
+  iam-policy.json: |
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": [
+            "secretsmanager:GetSecretValue",
+            "secretsmanager:DescribeSecret"
+          ],
+          "Resource": "arn:aws:secretsmanager:us-west-2:ACCOUNT_ID:secret:f1-analytics/*"
+        }
+      ]
+    }
+  trust-policy.json: |
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Principal": {
+            "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/oidc.eks.us-west-2.amazonaws.com/id/OIDC_ID"
+          },
+          "Action": "sts:AssumeRoleWithWebIdentity",
+          "Condition": {
+            "StringEquals": {
+              "oidc.eks.us-west-2.amazonaws.com/id/OIDC_ID:sub": "system:serviceaccount:external-secrets:external-secrets-sa",
+              "oidc.eks.us-west-2.amazonaws.com/id/OIDC_ID:aud": "sts.amazonaws.com"
+            }
+          }
+        }
+      ]
+    }

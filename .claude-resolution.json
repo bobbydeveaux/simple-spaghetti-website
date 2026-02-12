@@ -1,11 +1,36 @@
 {
   "method": "ai-assisted",
-  "filesResolved": 3,
-  "summary": "Resolved conflicts in .pr-number (kept our PR #47), index.html (merged simple spaghetti website content with HTML5 best practices from main), and .claude-output.json (accepted deletion from main branch)",
-  "strategyUsed": "Preserved our branch's intent (simple spaghetti website for issue #4) while incorporating HTML5 best practices from main branch (lang attribute, meta charset, viewport). Fixed typo 'spagheeti' to 'spaghetti'. Kept our PR number 47 as this is PR #47.",
-  "conflictResolution": {
-    ".pr-number": "Kept our version (47) as this is PR #47",
-    "index.html": "Merged both versions: kept the simple spaghetti website content and theme from our branch, but incorporated HTML5 best practices from main (lang='en', meta charset, viewport). Fixed typo 'spagheeti' to 'spaghetti' for better presentation.",
-    ".claude-output.json": "Accepted deletion from main branch - file was deleted by them and we agreed to remove it"
-  }
+  "filesResolved": 7,
+  "summary": "Successfully resolved all merge conflicts by preserving functionality from both branches. Combined comprehensive Docker containerization and security features (HEAD) with clean database modeling and test infrastructure (origin/main). All conflicts resolved while maintaining backward compatibility and enhancing overall system capabilities.",
+  "strategyUsed": "Hybrid approach - preserved comprehensive features from both sides, combining Docker infrastructure and security validation from HEAD with clean database architecture and test fixtures from origin/main. Enhanced documentation by merging both approaches, unified FastAPI application structure with backward compatibility, consolidated requirements.txt with both security and ML dependencies, and combined test fixtures to support both security testing and comprehensive data modeling.",
+  "conflictsResolved": [
+    {
+      "file": ".review-feedback.txt",
+      "strategy": "Combined security findings from both branches to provide comprehensive review feedback"
+    },
+    {
+      "file": "f1-analytics/README.md",
+      "strategy": "Merged Docker-focused comprehensive documentation with database schema documentation"
+    },
+    {
+      "file": "f1-analytics/backend/app/__init__.py",
+      "strategy": "Chose proper package documentation from origin/main"
+    },
+    {
+      "file": "f1-analytics/backend/app/main.py",
+      "strategy": "Combined comprehensive security features with clean database modeling"
+    },
+    {
+      "file": "f1-analytics/backend/requirements.txt",
+      "strategy": "Merged dependencies to include both security/production features and development tools"
+    },
+    {
+      "file": "f1-analytics/backend/tests/__init__.py",
+      "strategy": "Chose proper package documentation from origin/main"
+    },
+    {
+      "file": "f1-analytics/backend/tests/conftest.py",
+      "strategy": "Combined comprehensive test fixtures with security testing capabilities"
+    }
+  ]
 }

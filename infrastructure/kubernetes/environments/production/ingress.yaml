@@ -1,0 +1,133 @@
+# Production Ingress Configuration
+# This replaces the hardcoded domains in the main ingress.yaml file
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: f1-analytics-ingress
+  namespace: f1-analytics
+  labels:
+    app: f1-analytics
+    component: ingress
+    environment: production
+  annotations:
+    # Nginx Ingress Controller Annotations
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+
+    # Rate Limiting
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    nginx.ingress.kubernetes.io/rate-limit-burst: "20"
+
+    # Security Headers with production domains
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      add_header X-Frame-Options "SAMEORIGIN" always;
+      add_header X-Content-Type-Options "nosniff" always;
+      add_header X-XSS-Protection "1; mode=block" always;
+      add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+      add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+      # CSP with configurable domains - REPLACE with your actual domains
+      add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://api.f1-analytics.com wss://ws.f1-analytics.com; frame-ancestors 'none';" always;
+
+    # CORS Configuration
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
+    nginx.ingress.kubernetes.io/cors-expose-headers: "Content-Length,Content-Range"
+    nginx.ingress.kubernetes.io/cors-max-age: "1728000"
+
+    # Load Balancing
+    nginx.ingress.kubernetes.io/load-balance: "round_robin"
+    nginx.ingress.kubernetes.io/upstream-keepalive-connections: "32"
+
+    # TLS Configuration
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    cert-manager.io/acme-challenge-type: http01
+
+    # Monitoring
+    nginx.ingress.kubernetes.io/enable-access-log: "true"
+    nginx.ingress.kubernetes.io/enable-rewrite-log: "false"
+spec:
+  # TLS Configuration with production domains
+  tls:
+  - hosts:
+    # REPLACE with your actual production domains
+    - f1-analytics.com
+    - www.f1-analytics.com
+    - api.f1-analytics.com
+    - airflow.f1-analytics.com
+    secretName: f1-analytics-tls
+
+  rules:
+  # Frontend routing
+  - host: f1-analytics.com  # REPLACE with your actual domain
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 80
+
+  # www redirect
+  - host: www.f1-analytics.com  # REPLACE with your actual domain
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 80
+
+  # API routing
+  - host: api.f1-analytics.com  # REPLACE with your actual domain
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-gateway-service
+            port:
+              number: 80
+
+  # Airflow UI routing
+  - host: airflow.f1-analytics.com  # REPLACE with your actual domain
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: airflow-webserver-service
+            port:
+              number: 8080
+---
+# ClusterIssuer for production Let's Encrypt certificates
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+  labels:
+    app: f1-analytics
+    component: certificate-management
+    environment: production
+spec:
+  acme:
+    # REPLACE with your actual contact email
+    email: admin@f1-analytics.com  # CHANGE THIS!
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    solvers:
+    - http01:
+        ingress:
+          class: nginx

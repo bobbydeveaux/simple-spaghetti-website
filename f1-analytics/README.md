@@ -1,6 +1,6 @@
-# 🏎️ F1 Analytics - Docker Development Environment
+# 🏎️ F1 Prediction Analytics Platform
 
-A comprehensive Formula One prediction analytics platform with Docker containerization for seamless development and deployment.
+A comprehensive Formula One prediction analytics platform with Docker containerization for seamless development and deployment, combined with advanced ML-powered race predictions and database infrastructure.
 
 ## 🚀 Quick Start
 
@@ -35,6 +35,8 @@ Once setup is complete, access the application at:
 - **Redis**: localhost:6379
 
 ## 📊 Architecture Overview
+
+### System Architecture
 
 ```mermaid
 graph TB
@@ -73,214 +75,33 @@ graph TB
     FL --> R
 ```
 
-## 🐳 Container Services
+### Database Schema
 
-| Service | Description | Port | Health Check |
-|---------|-------------|------|--------------|
-| **frontend** | React TypeScript dashboard | 3000 | `/health` |
-| **backend** | FastAPI Python application | 8000 | `/health` |
-| **postgres** | PostgreSQL database | 5432 | `pg_isready` |
-| **redis** | Redis cache & message broker | 6379 | `ping` |
-| **celery-worker** | Background task processor | - | Internal |
-| **celery-beat** | Task scheduler | - | Internal |
-| **flower** | Celery monitoring | 5555 | Web interface |
+The system uses PostgreSQL with comprehensive F1 data modeling:
 
-## 🛠️ Development Commands
+#### Core Entities
+- **Teams**: F1 constructors with Elo ratings and performance tracking
+- **Drivers**: F1 drivers with team associations and detailed statistics
+- **Circuits**: Race tracks with characteristics (length, type, location)
+- **Races**: Race events with season/round information and status
 
-### Using the Helper Script
+#### Results & Performance
+- **RaceResults**: Final race positions, points, and performance data (partitioned by race_id)
+- **QualifyingResults**: Qualifying session times and grid positions
+- **WeatherData**: Race weather conditions affecting performance
 
-```bash
-# Start services
-./scripts/dev_commands.sh start
+#### Predictions & Analysis
+- **Predictions**: ML-generated win probabilities by model version (partitioned by race_id)
+- **PredictionAccuracy**: Post-race accuracy metrics (Brier score, log loss)
+- **Users**: Authentication and role-based access control
 
-# View logs
-./scripts/dev_commands.sh logs [service-name]
+### Key Database Features
 
-# Stop services
-./scripts/dev_commands.sh stop
-
-# Open database shell
-./scripts/dev_commands.sh db-shell
-
-# Run tests
-./scripts/dev_commands.sh test-backend
-
-# Clean everything
-./scripts/dev_commands.sh clean
-```
-
-### Manual Docker Compose Commands
-
-```bash
-cd f1-analytics/infrastructure
-
-# Start development environment
-docker-compose up -d
-
-# View logs
-docker-compose logs -f [service]
-
-# Rebuild containers
-docker-compose build --no-cache
-
-# Scale services
-docker-compose up -d --scale backend=3
-
-# Stop everything
-docker-compose down --volumes
-```
-
-## 🗄️ Database Management
-
-### Accessing the Database
-
-```bash
-# Using helper script
-./scripts/dev_commands.sh db-shell
-
-# Or directly
-docker-compose exec postgres psql -U f1user -d f1_analytics
-```
-
-### Running Migrations
-
-```bash
-# Apply migrations
-docker-compose exec backend alembic upgrade head
-
-# Create new migration
-docker-compose exec backend alembic revision --autogenerate -m "migration_name"
-
-# Check migration status
-docker-compose exec backend alembic current
-```
-
-### Sample Data
-
-The database is automatically initialized with:
-- 10 F1 teams with official colors
-- Sample drivers (Verstappen, Hamilton, Leclerc, etc.)
-- Famous circuits (Monaco, Silverstone, Spa, etc.)
-- Admin user: `admin@f1analytics.com` / `admin123`
-
-## 🧪 Testing
-
-### Comprehensive Test Coverage
-
-The application includes extensive test suites for security and functionality:
-
-**Backend Test Coverage (80%+ required):**
-- API endpoint testing with security validation
-- JWT token security and validation testing
-- Database and Redis connectivity testing
-- Health check functionality with failure scenarios
-- Error handling and exception management
-- Security configuration validation
-
-**Frontend Test Coverage (80%+ required):**
-- React component testing with API integration
-- Error boundary and fallback testing
-- Loading states and user interaction testing
-- API failure handling and retry logic
-
-### Running Tests
-
-**Backend Tests:**
-```bash
-# Run all backend tests with coverage
-docker-compose exec backend pytest --cov=app --cov-report=html
-
-# Run security-specific tests
-docker-compose exec backend pytest -m security -v
-
-# Run health check tests
-docker-compose exec backend pytest tests/test_health_checks.py -v
-
-# Run with strict coverage requirements (80% minimum)
-docker-compose exec backend pytest --cov=app --cov-fail-under=80
-```
-
-**Frontend Tests:**
-```bash
-# Run frontend tests with coverage
-docker-compose exec frontend npm run test:coverage
-
-# Run specific component tests
-docker-compose exec frontend npm test -- App.test.tsx
-
-# Watch mode for development
-docker-compose exec frontend npm test -- --watch
-```
-
-**Security Validation Tests:**
-```bash
-# Test environment security
-docker-compose exec backend python -c "
-from app.core.security import validate_environment_security
-result = validate_environment_security()
-print('Security Issues:', result['issues'])
-"
-
-# Validate JWT secret strength
-docker-compose exec backend python -c "
-from app.core.security import validate_jwt_secret
-try: validate_jwt_secret(); print('JWT Secret: SECURE')
-except: print('JWT Secret: WEAK - Fix required')
-"
-```
-
-## 📝 Environment Configuration
-
-### 🔐 Security First Approach
-
-This application implements enterprise-grade security practices:
-
-- **Secure credential management** with environment variables
-- **JWT token validation** with strong secret requirements
-- **Real health checks** that verify actual service connectivity
-- **Comprehensive test coverage** (>80% backend, >80% frontend)
-- **Production security hardening** with rate limiting and security headers
-
-### Environment Files
-
-Environment configuration uses secure templates:
-
-- `.env.template` - Development template with placeholders
-- `.env.example` - Example with secure defaults
-- `.env.production.template` - Production security template
-
-**⚠️ Important**: Never commit `.env` files to version control!
-
-### Generating Secure Secrets
-
-```bash
-# Generate secure secrets for production
-./scripts/generate_secrets.sh
-
-# Creates .env.secure.generated with cryptographically secure values
-cp .env.secure.generated .env
-rm .env.secure.generated  # Remove after copying
-```
-
-### Key Environment Variables
-
-**Backend (Secure Configuration):**
-```env
-# Database (use strong passwords)
-DATABASE_URL=postgresql://f1user:STRONG_PASSWORD@postgres:5432/f1_analytics
-
-# Redis (use strong passwords)
-REDIS_URL=redis://:STRONG_REDIS_PASSWORD@redis:6379/0
-
-# JWT (use: openssl rand -base64 64)
-JWT_SECRET_KEY=cryptographically_secure_64_character_minimum_secret
-
-# External APIs
-WEATHER_API_KEY=your-production-weather-api-key
-
-# Security
-CORS_ORIGINS=https://yourdomain.com
-ALLOWED_HOSTS=yourdomain.com
+- **Comprehensive Constraints**: Check constraints for data validation
+- **Performance Indexes**: Optimized queries for race data and predictions
+- **Materialized Views**: Driver rankings for fast leaderboard queries
+- **Table Partitioning**: Ready for partitioning race_results and predictions by race_id
+- **Foreign Key Relationships**: Proper referential integrity across entities
 
 # Application
 ENVIRONMENT=development
@@ -293,6 +114,131 @@ LOG_LEVEL=INFO
 VITE_API_URL=http://localhost:8000
 VITE_APP_NAME=F1 Analytics Dashboard
 VITE_ENVIRONMENT=development
+```
+
+## Setup Instructions
+
+### 1. Install Dependencies
+
+```bash
+cd f1-analytics/backend
+pip install -r requirements.txt
+```
+
+### 2. Database Setup
+
+```bash
+# Create PostgreSQL database
+createdb f1_analytics
+
+# Run migrations
+alembic upgrade head
+```
+
+### 3. Verify Installation
+
+```bash
+# Run model validation tests
+python test_models.py
+
+# Check migration status
+alembic current
+```
+
+## Model Usage Examples
+
+### Creating Data
+
+```python
+from app.models import Team, Driver, Circuit, Race
+from app.database import SessionLocal
+
+db = SessionLocal()
+
+# Create team
+team = Team(team_name="Red Bull Racing", nationality="Austria")
+db.add(team)
+
+# Create driver
+driver = Driver(
+    driver_code="VER",
+    driver_name="Max Verstappen",
+    nationality="Netherlands",
+    date_of_birth=date(1997, 9, 30),
+    current_team=team
+)
+db.add(driver)
+
+db.commit()
+```
+
+### Querying Data
+
+```python
+# Get driver with team
+driver = db.query(Driver).filter(Driver.driver_code == "VER").first()
+print(f"{driver.driver_name} drives for {driver.current_team.team_name}")
+
+# Get race results with relationships
+results = (db.query(RaceResult)
+          .join(Race)
+          .join(Driver)
+          .filter(Race.season_year == 2024)
+          .order_by(Race.race_date)
+          .all())
+```
+
+### Model Properties
+
+```python
+# Driver properties
+print(f"Age: {driver.age}")
+print(f"Current team: {driver.current_team.team_name}")
+
+# Race status checks
+print(f"Completed: {race.is_completed}")
+print(f"Future race: {race.is_future_race}")
+
+# Weather analysis
+print(f"Hot weather: {weather.is_hot_weather}")
+print(f"Impact score: {weather.weather_impact_score}/10")
+
+# Prediction confidence
+print(f"Confidence: {prediction.confidence_category}")
+print(f"Is favorite: {prediction.is_favorite}")
+```
+
+## Performance Features
+
+### Indexes
+- Composite indexes on common query patterns
+- BRIN indexes for time-series data (predictions)
+- Covering indexes for leaderboard queries
+
+### Materialized Views
+- `driver_rankings`: Pre-computed driver statistics
+- Refreshed daily via scheduled jobs
+
+### Constraints
+- Check constraints for data validation
+- Unique constraints for business rules
+- Foreign key constraints for referential integrity
+
+## Migration Management
+
+### Create New Migration
+```bash
+alembic revision --autogenerate -m "Description"
+```
+
+### Apply Migrations
+```bash
+alembic upgrade head
+```
+
+### Rollback Migration
+```bash
+alembic downgrade -1
 ```
 
 ## 🚀 Production Deployment
@@ -353,367 +299,25 @@ WEATHER_API_KEY=your-production-weather-api-key
 # Monitoring
 GRAFANA_ADMIN_PASSWORD=SECURE_GRAFANA_PASSWORD
 ENABLE_METRICS=true
+
+# Connection Pool
+DATABASE_POOL_SIZE=10
+DATABASE_MAX_OVERFLOW=20
+DATABASE_POOL_TIMEOUT=30
+DATABASE_POOL_RECYCLE=3600
 ```
 
-### Production Features
-
-- **Auto-HTTPS redirect** in production environment
-- **Security headers** (HSTS, CSP, X-Frame-Options, etc.)
-- **Rate limiting** (30 req/min default, configurable)
-- **Real health checks** with database/Redis connectivity verification
-- **Comprehensive logging** with request IDs and timing
-- **Resource limits** and horizontal scaling support
-- **Monitoring stack** (Prometheus + Grafana)
-
-## 📊 API Documentation
-
-### Interactive API Docs
-
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
-- **OpenAPI JSON**: http://localhost:8000/openapi.json
-
-### Key Endpoints
-
-| Method | Endpoint | Description | Rate Limit |
-|--------|----------|-------------|------------|
-| GET | `/api/v1/predictions/next-race` | Next race predictions | 30/min |
-| GET | `/api/v1/races/calendar` | Race calendar | 60/min |
-| GET | `/api/v1/analytics/accuracy` | Prediction accuracy metrics | 30/min |
-| GET | `/api/v1/drivers/rankings` | Driver ELO rankings | 60/min |
-| POST | `/api/v1/auth/login` | User authentication | 10/min |
-| GET | `/api/v1/export/predictions` | Export predictions (CSV/JSON) | 5/min |
-| GET | `/health` | Comprehensive health check | 300/min |
-
-### Security Features
-
-- **JWT Authentication** with secure secret validation
-- **Rate Limiting** per endpoint with configurable limits
-- **Security Headers** (HSTS, CSP, X-Frame-Options, etc.)
-- **CORS Protection** with domain whitelisting
-- **Request Logging** with unique request IDs
-- **Health Checks** that verify actual service connectivity
-- **Error Handling** without sensitive data exposure
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-**Services won't start:**
-```bash
-# Check service status and health
-docker-compose ps
-curl http://localhost:8000/health | jq '.'
-
-# View service logs with request IDs
-docker-compose logs -f backend | grep "X-Request-ID"
-
-# Restart specific service
-docker-compose restart backend
-```
-
-**Database connection issues:**
-```bash
-# Verify database is running and accessible
-docker-compose exec postgres pg_isready -U $POSTGRES_USER -d $POSTGRES_DB
-
-# Test database connectivity from backend
-docker-compose exec backend python -c "
-import asyncio
-from app.main import check_database_connectivity
-print('DB Connected:', asyncio.run(check_database_connectivity()))
-"
-
-# Check database logs
-docker-compose logs postgres
-```
-
-**Redis connection issues:**
-```bash
-# Test Redis connectivity
-docker-compose exec redis redis-cli -a $REDIS_PASSWORD ping
-
-# Test Redis from backend
-docker-compose exec backend python -c "
-import asyncio
-from app.main import check_redis_connectivity
-print('Redis Connected:', asyncio.run(check_redis_connectivity()))
-"
-```
-
-**Security configuration issues:**
-```bash
-# Validate environment security
-docker-compose exec backend python -c "
-from app.core.security import validate_environment_security
-result = validate_environment_security()
-print('Security Issues:')
-for issue in result['issues']:
-    print(f'  - {issue}')
-"
-
-# Check JWT secret strength
-docker-compose exec backend python -c "
-from app.core.security import validate_jwt_secret
-try:
-    validate_jwt_secret()
-    print('JWT Secret: SECURE')
-except Exception as e:
-    print(f'JWT Secret Error: {e}')
-"
-```
-
-**Rate limiting issues:**
-```bash
-# Check rate limit headers
-curl -I http://localhost:8000/api/v1/info
-
-# Test rate limiting
-for i in {1..35}; do
-  curl -s http://localhost:8000/api/v1/info >/dev/null && echo "Request $i: OK" || echo "Request $i: RATE LIMITED"
-done
-```
-
-**Permission errors:**
-```bash
-# Fix file permissions
-sudo chown -R $USER:$USER f1-analytics/
-chmod +x scripts/*.sh
-
-# Check container user
-docker-compose exec backend whoami
-docker-compose exec frontend whoami
-```
-
-**Port conflicts:**
-```bash
-# Check what's using ports
-sudo lsof -i :3000
-sudo lsof -i :8000
-
-# Kill processes
-sudo kill -9 $(lsof -t -i:3000)
-```
-
-### Performance Tuning
-
-**For Development:**
-```bash
-# Allocate more memory to Docker
-# Docker Desktop > Settings > Resources > Memory: 8GB+
-
-# Reduce services for lower-end machines
-docker-compose up -d postgres redis backend frontend
-```
-
-**For Production:**
-```bash
-# Scale backend instances
-docker-compose up -d --scale backend=3
-
-# Monitor resource usage
-docker stats
-```
-
-## 📚 Development Workflow
-
-### Adding New Features
-
-1. **Create feature branch:**
-   ```bash
-   git checkout -b feature/new-prediction-model
-   ```
-
-2. **Develop in containers:**
-   ```bash
-   # Backend changes are auto-reloaded
-   # Frontend has hot reload enabled
-   ```
-
-3. **Run tests:**
-   ```bash
-   ./scripts/dev_commands.sh test-backend
-   ./scripts/dev_commands.sh test-frontend
-   ```
-
-4. **Update documentation:**
-   ```bash
-   # Update API documentation
-   # Update this README if needed
-   ```
-
-### Code Quality
-
-```bash
-# Backend linting
-docker-compose exec backend black app/
-docker-compose exec backend isort app/
-docker-compose exec backend flake8 app/
-
-# Frontend linting
-docker-compose exec frontend npm run lint:fix
-docker-compose exec frontend npm run format
-```
-
-## 🔍 Monitoring & Logging
-
-### Application Logs
-
-```bash
-# All services
-docker-compose logs -f
-
-# Specific service
-docker-compose logs -f backend
-
-# With timestamps
-docker-compose logs -f -t backend
-```
-
-### Health Checks
-
-All services include health checks:
-
-```bash
-# Check all service health
-docker-compose ps
-
-# Manual health check
-curl http://localhost:8000/health
-curl http://localhost:3000/health
-```
-
-### Performance Monitoring
-
-- **Flower**: http://localhost:5555 (Celery tasks)
-- **PostgreSQL queries**: Enable `log_statement = 'all'`
-- **Redis**: Use `INFO` command in Redis CLI
-
-## 🔐 Security & Compliance
-
-### Security Features Summary
-
-This application implements enterprise-grade security practices:
-
-#### ✅ Security Vulnerabilities Fixed
-- **Fixed hardcoded credentials** - All credentials now use secure environment variables
-- **Fixed weak JWT secrets** - JWT secrets validated for cryptographic strength
-- **Fixed false health checks** - Health endpoints now verify actual service connectivity
-- **Added comprehensive error handling** - No sensitive data exposure in error messages
-- **Implemented production security configurations** - Rate limiting, security headers, CORS protection
-
-#### Security Architecture
-```
-Internet → Load Balancer (HTTPS) → Application (Security Headers, Rate Limiting) → Database (Encrypted)
-```
-
-#### Security Controls
-- **Authentication**: JWT with 64+ character cryptographically secure secrets
-- **Authorization**: Role-based access control
-- **Rate Limiting**: Configurable per endpoint (30 req/min default)
-- **Security Headers**: HSTS, CSP, X-Frame-Options, X-Content-Type-Options
-- **CORS Protection**: Domain whitelisting, no wildcards in production
-- **Data Protection**: Environment variables, no hardcoded secrets
-- **Monitoring**: Request logging with unique IDs, security event tracking
-
-#### Security Validation
-
-```bash
-# Run security checklist
-./scripts/generate_secrets.sh --validate
-
-# Comprehensive security test
-docker-compose exec backend python -c "
-from app.core.security import validate_environment_security
-from app.core.config import validate_production_config, get_settings
-
-settings = get_settings()
-env_result = validate_environment_security()
-prod_result = validate_production_config(settings)
-
-print('=== SECURITY VALIDATION ===')
-print(f'Environment: {settings.environment}')
-print(f'Debug Mode: {settings.debug}')
-print(f'JWT Secret Secure: {env_result[\"jwt_secret_secure\"]}')
-print(f'Environment Issues: {len(env_result[\"issues\"])}')
-print(f'Production Issues: {len(prod_result)}')
-
-if env_result['issues']:
-    print('\\nEnvironment Issues:')
-    for issue in env_result['issues']:
-        print(f'  - {issue}')
-
-if prod_result:
-    print('\\nProduction Issues:')
-    for issue in prod_result:
-        print(f'  - {issue}')
-
-if not env_result['issues'] and not prod_result:
-    print('\\n✅ All security checks PASSED')
-else:
-    print('\\n❌ Security issues found - review and fix')
-"
-
-# Test health check security
-curl -s http://localhost:8000/health | jq '.checks'
-```
-
-### Security Documentation
-
-- **Production Security Guide**: `PRODUCTION_SECURITY.md` - Comprehensive security checklist
-- **Security Templates**: `.env.production.template` - Secure environment configuration
-- **Security Scripts**: `scripts/generate_secrets.sh` - Cryptographically secure secret generation
-
-### Security Contact
-
-For security vulnerabilities, please email: security@f1analytics.com
-
-Do not open public GitHub issues for security vulnerabilities.
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch
-3. Make changes in Docker environment
-4. Run tests and security validation
-5. Submit pull request
-
-### Development Setup for Contributors
-
-```bash
-git clone <your-fork>
-cd f1-analytics
-./scripts/init_dev.sh
-
-# Run full test suite
-./scripts/dev_commands.sh test-backend
-./scripts/dev_commands.sh test-frontend
-
-# Validate security configuration
-./scripts/generate_secrets.sh --validate
-```
-
-### Code Review Checklist
-
-- [ ] All tests pass (backend >80% coverage, frontend >80% coverage)
-- [ ] Security validation passes
-- [ ] No hardcoded credentials or secrets
-- [ ] Environment variables used for configuration
-- [ ] Health checks verify actual connectivity
-- [ ] Error handling doesn't expose sensitive data
-- [ ] Rate limiting appropriate for new endpoints
-- [ ] Documentation updated
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-- **Documentation**: Check this README first
-- **Issues**: Create GitHub issue with logs
-- **Discussions**: GitHub Discussions for questions
-
----
-
-**Happy Racing! 🏁**
+## Dependencies
+
+- **SQLAlchemy 2.0+**: ORM and database toolkit
+- **Alembic**: Database migration management
+- **psycopg2**: PostgreSQL database adapter
+- **FastAPI**: Modern Python web framework for API endpoints
+- **Pydantic**: Data validation and serialization
+- **Redis**: Caching and session management
+- **Security**: JWT authentication, bcrypt password hashing
+- **Testing**: Comprehensive test suite with >80% coverage requirement
+
+## Contributing
+
+This is a comprehensive F1 prediction analytics system combining advanced database modeling with Docker containerization and enterprise security practices. Future development will focus on ML pipeline enhancements and advanced analytics features.

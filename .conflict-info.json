@@ -1,11 +1,15 @@
 {
-  "prNumber": 47,
+  "prNumber": 160,
   "baseBranch": "main",
-  "headBranch": "feature/4-simple-spaghetti-website-sprint-1-issue-4",
+  "headBranch": "feature/141-f1-prediction-analytics-sprint-1-issue-141",
   "conflictedFiles": [
-    ".claude-output.json",
-    ".pr-number",
-    "index.html"
+    ".review-feedback.txt",
+    "f1-analytics/README.md",
+    "f1-analytics/backend/app/__init__.py",
+    "f1-analytics/backend/app/main.py",
+    "f1-analytics/backend/requirements.txt",
+    "f1-analytics/backend/tests/__init__.py",
+    "f1-analytics/backend/tests/conftest.py"
   ],
-  "conflictCount": 3
+  "conflictCount": 7
 }

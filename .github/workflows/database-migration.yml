@@ -1,0 +1,584 @@
+name: Database Migration
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'api/alembic/**'
+      - 'f1-analytics/backend/alembic/**'
+      - '**/models.py'
+      - '**/models/**'
+
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to migrate'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      migration_direction:
+        description: 'Migration direction'
+        required: true
+        default: 'upgrade'
+        type: choice
+        options:
+        - upgrade
+        - downgrade
+      target_revision:
+        description: 'Target revision (for upgrade/downgrade)'
+        required: false
+        default: 'head'
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # Validate migration scripts
+  validate-migrations:
+    name: Validate Migration Scripts
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: migration_test
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install alembic psycopg2-binary sqlalchemy
+        pip install -r requirements.txt
+
+    - name: Validate existing API migrations
+      if: ${{ hashFiles('api/alembic/**') != '' }}
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/migration_test
+      run: |
+        cd api
+
+        # Check migration syntax
+        alembic check
+
+        # Test migrations on clean database
+        alembic upgrade head
+
+        # Test downgrade
+        alembic downgrade -1
+
+        # Test upgrade again
+        alembic upgrade head
+
+        echo "✅ API migrations validated successfully"
+
+    - name: Validate F1 Analytics migrations
+      if: ${{ hashFiles('f1-analytics/backend/alembic/**') != '' }}
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/migration_test
+      run: |
+        cd f1-analytics/backend
+
+        # Check migration syntax
+        alembic check || echo "F1 analytics migrations not ready yet"
+
+        # Test migrations on clean database
+        alembic upgrade head || echo "F1 analytics migrations not ready yet"
+
+        echo "✅ F1 Analytics migrations validated"
+
+    - name: Test migration rollback safety
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/migration_test
+      run: |
+        # Test that we can rollback without data loss
+        if [ -d "api/alembic" ]; then
+          cd api
+
+          # Create some test data
+          python -c "
+import psycopg2
+conn = psycopg2.connect('postgresql://test_user:test_password@localhost:5432/migration_test')
+cur = conn.cursor()
+cur.execute('INSERT INTO users (email, password_hash) VALUES (%s, %s)', ('test@example.com', 'hash123'))
+conn.commit()
+conn.close()
+print('Test data inserted')
+" || echo "No users table yet"
+
+          # Test rollback
+          CURRENT_REV=$(alembic current | cut -d' ' -f1)
+          if [ -n "$CURRENT_REV" ]; then
+            alembic downgrade -1
+            alembic upgrade head
+          fi
+        fi
+
+    - name: Generate migration report
+      run: |
+        echo "## Migration Validation Report" > migration_report.md
+        echo "**Date:** $(date)" >> migration_report.md
+        echo "**Commit:** ${{ github.sha }}" >> migration_report.md
+        echo "" >> migration_report.md
+
+        if [ -d "api/alembic" ]; then
+          cd api
+          echo "### API Migrations" >> ../migration_report.md
+          alembic history --verbose >> ../migration_report.md
+          cd ..
+        fi
+
+        if [ -d "f1-analytics/backend/alembic" ]; then
+          cd f1-analytics/backend
+          echo "### F1 Analytics Migrations" >> ../../migration_report.md
+          alembic history --verbose >> ../../migration_report.md || echo "No history available" >> ../../migration_report.md
+          cd ../..
+        fi
+
+    - name: Upload migration report
+      uses: actions/upload-artifact@v3
+      with:
+        name: migration-report
+        path: migration_report.md
+        retention-days: 30
+
+  # Backup databases before migration
+  backup-databases:
+    name: Backup Databases
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Create staging database snapshot
+      if: ${{ github.event.inputs.environment == 'staging' || github.event.inputs.environment == '' }}
+      run: |
+        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+        SNAPSHOT_ID="staging-pre-migration-$TIMESTAMP"
+
+        aws rds create-db-snapshot \
+          --db-instance-identifier f1-analytics-staging \
+          --db-snapshot-identifier $SNAPSHOT_ID
+
+        echo "STAGING_SNAPSHOT_ID=$SNAPSHOT_ID" >> $GITHUB_ENV
+
+        # Wait for snapshot to complete
+        aws rds wait db-snapshot-completed \
+          --db-snapshot-identifier $SNAPSHOT_ID
+
+    - name: Create production database snapshot
+      if: ${{ github.event.inputs.environment == 'production' }}
+      run: |
+        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+        SNAPSHOT_ID="production-pre-migration-$TIMESTAMP"
+
+        aws rds create-db-snapshot \
+          --db-instance-identifier f1-analytics-production \
+          --db-snapshot-identifier $SNAPSHOT_ID
+
+        echo "PRODUCTION_SNAPSHOT_ID=$SNAPSHOT_ID" >> $GITHUB_ENV
+
+        # Wait for snapshot to complete (production snapshots are critical)
+        timeout 1800 aws rds wait db-snapshot-completed \
+          --db-snapshot-identifier $SNAPSHOT_ID
+
+    - name: Verify backups
+      run: |
+        if [ -n "$STAGING_SNAPSHOT_ID" ]; then
+          aws rds describe-db-snapshots --db-snapshot-identifier $STAGING_SNAPSHOT_ID
+        fi
+
+        if [ -n "$PRODUCTION_SNAPSHOT_ID" ]; then
+          aws rds describe-db-snapshots --db-snapshot-identifier $PRODUCTION_SNAPSHOT_ID
+        fi
+
+  # Run migrations on staging
+  migrate-staging:
+    name: Migrate Staging Database
+    runs-on: ubuntu-latest
+    needs: [validate-migrations, backup-databases]
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    environment:
+      name: staging
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install alembic psycopg2-binary
+        pip install -r requirements.txt
+
+    - name: Run API migrations on staging
+      if: ${{ hashFiles('api/alembic/**') != '' }}
+      env:
+        DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+      run: |
+        cd api
+
+        # Show current revision
+        echo "Current revision:"
+        alembic current
+
+        # Show pending migrations
+        echo "Pending migrations:"
+        alembic heads
+
+        # Run migrations
+        if [ "${{ github.event.inputs.migration_direction }}" = "downgrade" ]; then
+          alembic downgrade ${{ github.event.inputs.target_revision }}
+        else
+          alembic upgrade ${{ github.event.inputs.target_revision }}
+        fi
+
+        # Show final revision
+        echo "Final revision:"
+        alembic current
+
+    - name: Run F1 Analytics migrations on staging
+      if: ${{ hashFiles('f1-analytics/backend/alembic/**') != '' }}
+      env:
+        DATABASE_URL: ${{ secrets.STAGING_F1_DATABASE_URL }}
+      run: |
+        cd f1-analytics/backend
+
+        # Show current revision
+        alembic current || echo "No current revision (new database)"
+
+        # Run migrations
+        if [ "${{ github.event.inputs.migration_direction }}" = "downgrade" ]; then
+          alembic downgrade ${{ github.event.inputs.target_revision }}
+        else
+          alembic upgrade ${{ github.event.inputs.target_revision }}
+        fi
+
+        # Show final revision
+        alembic current
+
+    - name: Validate staging database schema
+      env:
+        DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+      run: |
+        # Test database connectivity and basic schema validation
+        python -c "
+import psycopg2
+import sys
+try:
+    conn = psycopg2.connect('${{ secrets.STAGING_DATABASE_URL }}')
+    cur = conn.cursor()
+
+    # Check that key tables exist
+    cur.execute(\"SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'\")
+    tables = [row[0] for row in cur.fetchall()]
+
+    expected_tables = ['users', 'alembic_version']
+    missing_tables = [table for table in expected_tables if table not in tables]
+
+    if missing_tables:
+        print(f'Missing tables: {missing_tables}')
+        sys.exit(1)
+
+    print('Database schema validation passed')
+    print(f'Tables found: {len(tables)}')
+
+    conn.close()
+except Exception as e:
+    print(f'Database validation failed: {e}')
+    sys.exit(1)
+"
+
+    - name: Run post-migration tests
+      env:
+        DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+      run: |
+        # Run a subset of tests to ensure migrations didn't break anything
+        if [ -f "test_voting_implementation.py" ]; then
+          python test_voting_implementation.py || echo "Some tests failed, but migration completed"
+        fi
+
+        echo "Post-migration validation completed"
+
+  # Run migrations on production (manual approval required)
+  migrate-production:
+    name: Migrate Production Database
+    runs-on: ubuntu-latest
+    needs: [validate-migrations, backup-databases, migrate-staging]
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
+    environment:
+      name: production
+
+    steps:
+    - name: Pre-migration safety checks
+      run: |
+        # Only allow migrations during maintenance window
+        current_hour=$(date -u +%H)
+        day_of_week=$(date -u +%u)
+
+        echo "Current time: $(date -u)"
+        echo "Hour: $current_hour, Day of week: $day_of_week"
+
+        # Allow migrations only during low-traffic hours (2-6 AM UTC) on weekdays
+        if [ $day_of_week -gt 5 ]; then
+          echo "❌ Weekend migrations not allowed"
+          exit 1
+        fi
+
+        if [ $current_hour -lt 2 ] || [ $current_hour -gt 6 ]; then
+          echo "⚠️ Migration outside maintenance window (2-6 AM UTC)"
+          echo "Current hour: $current_hour UTC"
+          # Don't fail, but warn
+        fi
+
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install alembic psycopg2-binary
+        pip install -r requirements.txt
+
+    - name: Enable maintenance mode
+      run: |
+        # Update load balancer or API gateway to serve maintenance page
+        echo "🚧 Enabling maintenance mode"
+
+        # This would typically update an ELB target group or API Gateway
+        # For now, just log the action
+        echo "Maintenance mode would be enabled here"
+
+    - name: Run API migrations on production
+      if: ${{ hashFiles('api/alembic/**') != '' }}
+      env:
+        DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+      run: |
+        cd api
+
+        # Show current state
+        echo "=== PRODUCTION DATABASE MIGRATION ==="
+        echo "Current revision:"
+        alembic current
+
+        echo "Target revision: ${{ github.event.inputs.target_revision }}"
+
+        # Double confirmation for production
+        echo "Proceeding with production migration in 10 seconds..."
+        sleep 10
+
+        # Run migration with verbose output
+        if [ "${{ github.event.inputs.migration_direction }}" = "downgrade" ]; then
+          echo "Running DOWNGRADE to ${{ github.event.inputs.target_revision }}"
+          alembic downgrade ${{ github.event.inputs.target_revision }}
+        else
+          echo "Running UPGRADE to ${{ github.event.inputs.target_revision }}"
+          alembic upgrade ${{ github.event.inputs.target_revision }}
+        fi
+
+        echo "Final revision:"
+        alembic current
+
+    - name: Run F1 Analytics migrations on production
+      if: ${{ hashFiles('f1-analytics/backend/alembic/**') != '' }}
+      env:
+        DATABASE_URL: ${{ secrets.PRODUCTION_F1_DATABASE_URL }}
+      run: |
+        cd f1-analytics/backend
+
+        echo "=== F1 ANALYTICS PRODUCTION MIGRATION ==="
+        alembic current || echo "New F1 Analytics database"
+
+        if [ "${{ github.event.inputs.migration_direction }}" = "downgrade" ]; then
+          alembic downgrade ${{ github.event.inputs.target_revision }}
+        else
+          alembic upgrade ${{ github.event.inputs.target_revision }}
+        fi
+
+        alembic current
+
+    - name: Validate production database
+      env:
+        DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+      run: |
+        # Critical validation for production
+        python -c "
+import psycopg2
+import sys
+try:
+    conn = psycopg2.connect('${{ secrets.PRODUCTION_DATABASE_URL }}')
+    cur = conn.cursor()
+
+    # Test basic functionality
+    cur.execute('SELECT COUNT(*) FROM users')
+    user_count = cur.fetchone()[0]
+    print(f'Users table has {user_count} records')
+
+    # Verify Alembic version
+    cur.execute('SELECT version_num FROM alembic_version')
+    current_version = cur.fetchone()[0]
+    print(f'Current Alembic version: {current_version}')
+
+    conn.close()
+    print('✅ Production database validation passed')
+
+except Exception as e:
+    print(f'❌ Production database validation failed: {e}')
+    sys.exit(1)
+"
+
+    - name: Disable maintenance mode
+      if: always()
+      run: |
+        # Re-enable normal traffic
+        echo "✅ Disabling maintenance mode"
+        echo "Traffic would be restored here"
+
+    - name: Post-migration monitoring
+      run: |
+        # Send alerts to monitoring systems
+        curl -X POST "https://api.datadoghq.com/api/v1/events" \
+          -H "DD-API-KEY: ${{ secrets.DATADOG_API_KEY }}" \
+          -d '{
+            "title": "Database Migration - Production",
+            "text": "Production database migration completed successfully",
+            "tags": ["migration", "production", "database"],
+            "alert_type": "info"
+          }' || echo "Monitoring notification failed"
+
+    - name: Notify migration completion
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.repos.createCommitComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            commit_sha: context.sha,
+            body: '🗄️ **Production Database Migration Completed**\n\n✅ Migrations applied successfully\n✅ Database validation passed\n✅ Maintenance mode disabled\n\n⚠️ Monitor application performance for the next hour'
+          });
+
+  # Rollback procedure
+  rollback-migration:
+    name: Emergency Migration Rollback
+    runs-on: ubuntu-latest
+    if: failure() && (needs.migrate-staging.result == 'failure' || needs.migrate-production.result == 'failure')
+    needs: [migrate-staging, migrate-production]
+
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Identify backup to restore
+      run: |
+        # Find the most recent pre-migration snapshot
+        if [ "${{ needs.migrate-production.result }}" = "failure" ]; then
+          TARGET_DB="f1-analytics-production"
+          ENVIRONMENT="production"
+        else
+          TARGET_DB="f1-analytics-staging"
+          ENVIRONMENT="staging"
+        fi
+
+        SNAPSHOT=$(aws rds describe-db-snapshots \
+          --db-instance-identifier $TARGET_DB \
+          --query 'DBSnapshots[?starts_with(DBSnapshotIdentifier, `'${ENVIRONMENT}'-pre-migration`)].DBSnapshotIdentifier' \
+          --output text | head -1)
+
+        echo "TARGET_DB=$TARGET_DB" >> $GITHUB_ENV
+        echo "SNAPSHOT_ID=$SNAPSHOT" >> $GITHUB_ENV
+
+    - name: Emergency database restore
+      if: ${{ env.SNAPSHOT_ID != '' }}
+      run: |
+        echo "🚨 EMERGENCY: Restoring database from snapshot $SNAPSHOT_ID"
+
+        # This is a destructive operation - restore from snapshot
+        # In a real scenario, this might involve creating a new instance
+        # and switching connection strings
+
+        echo "Database restore would be initiated here"
+        echo "Snapshot: $SNAPSHOT_ID"
+        echo "Target: $TARGET_DB"
+
+    - name: Notify emergency rollback
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.repos.createCommitComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            commit_sha: context.sha,
+            body: '🚨 **EMERGENCY MIGRATION ROLLBACK**\n\n❌ Database migration failed\n🔄 Database restore initiated\n🚨 **MANUAL INTERVENTION REQUIRED**\n\nCheck database status and application health immediately.'
+          });
+
+  # Cleanup old snapshots
+  cleanup:
+    name: Cleanup Old Snapshots
+    runs-on: ubuntu-latest
+    needs: [migrate-staging, migrate-production]
+    if: success() && (needs.migrate-staging.result == 'success' || needs.migrate-production.result == 'success')
+
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Clean up old migration snapshots
+      run: |
+        # Keep only the last 5 migration snapshots per environment
+        for env in staging production; do
+          echo "Cleaning up $env snapshots..."
+
+          aws rds describe-db-snapshots \
+            --query "DBSnapshots[?starts_with(DBSnapshotIdentifier, '${env}-pre-migration')].DBSnapshotIdentifier" \
+            --output text | tr '\t' '\n' | sort -r | tail -n +6 | while read snapshot; do
+
+            if [ -n "$snapshot" ]; then
+              echo "Deleting old snapshot: $snapshot"
+              aws rds delete-db-snapshot --db-snapshot-identifier "$snapshot" || echo "Failed to delete $snapshot"
+            fi
+          done
+        done

@@ -1,6 +1,9 @@
 """
-F1 Analytics Backend API
-FastAPI application entry point with health checks and basic routing.
+F1 Analytics Backend API - Main FastAPI application.
+
+This module combines comprehensive security features with clean database modeling
+for Formula 1 prediction analytics. It includes health checks, middleware setup,
+and basic API routing with placeholder endpoints for future development.
 """
 
 import os
@@ -15,21 +18,28 @@ from typing import Dict, Any
 from datetime import datetime
 import psycopg2
 import redis
-from core.exceptions import configure_exception_handlers, DatabaseConnectionError, RedisConnectionError
-from core.middleware import setup_middleware
-from core.config import get_settings
+
+# Import database setup
+from app.config import app_config
+from app.database import create_tables
+
+# Import all models to ensure they are registered
+from app.models import *  # noqa: F401, F403
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Import security validation
+# Import security validation (if available)
 try:
     from core.security import validate_environment_security
+    from core.exceptions import configure_exception_handlers, DatabaseConnectionError, RedisConnectionError
+    from core.middleware import setup_middleware
+    from core.config import get_settings
     SECURITY_MODULE_AVAILABLE = True
 except ImportError:
     SECURITY_MODULE_AVAILABLE = False
-    logger.warning("Security module not available - security validation disabled")
+    logger.warning("Security module not available - using basic configuration")
 
 
 @asynccontextmanager
@@ -38,7 +48,11 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting F1 Analytics Backend API...")
 
-    # Validate security configuration on startup
+    # Create database tables on startup (for development)
+    if app_config.DEBUG:
+        create_tables()
+
+    # Validate security configuration on startup (if available)
     if SECURITY_MODULE_AVAILABLE:
         security_results = validate_environment_security()
         if security_results["issues"]:
@@ -57,25 +71,27 @@ async def lifespan(app: FastAPI):
 # Create FastAPI application
 app = FastAPI(
     title="F1 Analytics API",
-    description="Formula One Prediction Analytics Backend",
+    description="Formula 1 Prediction Analytics API - Advanced ML-powered race predictions with enterprise security",
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url="/docs" if app_config.DEBUG else None,
+    redoc_url="/redoc" if app_config.DEBUG else None,
     openapi_url="/openapi.json",
     lifespan=lifespan,
 )
 
-# Configure exception handlers
-configure_exception_handlers(app)
+# Configure exception handlers and middleware if security module available
+if SECURITY_MODULE_AVAILABLE:
+    configure_exception_handlers(app)
+    settings = get_settings()
+    setup_middleware(app, settings)
+    cors_origins = settings.cors_origins
+else:
+    cors_origins = app_config.CORS_ORIGINS if not app_config.DEBUG else ["*"]
 
-# Setup comprehensive middleware (security headers, rate limiting, logging)
-settings = get_settings()
-setup_middleware(app, settings)
-
-# Configure CORS - use environment-based origins from settings
+# Configure CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
@@ -89,15 +105,16 @@ async def root() -> Dict[str, Any]:
         "message": "F1 Analytics API",
         "version": "1.0.0",
         "description": "Formula One Prediction Analytics Backend",
-        "docs": "/docs",
+        "docs": "/docs" if app_config.DEBUG else None,
         "health": "/health",
+        "status": "operational"
     }
 
 
 async def check_database_connectivity() -> bool:
     """Check PostgreSQL database connectivity."""
     try:
-        database_url = os.getenv("DATABASE_URL")
+        database_url = os.getenv("DATABASE_URL") or str(app_config.DATABASE_URL)
         if not database_url:
             logger.warning("DATABASE_URL not configured")
             return False
@@ -195,7 +212,7 @@ async def health_check() -> Dict[str, Any]:
         if not redis_healthy:
             health_status = "unhealthy"
 
-        # Check security configuration
+        # Check security configuration (if available)
         if SECURITY_MODULE_AVAILABLE:
             security_results = validate_environment_security()
             checks["security"] = "ok" if not security_results["issues"] else "warning"
@@ -209,7 +226,7 @@ async def health_check() -> Dict[str, Any]:
             "service": "f1-analytics-backend",
             "version": "1.0.0",
             "timestamp": timestamp,
-            "environment": os.getenv("ENVIRONMENT", "unknown"),
+            "environment": os.getenv("ENVIRONMENT", "development"),
             "checks": checks
         }
 
@@ -256,7 +273,7 @@ async def api_info() -> Dict[str, Any]:
 
 
 # Placeholder routes for F1 Analytics features
-# These would be implemented in separate route modules
+# These will be moved to separate route modules in future sprints
 
 @app.get("/api/v1/predictions/next-race")
 async def get_next_race_predictions():
@@ -350,13 +367,20 @@ async def get_driver_rankings():
     }
 
 
+# Note: Additional route modules will be added in future sprints:
+# - Authentication routes (/api/v1/auth)
+# - Race data routes (/api/v1/races)
+# - Prediction routes (/api/v1/predictions)
+# - Analytics routes (/api/v1/analytics)
+# - Export routes (/api/v1/export)
+
 if __name__ == "__main__":
     # This is for development only
     # In production, use uvicorn command from Dockerfile
     uvicorn.run(
-        "main:app",
+        "app.main:app",
         host="0.0.0.0",
         port=8000,
-        reload=True,
-        log_level="info"
+        reload=app_config.DEBUG,
+        log_level="debug" if app_config.DEBUG else "info",
     )

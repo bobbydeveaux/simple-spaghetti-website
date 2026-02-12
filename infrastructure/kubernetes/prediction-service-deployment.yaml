@@ -1,0 +1,327 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: prediction-service
+  namespace: f1-analytics
+  labels:
+    app: prediction-service
+    component: ml-service
+    tier: analytics
+spec:
+  selector:
+    app: prediction-service
+  ports:
+  - port: 8001
+    targetPort: 8001
+    name: http
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prediction-service
+  namespace: f1-analytics
+  labels:
+    app: prediction-service
+    component: ml-service
+    tier: analytics
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: prediction-service
+  template:
+    metadata:
+      labels:
+        app: prediction-service
+        component: ml-service
+        tier: analytics
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9091"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: prediction-service
+        image: f1-analytics/prediction-service:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8001
+          name: http
+        - containerPort: 9091
+          name: metrics
+        env:
+        # Database Configuration
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: database-url
+        - name: DB_HOST
+          value: "postgres-read"  # Use read replica for ML queries
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_NAME
+          value: "f1_analytics"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: password
+
+        # Redis Configuration
+        - name: REDIS_URL
+          value: "redis://redis-service:6379/1"  # Use database 1 for ML cache
+        - name: REDIS_HOST
+          value: "redis-service"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-secret
+              key: password
+
+        # ML Model Configuration
+        - name: MODEL_STORAGE_TYPE
+          value: "s3"
+        - name: MODEL_S3_BUCKET
+          valueFrom:
+            secretKeyRef:
+              name: aws-secrets
+              key: model-bucket-name
+        - name: MODEL_S3_PREFIX
+          value: "models/production/"
+        - name: MODEL_CACHE_PATH
+          value: "/app/models"
+        - name: MODEL_RELOAD_INTERVAL
+          value: "3600"  # 1 hour
+
+        # AWS Configuration
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: aws-secrets
+              key: access-key-id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: aws-secrets
+              key: secret-access-key
+        - name: AWS_REGION
+          value: "us-west-2"
+
+        # Feature Engineering Configuration
+        - name: FEATURE_CACHE_TTL
+          value: "86400"  # 24 hours
+        - name: ELO_UPDATE_INTERVAL
+          value: "3600"   # 1 hour
+        - name: WEATHER_CACHE_TTL
+          value: "1800"   # 30 minutes
+
+        # Prediction Configuration
+        - name: PREDICTION_MODELS
+          value: "random_forest,xgboost,elo_rating"
+        - name: ENSEMBLE_WEIGHTS
+          value: "0.4,0.4,0.2"  # RF, XGB, ELO
+        - name: PREDICTION_CONFIDENCE_THRESHOLD
+          value: "0.1"
+        - name: MAX_PREDICTION_AGE_HOURS
+          value: "8"
+
+        # Performance Configuration
+        - name: BATCH_SIZE
+          value: "1000"
+        - name: MAX_WORKERS
+          value: "4"
+        - name: INFERENCE_TIMEOUT
+          value: "30"
+        - name: MODEL_MEMORY_LIMIT
+          value: "1500"  # MB
+
+        # Logging and Monitoring
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: PROMETHEUS_METRICS_ENABLED
+          value: "true"
+        - name: METRICS_PORT
+          value: "9091"
+        - name: MODEL_METRICS_ENABLED
+          value: "true"
+
+        # Application Configuration
+        - name: SERVICE_PORT
+          value: "8001"
+        - name: ENVIRONMENT
+          value: "production"
+        - name: API_VERSION
+          value: "v1"
+
+        # Health Check Configuration
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 60  # ML models take time to load
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8001
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        # Resource Management (Higher for ML workloads)
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+
+        # Security Context
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false  # ML models need write access for temporary files
+          capabilities:
+            drop:
+            - ALL
+
+        # Volume Mounts
+        volumeMounts:
+        - name: model-cache
+          mountPath: /app/models
+        - name: tmp
+          mountPath: /tmp
+        - name: feature-cache
+          mountPath: /app/cache
+
+      volumes:
+      - name: model-cache
+        persistentVolumeClaim:
+          claimName: model-cache-pvc
+      - name: tmp
+        emptyDir: {}
+      - name: feature-cache
+        emptyDir:
+          sizeLimit: 1Gi
+
+      # Pod Security
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+
+      # Scheduling and Affinity
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - prediction-service
+              topologyKey: kubernetes.io/hostname
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: node-type
+                operator: In
+                values:
+                - compute-optimized  # Prefer compute-optimized nodes for ML
+
+      # Tolerations for ML workloads
+      tolerations:
+      - key: "f1-analytics"
+        operator: "Equal"
+        value: "ml"
+        effect: "NoSchedule"
+---
+# Persistent Volume Claim for ML Model Cache
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-cache-pvc
+  namespace: f1-analytics
+  labels:
+    app: prediction-service
+    component: ml-service
+spec:
+  accessModes:
+    - ReadWriteMany  # Multiple pods can share model cache
+  storageClassName: fast-ssd
+  resources:
+    requests:
+      storage: 10Gi
+---
+# Horizontal Pod Autoscaler for Prediction Service
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: prediction-service-hpa
+  namespace: f1-analytics
+  labels:
+    app: prediction-service
+    component: ml-service
+    tier: analytics
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: prediction-service
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 75
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 85
+  # Custom metrics for ML inference latency
+  - type: Pods
+    pods:
+      metric:
+        name: ml_inference_latency_p95
+      target:
+        type: AverageValue
+        averageValue: "2000m"  # 2 seconds
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 600  # 10 minutes - ML services need more time
+      policies:
+      - type: Percent
+        value: 25
+        periodSeconds: 120
+    scaleUp:
+      stabilizationWindowSeconds: 120
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+      - type: Pods
+        value: 1
+        periodSeconds: 60
+      selectPolicy: Max

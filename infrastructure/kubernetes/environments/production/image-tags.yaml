@@ -1,0 +1,29 @@
+# Production Image Tag Configuration
+# This defines specific image tags for production deployments
+# Avoid using 'latest' tags in production for better reproducibility
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: image-tags
+  namespace: f1-analytics
+  labels:
+    app: f1-analytics
+    component: image-configuration
+    environment: production
+data:
+  # Application Images - REPLACE with your actual image tags
+  API_GATEWAY_TAG: "1.0.0"           # f1-analytics/api-gateway:1.0.0
+  FRONTEND_TAG: "1.0.0"              # f1-analytics/frontend:1.0.0
+  PREDICTION_SERVICE_TAG: "1.0.0"    # f1-analytics/prediction-service:1.0.0
+  AIRFLOW_TAG: "2.7.3-python3.11"    # f1-analytics/airflow:2.7.3-python3.11
+
+  # Base Images (use specific versions)
+  POSTGRES_TAG: "15.4-alpine"        # postgres:15.4-alpine
+  REDIS_TAG: "7.2.3-alpine"          # redis:7.2.3-alpine
+  NGINX_TAG: "1.25.3-alpine"         # nginx:1.25.3-alpine
+
+  # Monitoring Images
+  PROMETHEUS_TAG: "v2.47.2"          # prom/prometheus:v2.47.2
+  GRAFANA_TAG: "10.2.0"              # grafana/grafana:10.2.0
+  NODE_EXPORTER_TAG: "v1.6.1"        # prom/node-exporter:v1.6.1
+  STATSD_EXPORTER_TAG: "v0.24.0"     # prom/statsd-exporter:v0.24.0
