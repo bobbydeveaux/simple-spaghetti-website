@@ -24,7 +24,7 @@ This project contains a single `index.html` file that demonstrates a basic HTML5
 ├── index.html         # Main website file
 └── docs/              # Design and planning documents
     └── plans/
-        └── simple-spaghetti-website/
+        └── test-pizza-page/
             ├── PRD.md     # Product Requirements Document
             ├── HLD.md     # High-Level Design
             └── LLD.md     # Low-Level Design
