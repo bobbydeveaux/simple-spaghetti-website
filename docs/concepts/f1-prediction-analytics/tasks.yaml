@@ -1,789 +1,771 @@
-GeneratedAt: "2026-02-12T15:32:09Z"
+GeneratedAt: "2026-02-12T22:58:50Z"
 Plan: f1-prediction-analytics-plan
 Sprints:
 - Features:
   - FeatureID: f1-prediction-analytics-feat-database-schema
-    FeatureTitle: Database Schema Setup
+    FeatureTitle: Database Schema and Models
     Tasks:
     - AcceptanceCriteria:
-      - All four models (Driver, Team, Circuit, Race) are implemented with complete
-        field definitions
-      - Foreign key relationships and indexes are properly defined
-      - Models include __repr__ methods and table constraints
-      AgentType: backend-engineer
-      Dependencies: []
-      Description: Implement SQLAlchemy ORM models for drivers, teams, circuits, and
-        races tables. Define all columns, relationships, constraints, and indexes.
-        Include proper type hints and docstrings for each model class.
-      EstimatedEffort: M
-      Files:
-      - f1-analytics/backend/app/models/driver.py
-      - f1-analytics/backend/app/models/team.py
-      - f1-analytics/backend/app/models/circuit.py
-      - f1-analytics/backend/app/models/race.py
-      ID: task-f1-prediction-analytics-feat-database-schema-1
-      Title: Create SQLAlchemy models for core F1 entities
-    - AcceptanceCriteria:
-      - RaceResult, QualifyingResult, and WeatherData models are complete with all
+      - Migration 002 creates elo_rating and model_metadata tables with all required
         fields
-      - Table partitioning is configured for race_results using declarative syntax
-      - Foreign key relationships to races, drivers, and teams are properly established
+      - SQLAlchemy models map correctly to database schema with relationships
+      - Migration can be applied and rolled back successfully
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Implement Alembic migration 002 to add ELO ratings and model metadata
+        tables. Create corresponding SQLAlchemy models for elo_rating and model with
+        proper relationships, indexes, and constraints. Include timestamp tracking
+        and versioning fields.
+      EstimatedEffort: M
+      Files:
+      - f1-analytics/backend/alembic/versions/002_add_elo_and_model_tables.py
+      - f1-analytics/backend/app/models/elo_rating.py
+      - f1-analytics/backend/app/models/model.py
+      ID: task-f1-prediction-analytics-feat-database-schema-1
+      Title: Create ELO and model metadata tables with migrations
+    - AcceptanceCriteria:
+      - Migration 003 creates driver_standings and constructor_standings tables
+      - Foreign key constraints properly link to races, drivers, and constructors
+      - SQLAlchemy models support querying current and historical standings
       AgentType: backend-engineer
       Dependencies:
       - task-f1-prediction-analytics-feat-database-schema-1
-      Description: Implement SQLAlchemy ORM models for race_results, qualifying_results,
-        and weather_data tables. Configure table partitioning for race_results by
-        season. Define composite indexes for performance optimization and establish
-        relationships with core entity models.
+      Description: Implement Alembic migration 003 to add driver and constructor standings
+        tables with foreign key relationships to drivers, constructors, and races.
+        Create SQLAlchemy models with proper indexes for efficient querying by season
+        and round.
       EstimatedEffort: M
       Files:
-      - f1-analytics/backend/app/models/race_result.py
-      - f1-analytics/backend/app/models/qualifying_result.py
-      - f1-analytics/backend/app/models/weather_data.py
+      - f1-analytics/backend/alembic/versions/003_add_standing_tables.py
+      - f1-analytics/backend/app/models/constructor_standing.py
+      - f1-analytics/backend/app/models/driver_standing.py
       ID: task-f1-prediction-analytics-feat-database-schema-2
-      Title: Create SQLAlchemy models for results and weather data
-    - AcceptanceCriteria:
-      - Prediction, PredictionAccuracy, and User models are implemented with complete
-        schemas
-      - JSONB fields are properly configured for prediction data storage
-      - Indexes on race_id, created_at, and user_id are defined
-      AgentType: backend-engineer
-      Dependencies:
-      - task-f1-prediction-analytics-feat-database-schema-1
-      Description: Implement SQLAlchemy ORM models for predictions, prediction_accuracy,
-        and users tables. Include JSON fields for model predictions, timestamp tracking,
-        and user authentication fields. Define indexes for query optimization on prediction
-        lookups.
-      EstimatedEffort: M
-      Files:
-      - f1-analytics/backend/app/models/prediction.py
-      - f1-analytics/backend/app/models/prediction_accuracy.py
-      - f1-analytics/backend/app/models/user.py
-      ID: task-f1-prediction-analytics-feat-database-schema-3
-      Title: Create SQLAlchemy models for predictions and users
-    - AcceptanceCriteria:
-      - Migration creates all 10 tables with correct schemas and constraints
-      - Table partitioning for race_results is applied via DDL
-      - All indexes and materialized views are created in upgrade function
-      - Downgrade function properly drops all objects in reverse order
-      AgentType: backend-engineer
-      Dependencies:
-      - task-f1-prediction-analytics-feat-database-schema-2
-      - task-f1-prediction-analytics-feat-database-schema-3
-      Description: Implement Alembic migration script to create all database tables,
-        partitions, indexes, and materialized views. Include upgrade and downgrade
-        functions with proper DDL statements for table creation, partitioning setup,
-        and index creation. Add materialized views for aggregated prediction accuracy
-        metrics.
-      EstimatedEffort: L
-      Files:
-      - f1-analytics/backend/alembic/versions/001_initial_schema.py
-      ID: task-f1-prediction-analytics-feat-database-schema-4
-      Title: Create Alembic migration for initial schema
-    - AcceptanceCriteria:
-      - Database engine and session management are properly configured
-      - Environment-based configuration supports local and production settings
-      - FastAPI dependency provider yields database sessions with proper cleanup
-      - All models are imported in __init__.py for Alembic discovery
-      AgentType: backend-engineer
-      Dependencies: []
-      Description: Set up SQLAlchemy engine, session factory, and Base declarative
-        class. Implement database configuration management with environment variables.
-        Create dependency injection provider for FastAPI routes. Initialize all model
-        imports in models/__init__.py.
-      EstimatedEffort: S
-      Files:
-      - f1-analytics/backend/app/database.py
-      - f1-analytics/backend/app/config.py
-      - f1-analytics/backend/app/dependencies.py
-      - f1-analytics/backend/app/models/__init__.py
-      ID: task-f1-prediction-analytics-feat-database-schema-5
-      Title: Configure database connection and session management
-  - FeatureID: f1-prediction-analytics-feat-infrastructure
-    FeatureTitle: Infrastructure and Deployment
-    Tasks:
-    - AcceptanceCriteria:
-      - Backend and frontend Dockerfiles build successfully with multi-stage optimization
-      - docker-compose.yml starts all services (API, frontend, PostgreSQL, Redis,
-        Airflow) with proper networking
-      - Services can communicate with each other via container networking
-      - Health checks work for all services
-      AgentType: devops-engineer
-      Dependencies: []
-      Description: Implement Dockerfiles for backend and frontend services, along
-        with docker-compose configuration for local development. This includes multi-stage
-        builds for optimization, health checks, and volume mounts for development
-        workflow.
-      EstimatedEffort: M
-      Files:
-      - f1-analytics/backend/Dockerfile
-      - f1-analytics/frontend/Dockerfile
-      - f1-analytics/infrastructure/docker-compose.yml
-      ID: task-f1-prediction-analytics-feat-infrastructure-1
-      Title: Create Docker containers and local development environment
-    - AcceptanceCriteria:
-      - All deployment manifests apply successfully to a Kubernetes cluster
-      - StatefulSet for PostgreSQL maintains data persistence across pod restarts
-      - Services expose correct ports and can be accessed via cluster DNS
-      - Ingress configuration routes traffic correctly to frontend and API services
-      AgentType: devops-engineer
-      Dependencies:
-      - task-f1-prediction-analytics-feat-infrastructure-1
-      Description: Create Kubernetes manifests for all microservices including API
-        gateway, prediction service, frontend, and stateful services (PostgreSQL,
-        Redis, Airflow). Configure resource limits, replica counts, service discovery,
-        and readiness/liveness probes.
-      EstimatedEffort: L
-      Files:
-      - f1-analytics/infrastructure/kubernetes/api-gateway-deployment.yaml
-      - f1-analytics/infrastructure/kubernetes/prediction-service-deployment.yaml
-      - f1-analytics/infrastructure/kubernetes/frontend-deployment.yaml
-      - f1-analytics/infrastructure/kubernetes/postgres-statefulset.yaml
-      - f1-analytics/infrastructure/kubernetes/redis-deployment.yaml
-      - f1-analytics/infrastructure/kubernetes/airflow-deployment.yaml
-      - f1-analytics/infrastructure/kubernetes/ingress.yaml
-      ID: task-f1-prediction-analytics-feat-infrastructure-2
-      Title: Implement Kubernetes deployments and services
-    - AcceptanceCriteria:
-      - Terraform plan executes without errors and shows all required resources
-      - Terraform apply provisions EKS cluster with worker nodes
-      - RDS instance and ElastiCache cluster are provisioned in private subnets with
-        proper security groups
-      - S3 buckets are created with versioning and encryption enabled
-      AgentType: devops-engineer
-      Dependencies: []
-      Description: Create Terraform configuration for provisioning AWS resources including
-        EKS cluster, RDS PostgreSQL instance, ElastiCache Redis cluster, and S3 buckets.
-        Include VPC setup, security groups, IAM roles, and resource tagging for cost
-        management.
-      EstimatedEffort: L
-      Files:
-      - f1-analytics/infrastructure/terraform/main.tf
-      ID: task-f1-prediction-analytics-feat-infrastructure-3
-      Title: Implement Terraform infrastructure provisioning
-    - AcceptanceCriteria:
-      - CI workflow builds and tests all services on pull requests
-      - Docker images are built, tagged, and pushed to container registry automatically
-      - CD workflow deploys to staging environment on merge to main branch
-      - Production deployment requires manual approval and executes successfully
-      AgentType: devops-engineer
-      Dependencies:
-      - task-f1-prediction-analytics-feat-infrastructure-1
-      - task-f1-prediction-analytics-feat-infrastructure-2
-      Description: Create GitHub Actions workflows for continuous integration and
-        deployment. Include workflows for building Docker images, running tests, security
-        scanning, and deploying to Kubernetes. Implement staging and production deployment
-        strategies with approval gates.
-      EstimatedEffort: M
-      Files:
-      - .github/workflows/f1-analytics-ci.yml
-      - .github/workflows/f1-analytics-cd.yml
-      ID: task-f1-prediction-analytics-feat-infrastructure-4
-      Title: Implement CI/CD pipelines with GitHub Actions
-  Sprint: 1
-- Features:
+      Title: Create standings tables with migrations
   - FeatureID: f1-prediction-analytics-feat-data-ingestion
-    FeatureTitle: External Data Ingestion Pipeline
+    FeatureTitle: External API Data Ingestion
     Tasks:
     - AcceptanceCriteria:
-      - Ergast client successfully fetches race and qualifying data with retry on
-        failures
-      - Weather client retrieves historical and current weather data with API key
-        authentication
-      - Rate limiting prevents API quota exhaustion
-      - Unit tests validate error handling and response parsing
+      - Ergast client successfully fetches race results, qualifying data, and standings
+      - Weather client successfully retrieves historical weather data
+      - Retry logic handles transient failures with exponential backoff
+      - Rate limiting prevents API quota violations
       AgentType: backend-engineer
       Dependencies: []
-      Description: Create HTTP client wrappers for Ergast F1 API and OpenWeatherMap
-        API with rate limiting, retry logic, and error handling. Implement response
-        parsing and validation for race, qualifying, and weather data endpoints. Include
-        connection pooling and timeout configuration.
+      Description: Create Ergast API and OpenWeatherMap clients with rate limiting,
+        retry decorators, and error handling. Implement the retry utility module to
+        handle transient failures and respect API rate limits. Include basic request/response
+        handling and logging.
       EstimatedEffort: M
       Files:
-      - f1-analytics/backend/data_ingestion/ergast_client.py
-      - f1-analytics/backend/data_ingestion/weather_client.py
+      - f1-analytics/backend/app/services/ergast_client.py
+      - f1-analytics/backend/app/services/weather_client.py
+      - f1-analytics/backend/app/utils/retry.py
       ID: task-f1-prediction-analytics-feat-data-ingestion-1
-      Title: Implement API clients for Ergast and OpenWeatherMap
+      Title: Implement API clients with retry logic
     - AcceptanceCriteria:
-      - Raw API data transforms to match database schema (models/driver.py, models/race.py)
-      - Invalid data rejected with clear validation errors
-      - Missing optional fields populated with defaults or nulls
-      - Unit tests cover edge cases and malformed inputs
+      - Data importer successfully populates database with historical race results
+      - Qualifying data and standings are correctly imported and linked
+      - Weather data is associated with corresponding race events
+      - Import process handles duplicates and updates existing records
       AgentType: backend-engineer
       Dependencies:
       - task-f1-prediction-analytics-feat-data-ingestion-1
-      Description: Implement transformation functions to convert raw API responses
-        into database-ready formats. Add schema validation using Pydantic models,
-        data normalization (timestamps, units), and business rule validation (valid
-        driver IDs, circuit codes). Handle missing or malformed data gracefully with
-        logging.
+      Description: Create data importer service that orchestrates API calls and populates
+        database with historical data. Map API responses to database models (races,
+        drivers, constructors, results, weather). Handle data transformations, deduplication,
+        and bulk inserts efficiently.
       EstimatedEffort: M
       Files:
-      - f1-analytics/backend/data_ingestion/transform.py
+      - f1-analytics/backend/app/services/data_importer.py
       ID: task-f1-prediction-analytics-feat-data-ingestion-2
-      Title: Build data transformation and validation layer
+      Title: Implement data importer and orchestration
     - AcceptanceCriteria:
-      - Race ingestion fetches historical and new race data without duplicates
-      - Qualifying ingestion populates lap times and grid positions correctly
-      - Failed ingestion rolls back transactions without partial writes
-      - Scripts resume from last successful checkpoint on retry
+      - Celery tasks successfully execute data imports on schedule
+      - Incremental updates fetch only new or changed data
+      - Task failures are logged and retried appropriately
+      - Manual task triggering works for on-demand imports
       AgentType: backend-engineer
       Dependencies:
       - task-f1-prediction-analytics-feat-data-ingestion-2
-      Description: Create ETL scripts to orchestrate fetching, transforming, and persisting
-        race and qualifying data. Implement incremental loading with checkpointing,
-        duplicate detection, and transactional database writes. Add comprehensive
-        logging and metrics collection for monitoring pipeline health.
+      Description: Configure Celery application and create scheduled tasks for periodic
+        data imports. Implement tasks for incremental updates of race results, standings,
+        and weather data. Add task monitoring and error notification.
+      EstimatedEffort: M
+      Files:
+      - f1-analytics/backend/app/tasks/celery_app.py
+      - f1-analytics/backend/app/tasks/import_tasks.py
+      ID: task-f1-prediction-analytics-feat-data-ingestion-3
+      Title: Add Celery tasks for scheduled imports
+  - FeatureID: f1-prediction-analytics-feat-celery-tasks
+    FeatureTitle: Background Task Scheduling
+    Tasks:
+    - AcceptanceCriteria:
+      - Celery app initializes successfully with Redis broker connection
+      - Configuration supports both worker and beat scheduler modes
+      - Task autodiscovery is configured for import_tasks and training_tasks modules
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Set up Celery application with Redis broker configuration. Implement
+        celery_app.py with proper app initialization, task discovery, and beat scheduling
+        configuration. Configure broker/backend settings in celery_config.py including
+        retry policies and serialization.
+      EstimatedEffort: M
+      Files:
+      - f1-analytics/backend/app/tasks/celery_app.py
+      - f1-analytics/backend/app/core/celery_config.py
+      ID: task-f1-prediction-analytics-feat-celery-tasks-1
+      Title: Configure Celery application and broker
+    - AcceptanceCriteria:
+      - Scheduled task successfully imports post-race data from Ergast API
+      - Task handles failures with retry logic and logs errors appropriately
+      - Import task can be triggered manually and via beat schedule
+      AgentType: backend-engineer
+      Dependencies:
+      - task-f1-prediction-analytics-feat-celery-tasks-1
+      Description: Create Celery tasks for scheduled post-race data imports in import_tasks.py.
+        Implement tasks that orchestrate the data_importer service to fetch race results,
+        standings, and weather data. Include error handling, task retries, and logging
+        for import pipeline monitoring.
+      EstimatedEffort: M
+      Files:
+      - f1-analytics/backend/app/tasks/import_tasks.py
+      ID: task-f1-prediction-analytics-feat-celery-tasks-2
+      Title: Implement data import tasks
+    - AcceptanceCriteria:
+      - Training task successfully retrains models using latest data
+      - Task integrates with model_manager for versioning and persistence
+      - Training task includes pre-checks for sufficient data volume
+      - Task can be scheduled or triggered after successful imports
+      AgentType: backend-engineer
+      Dependencies:
+      - task-f1-prediction-analytics-feat-celery-tasks-1
+      - task-f1-prediction-analytics-feat-celery-tasks-2
+      Description: Create Celery tasks for automated model retraining in training_tasks.py.
+        Implement tasks that trigger model training after new data imports, handle
+        model versioning, and update active model references. Include validation checks
+        before deploying retrained models.
       EstimatedEffort: L
       Files:
-      - f1-analytics/backend/data_ingestion/ingest_races.py
-      - f1-analytics/backend/data_ingestion/ingest_qualifying.py
-      ID: task-f1-prediction-analytics-feat-data-ingestion-3
-      Title: Implement race and qualifying ingestion scripts
-    - AcceptanceCriteria:
-      - Weather data correctly associated with race events by location and time
-      - Historical weather backfilled for past races
-      - Current weather updates for upcoming race weekends
-      - Integration tests verify end-to-end weather ingestion workflow
-      AgentType: backend-engineer
-      Dependencies:
-      - task-f1-prediction-analytics-feat-data-ingestion-2
-      Description: Create weather ingestion script that fetches conditions for race
-        circuits by coordinates. Implement geospatial matching between circuits and
-        weather stations, historical weather backfilling, and current conditions polling.
-        Store temperature, humidity, wind speed, and precipitation data linked to
-        race events.
-      EstimatedEffort: M
-      Files:
-      - f1-analytics/backend/data_ingestion/ingest_weather.py
-      ID: task-f1-prediction-analytics-feat-data-ingestion-4
-      Title: Implement weather data ingestion with geospatial matching
-    - AcceptanceCriteria:
-      - DAG runs daily and orchestrates all ingestion tasks in correct order
-      - Failed tasks trigger alerts and automatic retries with exponential backoff
-      - Data quality validation tasks prevent bad data from propagating
-      - DAG execution history viewable in Airflow UI with clear success/failure status
-      AgentType: devops-engineer
-      Dependencies:
-      - task-f1-prediction-analytics-feat-data-ingestion-3
-      - task-f1-prediction-analytics-feat-data-ingestion-4
-      Description: Create Airflow DAG to orchestrate daily data ingestion with task
-        dependencies (races → qualifying → weather). Configure scheduling, alerting
-        on failures, and retry policies. Implement sensor tasks to detect new race
-        data availability before triggering ingestion. Add data quality checks as
-        validation tasks.
-      EstimatedEffort: M
-      Files:
-      - f1-analytics/backend/airflow/dags/daily_ingestion.py
-      ID: task-f1-prediction-analytics-feat-data-ingestion-5
-      Title: Build Airflow DAG for daily ingestion orchestration
-  - FeatureID: f1-prediction-analytics-feat-monitoring
-    FeatureTitle: Monitoring and Observability
-    Tasks:
-    - AcceptanceCriteria:
-      - Prometheus successfully scrapes metrics from all backend services
-      - Custom metrics for ML pipeline and API are exposed and collected
-      - Retention policy configured for 30 days of metrics storage
-      AgentType: devops-engineer
-      Dependencies: []
-      Description: Set up Prometheus configuration for scraping metrics from all F1
-        analytics services. Configure service discovery, scrape intervals, and retention
-        policies. Define custom metrics for ML pipeline stages, API endpoints, and
-        data ingestion processes.
-      EstimatedEffort: M
-      Files:
-      - f1-analytics/infrastructure/monitoring/prometheus-config.yaml
-      ID: task-f1-prediction-analytics-feat-monitoring-1
-      Title: Configure Prometheus metrics collection
-    - AcceptanceCriteria:
-      - System health dashboard displays CPU, memory, and service availability metrics
-      - ML pipeline dashboard shows training progress, model performance, and prediction
-        latency
-      - Dashboards load successfully and display real-time data from Prometheus
-      AgentType: devops-engineer
-      Dependencies:
-      - task-f1-prediction-analytics-feat-monitoring-1
-      Description: 'Build two Grafana dashboards: system health dashboard showing
-        service uptime, resource utilization, and error rates; ML pipeline dashboard
-        tracking model training metrics, prediction accuracy, and data processing
-        throughput. Use Prometheus as data source with appropriate queries and visualizations.'
-      EstimatedEffort: M
-      Files:
-      - f1-analytics/infrastructure/monitoring/grafana-dashboards/system-health.json
-      - f1-analytics/infrastructure/monitoring/grafana-dashboards/ml-pipeline.json
-      ID: task-f1-prediction-analytics-feat-monitoring-2
-      Title: Create Grafana dashboards
-    - AcceptanceCriteria:
-      - Critical alerts trigger for service failures and high error rates
-      - ML-specific alerts fire when model accuracy drops below threshold
-      - Alert routing and notification channels are properly configured
-      AgentType: devops-engineer
-      Dependencies:
-      - task-f1-prediction-analytics-feat-monitoring-1
-      Description: Define alerting rules for critical system conditions including
-        service downtime, high error rates, ML model degradation, and resource exhaustion.
-        Configure notification channels and alert routing policies with appropriate
-        severity levels and thresholds.
-      EstimatedEffort: S
-      Files:
-      - f1-analytics/infrastructure/monitoring/alertmanager-config.yaml
-      ID: task-f1-prediction-analytics-feat-monitoring-3
-      Title: Configure Alertmanager rules
-  - FeatureID: f1-prediction-analytics-feat-elo-rating
-    FeatureTitle: ELO Rating System
-    Tasks:
-    - AcceptanceCriteria:
-      - ELO ratings are correctly calculated based on race finishing positions
-      - Ratings are persisted to database after each race
-      - System handles new drivers/teams with initial ratings
-      - Unit tests verify ELO calculation accuracy and edge cases
-      AgentType: backend-engineer
-      Dependencies: []
-      Description: Create the ELO rating calculation system for drivers and teams.
-        Implement the core ELO algorithm with configurable K-factors, rating update
-        methods based on race positions, and persistence logic to save ratings after
-        each race completion. Include initialization for new drivers/teams and historical
-        rating retrieval.
-      EstimatedEffort: M
-      Files:
-      - f1-analytics/backend/ml/elo_calculator.py
-      ID: task-f1-prediction-analytics-feat-elo-rating-1
-      Title: Implement ELO rating calculator
-  Sprint: 2
-- Features:
+      - f1-analytics/backend/app/tasks/training_tasks.py
+      ID: task-f1-prediction-analytics-feat-celery-tasks-3
+      Title: Implement model training tasks
   - FeatureID: f1-prediction-analytics-feat-feature-engineering
-    FeatureTitle: ML Feature Engineering
+    FeatureTitle: Feature Engineering Pipeline
     Tasks:
     - AcceptanceCriteria:
-      - FeatureExtractor base class implements data loading and pipeline management
-      - Common utility functions for data preprocessing are available
-      - Module can be imported and instantiated without errors
+      - Driver performance features (avg finish position, points, DNF rate) calculated
+        correctly
+      - Constructor and circuit-specific features extracted from database
+      - Weather data integrated into feature matrix
+      - Feature extraction functions are unit tested
       AgentType: backend-engineer
       Dependencies: []
-      Description: Create the feature engineering module with base classes and utilities
-        for extracting features from historical data. Implement the core FeatureExtractor
-        class with methods for loading race data, managing feature pipelines, and
-        handling data transformations.
-      EstimatedEffort: M
+      Description: Build the core feature engineering pipeline that extracts driver
+        performance trends, constructor metrics, circuit-specific performance, and
+        weather features from raw database tables. Implement feature calculators for
+        rolling averages, historical performance, and comparative metrics.
+      EstimatedEffort: L
       Files:
-      - f1-analytics/backend/ml/feature_engineering.py
+      - f1-analytics/backend/app/ml/feature_engineering.py
       ID: task-f1-prediction-analytics-feat-feature-engineering-1
-      Title: Implement base feature extraction framework
+      Title: Implement feature extraction logic
     - AcceptanceCriteria:
-      - Driver form features calculate rolling averages over last N races
-      - Track-specific features retrieve historical performance per circuit
-      - Team performance metrics aggregate constructor standings and recent points
-      - All feature extractors return properly formatted DataFrames
+      - Feature matrices generated in correct format for model training
+      - Missing values handled appropriately (imputation or filtering)
+      - Feature normalization/scaling implemented
+      - Matrix generation tested with sample data
       AgentType: backend-engineer
       Dependencies:
       - task-f1-prediction-analytics-feat-feature-engineering-1
-      Description: Add feature extractors for driver form (recent performance trends,
-        finishing positions), track-specific performance (historical results at each
-        circuit), and team performance metrics. Include rolling averages, position
-        deltas, and track familiarity scores.
-      EstimatedEffort: L
+      Description: Implement functionality to combine individual features into training-ready
+        matrices with proper normalization, handling of missing values, and feature
+        selection. Create utilities for train/test split and feature versioning.
+      EstimatedEffort: M
       Files:
-      - f1-analytics/backend/ml/feature_engineering.py
+      - f1-analytics/backend/app/ml/feature_engineering.py
       ID: task-f1-prediction-analytics-feat-feature-engineering-2
-      Title: Implement driver and track-specific features
+      Title: Build feature matrix generation
     - AcceptanceCriteria:
-      - ELO ratings are fetched and integrated as model features
-      - Weather features include temperature, precipitation, and track conditions
-      - Feature scaling and normalization methods are implemented
-      - Complete feature matrix can be generated for model training
+      - Pipeline executes feature engineering steps in correct order
+      - Intermediate features cached for performance
+      - Validation catches invalid or incomplete data
+      - Integration tests verify full pipeline execution
       AgentType: backend-engineer
       Dependencies:
       - task-f1-prediction-analytics-feat-feature-engineering-2
-      Description: Add ELO rating integration to pull driver and constructor ratings
-        as features. Implement weather impact features including temperature, precipitation,
-        and track condition encoding. Create feature normalization and scaling utilities.
+      Description: Create orchestration layer that manages the end-to-end feature
+        engineering workflow including data validation, feature calculation sequencing,
+        caching of intermediate results, and error handling for incomplete historical
+        data.
       EstimatedEffort: M
       Files:
-      - f1-analytics/backend/ml/feature_engineering.py
+      - f1-analytics/backend/app/ml/feature_engineering.py
       ID: task-f1-prediction-analytics-feat-feature-engineering-3
-      Title: Implement ELO and weather features
+      Title: Add feature pipeline orchestration
+  - FeatureID: f1-prediction-analytics-feat-ml-models
+    FeatureTitle: Prediction Models Implementation
+    Tasks:
     - AcceptanceCriteria:
-      - Unit tests cover all feature extraction methods with >80% coverage
-      - Integration tests validate end-to-end feature generation pipeline
-      - Edge cases for missing data are handled gracefully
-      - All tests pass successfully
+      - BaseModel abstract class defines train(), predict(), save(), and load() methods
+      - ML module __init__.py properly exports base classes
+      - Interface supports model versioning and metadata
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Create the abstract base class for all prediction models and initialize
+        the ML module. Define the common interface for training, prediction, and model
+        persistence that all concrete models will implement.
+      EstimatedEffort: S
+      Files:
+      - f1-analytics/backend/app/ml/__init__.py
+      - f1-analytics/backend/app/ml/base_model.py
+      ID: task-f1-prediction-analytics-feat-ml-models-1
+      Title: Implement base model interface and module structure
+    - AcceptanceCriteria:
+      - Linear regression model trains on historical race data and generates predictions
+      - Random Forest model implements ensemble prediction with configurable estimators
+      - Both models implement save/load functionality for persistence
+      - Models accept standardized feature vectors from feature engineering
+      AgentType: backend-engineer
+      Dependencies:
+      - task-f1-prediction-analytics-feat-ml-models-1
+      Description: Implement linear regression and Random Forest models extending
+        the base model interface. Include feature preprocessing, hyperparameter configuration,
+        and prediction logic for both models.
+      EstimatedEffort: M
+      Files:
+      - f1-analytics/backend/app/ml/regression_model.py
+      - f1-analytics/backend/app/ml/random_forest_model.py
+      ID: task-f1-prediction-analytics-feat-ml-models-2
+      Title: Implement statistical prediction models
+    - AcceptanceCriteria:
+      - XGBoost model trains with configurable boosting parameters
+      - ELO rating system calculates and updates ratings after each race
+      - ELO model supports historical rating lookups for predictions
+      - Both models generate predictions compatible with ensemble system
+      AgentType: backend-engineer
+      Dependencies:
+      - task-f1-prediction-analytics-feat-ml-models-1
+      Description: Implement XGBoost gradient boosting model and ELO rating system.
+        XGBoost should support advanced hyperparameter tuning while ELO implements
+        driver/constructor rating calculations based on race results.
+      EstimatedEffort: M
+      Files:
+      - f1-analytics/backend/app/ml/xgboost_model.py
+      - f1-analytics/backend/app/ml/elo_model.py
+      ID: task-f1-prediction-analytics-feat-ml-models-3
+      Title: Implement XGBoost and ELO rating models
+    - AcceptanceCriteria:
+      - Unit tests cover each model's train/predict/save/load functionality
+      - Integration tests verify models work with feature engineering output
+      - Tests validate prediction output format and value ranges
+      - Model persistence tests ensure saved models can be reloaded
       AgentType: qa-engineer
       Dependencies:
-      - task-f1-prediction-analytics-feat-feature-engineering-3
-      Description: Create unit tests for all feature extraction methods, validate
-        feature outputs against expected schemas, and add integration tests with sample
-        race data. Include edge case handling for missing data and data quality checks.
+      - task-f1-prediction-analytics-feat-ml-models-2
+      - task-f1-prediction-analytics-feat-ml-models-3
+      Description: Create comprehensive tests for all prediction models using historical
+        F1 data. Verify training convergence, prediction accuracy thresholds, model
+        persistence, and integration between models and feature engineering.
       EstimatedEffort: M
       Files:
-      - f1-analytics/backend/tests/ml/test_feature_engineering.py
-      ID: task-f1-prediction-analytics-feat-feature-engineering-4
-      Title: Add feature engineering tests and validation
-  - FeatureID: f1-prediction-analytics-feat-authentication
-    FeatureTitle: User Authentication System
+      - f1-analytics/backend/app/ml/regression_model.py
+      - f1-analytics/backend/app/ml/random_forest_model.py
+      - f1-analytics/backend/app/ml/xgboost_model.py
+      - f1-analytics/backend/app/ml/elo_model.py
+      ID: task-f1-prediction-analytics-feat-ml-models-4
+      Title: Implement model training and integration tests
+  - FeatureID: f1-prediction-analytics-feat-ensemble-prediction
+    FeatureTitle: Ensemble Prediction Engine
     Tasks:
     - AcceptanceCriteria:
-      - User repository supports create, read, and lookup operations
-      - Password hashing with bcrypt is implemented correctly
-      - Repository methods handle database errors gracefully
+      - Ensemble engine accepts multiple model predictions and produces weighted average
+        with confidence intervals
+      - Model manager can save and load trained models with version tracking
+      - Prediction variance correctly calculates confidence intervals
+      - Basic unit tests verify ensemble logic and model persistence
       AgentType: backend-engineer
       Dependencies: []
-      Description: Create the user repository layer with database operations for user
-        CRUD. Implement password hashing with bcrypt and user lookup by email/ID.
-        Set up SQLAlchemy models if not already defined.
+      Description: Create the ensemble prediction engine that combines predictions
+        from multiple models using weighted averaging and calculates confidence intervals
+        based on prediction variance. Implement the model manager for model persistence,
+        loading, and version management.
       EstimatedEffort: M
       Files:
-      - f1-analytics/backend/app/repositories/user_repository.py
-      ID: task-f1-prediction-analytics-feat-authentication-1
-      Title: Implement user repository and database models
-    - AcceptanceCriteria:
-      - JWT tokens are generated with proper claims and expiration
-      - Token validation correctly identifies valid and invalid tokens
-      - User registration creates users with hashed passwords
-      - Login authenticates users and returns JWT tokens
-      AgentType: backend-engineer
-      Dependencies:
-      - task-f1-prediction-analytics-feat-authentication-1
-      Description: Build the authentication service with JWT token generation, validation,
-        and refresh logic. Implement user registration and login business logic. Handle
-        token expiration and refresh token management.
-      EstimatedEffort: M
-      Files:
-      - f1-analytics/backend/app/services/auth_service.py
-      ID: task-f1-prediction-analytics-feat-authentication-2
-      Title: Implement JWT authentication service
-    - AcceptanceCriteria:
-      - POST /auth/register endpoint creates new users
-      - POST /auth/login endpoint returns JWT tokens for valid credentials
-      - Authentication middleware blocks requests with invalid/missing tokens
-      - Protected routes are accessible only with valid JWT tokens
-      AgentType: backend-engineer
-      Dependencies:
-      - task-f1-prediction-analytics-feat-authentication-2
-      Description: Implement FastAPI routes for registration, login, and token refresh
-        endpoints. Create authentication middleware to protect routes requiring valid
-        JWT tokens. Add request validation and error handling.
-      EstimatedEffort: M
-      Files:
-      - f1-analytics/backend/app/routes/auth.py
-      - f1-analytics/backend/app/middleware/auth_middleware.py
-      ID: task-f1-prediction-analytics-feat-authentication-3
-      Title: Create authentication routes and middleware
-  Sprint: 3
-- Features:
-  - FeatureID: f1-prediction-analytics-feat-model-training
-    FeatureTitle: ML Model Training Pipeline
-    Tasks:
-    - AcceptanceCriteria:
-      - Random Forest model trains on historical race data and generates predictions
-      - XGBoost model trains with configurable hyperparameters
-      - Both models support save/load operations for persistence
-      - Models expose consistent interface for training and prediction
-      AgentType: backend-engineer
-      Dependencies: []
-      Description: Create the individual ML model implementations with training, prediction,
-        and hyperparameter tuning capabilities. Implement Random Forest and XGBoost
-        models as separate classes with standardized interfaces for feature input,
-        training, and inference. Include model serialization/deserialization methods.
-      EstimatedEffort: M
-      Files:
-      - f1-analytics/backend/ml/models/random_forest.py
-      - f1-analytics/backend/ml/models/xgboost_model.py
-      ID: task-f1-prediction-analytics-feat-model-training-1
-      Title: Implement Random Forest and XGBoost model classes
-    - AcceptanceCriteria:
-      - Ensemble model combines predictions from both base models
-      - Training pipeline orchestrates full model training workflow
-      - Evaluation metrics (accuracy, precision, recall, F1) are calculated and logged
-      - Model versioning tracks training runs with timestamps
-      AgentType: backend-engineer
-      Dependencies:
-      - task-f1-prediction-analytics-feat-model-training-1
-      Description: Implement the ensemble model that combines Random Forest and XGBoost
-        predictions with weighted averaging. Create the training orchestration pipeline
-        that handles data loading, model training, ensemble combination, and evaluation
-        metrics calculation. Include model versioning logic.
-      EstimatedEffort: L
-      Files:
-      - f1-analytics/backend/ml/models/ensemble.py
-      - f1-analytics/backend/ml/training.py
-      - f1-analytics/backend/ml/evaluation.py
-      ID: task-f1-prediction-analytics-feat-model-training-2
-      Title: Build ensemble model and training pipeline
-    - AcceptanceCriteria:
-      - Airflow DAG triggers training pipeline on race completion event
-      - Trained models are persisted to S3 with versioning
-      - DAG includes monitoring and alerting for failed runs
-      - Task dependencies ensure proper execution order
-      AgentType: devops-engineer
-      Dependencies:
-      - task-f1-prediction-analytics-feat-model-training-2
-      Description: Implement the Airflow DAG that triggers model retraining after
-        race completion. Configure task dependencies, schedule execution, and integrate
-        with S3 for model persistence. Include error handling and retry logic for
-        failed training runs.
-      EstimatedEffort: M
-      Files:
-      - f1-analytics/backend/airflow/dags/model_training.py
-      ID: task-f1-prediction-analytics-feat-model-training-3
-      Title: Create Airflow DAG for automated training
-  - FeatureID: f1-prediction-analytics-feat-race-data-api
-    FeatureTitle: Race Data REST API
-    Tasks:
-    - AcceptanceCriteria:
-      - RaceRepository implements methods for calendar, results, and circuit queries
-        with pagination
-      - DriverRepository implements methods for standings and statistics with filtering
-      - All repository methods handle SQL queries correctly with proper error handling
-      - Repository methods support pagination parameters (offset, limit)
-      AgentType: backend-engineer
-      Dependencies: []
-      Description: Create repository layer for race calendar, race results, driver
-        standings, and circuit information. Implement pagination, filtering, and query
-        methods for all race-related data access patterns. Include methods for fetching
-        by season, circuit, and date ranges.
-      EstimatedEffort: M
-      Files:
-      - f1-analytics/backend/app/repositories/race_repository.py
-      - f1-analytics/backend/app/repositories/driver_repository.py
-      ID: task-f1-prediction-analytics-feat-race-data-api-1
-      Title: Implement race and driver repositories
-    - AcceptanceCriteria:
-      - GET /api/races/calendar endpoint returns paginated race calendar with filtering
-      - GET /api/races/{race_id}/results endpoint returns race results
-      - GET /api/drivers/standings endpoint returns driver standings with pagination
-      - GET /api/circuits endpoint returns circuit information with filtering
-      - All endpoints include proper error responses and authentication checks
-      AgentType: backend-engineer
-      Dependencies:
-      - task-f1-prediction-analytics-feat-race-data-api-1
-      Description: Create FastAPI routes for race calendar, race results, driver standings,
-        and circuit information. Implement pagination, filtering, and response serialization.
-        Wire up repository layer with proper dependency injection and error handling.
-      EstimatedEffort: M
-      Files:
-      - f1-analytics/backend/app/routes/races.py
-      ID: task-f1-prediction-analytics-feat-race-data-api-2
-      Title: Implement race data REST API endpoints
-  Sprint: 4
-- Features:
-  - FeatureID: f1-prediction-analytics-feat-prediction-inference
-    FeatureTitle: Prediction Inference Service
-    Tasks:
-    - AcceptanceCriteria:
-      - Model loading from trained artifacts succeeds
-      - Prediction generation produces normalized probabilities for all drivers
-      - Probability normalization ensures sum equals 1.0
-      - Basic inference unit tests pass
-      AgentType: backend-engineer
-      Dependencies: []
-      Description: Create the core inference module that loads trained models, generates
-        raw predictions for drivers in upcoming races, and normalizes probabilities
-        to sum to 1.0. Includes model loading, feature preparation, and probability
-        computation logic.
-      EstimatedEffort: M
-      Files:
-      - f1-analytics/backend/ml/inference.py
-      ID: task-f1-prediction-analytics-feat-prediction-inference-1
-      Title: Implement ML inference engine with probability normalization
-    - AcceptanceCriteria:
-      - Prediction service successfully calls inference engine
-      - Cache service stores and retrieves predictions from Redis
-      - Cache hits avoid redundant model inference calls
-      - TTL expiration works correctly
-      AgentType: backend-engineer
-      Dependencies:
-      - task-f1-prediction-analytics-feat-prediction-inference-1
-      Description: Create the prediction service layer that orchestrates inference
-        calls and cache service that manages Redis-based caching of predictions. Includes
-        cache key generation, TTL management, cache hit/miss logic, and integration
-        between services.
-      EstimatedEffort: M
-      Files:
-      - f1-analytics/backend/app/services/prediction_service.py
-      - f1-analytics/backend/app/services/cache_service.py
-      ID: task-f1-prediction-analytics-feat-prediction-inference-2
-      Title: Implement prediction service with Redis caching
-  - FeatureID: f1-prediction-analytics-feat-data-export
-    FeatureTitle: Data Export API
-    Tasks:
-    - AcceptanceCriteria:
-      - ExportService can stream race results in CSV and JSON formats
-      - ExportService can stream predictions in CSV and JSON formats
-      - Pagination and memory-efficient streaming implemented
-      - Format validation and error handling included
-      AgentType: backend-engineer
-      Dependencies: []
-      Description: Create the export service layer with streaming support for CSV
-        and JSON formats. Implement data fetching logic for race results and predictions
-        with pagination support. Include basic error handling and format validation.
-      EstimatedEffort: M
-      Files:
-      - f1-analytics/backend/app/services/export_service.py
-      ID: task-f1-prediction-analytics-feat-data-export-1
-      Title: Implement export service with CSV/JSON formatters
-    - AcceptanceCriteria:
-      - GET /api/export/results endpoint returns streaming CSV/JSON
-      - GET /api/export/predictions endpoint returns streaming CSV/JSON
-      - Authentication required for all endpoints
-      - Query parameters for filtering and format selection work correctly
-      AgentType: backend-engineer
-      Dependencies:
-      - task-f1-prediction-analytics-feat-data-export-1
-      Description: Create FastAPI route handlers for export endpoints with authentication
-        middleware. Implement streaming responses for both CSV and JSON formats with
-        proper content-type headers. Add request validation and query parameter handling
-        for date ranges and filters.
-      EstimatedEffort: M
-      Files:
-      - f1-analytics/backend/app/routes/export.py
-      ID: task-f1-prediction-analytics-feat-data-export-2
-      Title: Implement export API endpoints
-  Sprint: 5
-- Features:
+      - f1-analytics/backend/app/ml/ensemble.py
+      - f1-analytics/backend/app/ml/model_manager.py
+      ID: task-f1-prediction-analytics-feat-ensemble-prediction-1
+      Title: Implement ensemble prediction engine and model persistence
   - FeatureID: f1-prediction-analytics-feat-prediction-api
     FeatureTitle: Prediction REST API
     Tasks:
     - AcceptanceCriteria:
-      - GET /api/predictions/next endpoint returns next race prediction with proper
-        JSON structure
-      - GET /api/predictions/history endpoint returns paginated historical predictions
-      - Endpoints require valid authentication tokens and return 401 for unauthorized
-        requests
-      - Repository methods successfully query predictions from database
+      - PredictionRepository provides methods to query predictions by race, model,
+        and ensemble results
+      - Redis cache wrapper decorators function correctly with configurable TTL
+      - Repository queries return properly structured data from database
       AgentType: backend-engineer
       Dependencies: []
-      Description: Create REST API endpoints for retrieving next race predictions
-        and historical predictions. Implement the prediction repository for database
-        queries and add authentication middleware integration. Include input validation
-        and error handling.
+      Description: Create the prediction repository implementing the repository pattern
+        for data access to predictions. Implement Redis cache wrapper with decorators
+        for caching prediction results. These foundational components are required
+        before building the API endpoints.
+      EstimatedEffort: M
+      Files:
+      - f1-analytics/backend/app/repositories/prediction_repository.py
+      - f1-analytics/backend/app/utils/cache.py
+      ID: task-f1-prediction-analytics-feat-prediction-api-1
+      Title: Implement prediction repository and caching utilities
+    - AcceptanceCriteria:
+      - Schemas correctly serialize prediction objects to JSON
+      - Schemas validate input parameters for prediction requests
+      - Model comparison schema handles multiple model results
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Implement Marshmallow schemas for serializing/deserializing prediction
+        data. Schemas should cover next race predictions, specific race predictions,
+        and model comparison responses with proper validation and formatting.
+      EstimatedEffort: S
+      Files:
+      - f1-analytics/backend/app/schemas/prediction_schema.py
+      ID: task-f1-prediction-analytics-feat-prediction-api-2
+      Title: Create prediction Marshmallow schemas
+    - AcceptanceCriteria:
+      - GET /api/predictions/next-race returns cached predictions for upcoming race
+      - GET /api/predictions/race/<race_id> returns predictions for specific race
+      - GET /api/predictions/compare returns results from multiple models
+      - Endpoints return proper HTTP status codes and error messages
+      AgentType: backend-engineer
+      Dependencies:
+      - task-f1-prediction-analytics-feat-prediction-api-1
+      - task-f1-prediction-analytics-feat-prediction-api-2
+      Description: Create Flask routes for prediction endpoints including next race
+        predictions, specific race predictions, and model comparison. Integrate repository
+        layer, apply caching decorators, use Marshmallow schemas for request/response
+        handling, and implement proper error handling.
       EstimatedEffort: M
       Files:
       - f1-analytics/backend/app/routes/predictions.py
-      - f1-analytics/backend/app/repositories/prediction_repository.py
-      ID: task-f1-prediction-analytics-feat-prediction-api-1
-      Title: Implement prediction API endpoints and repository
-    - AcceptanceCriteria:
-      - Rate limiter enforces configurable request limits per user
-      - Middleware returns 429 status with retry-after header when limit exceeded
-      - Redis integration properly tracks request counts with TTL
-      - Rate limits can be configured per endpoint or globally
-      AgentType: backend-engineer
-      Dependencies: []
-      Description: Create rate limiting middleware using Redis to prevent API abuse.
-        Configure limits per endpoint and user tier with proper error responses when
-        limits are exceeded.
-      EstimatedEffort: S
-      Files:
-      - f1-analytics/backend/app/middleware/rate_limiter.py
-      ID: task-f1-prediction-analytics-feat-prediction-api-2
-      Title: Implement rate limiting middleware
-  - FeatureID: f1-prediction-analytics-feat-analytics-api
-    FeatureTitle: Analytics and Accuracy API
+      ID: task-f1-prediction-analytics-feat-prediction-api-3
+      Title: Implement Flask prediction REST API endpoints
+  - FeatureID: f1-prediction-analytics-feat-standings-api
+    FeatureTitle: Standings REST API
     Tasks:
     - AcceptanceCriteria:
-      - Brier score calculation correctly computes accuracy metrics from prediction
-        probabilities and actual results
-      - Correct winner percentage calculation aggregates predictions across races
-        and time periods
-      - Historical breakdown returns accuracy metrics grouped by season, race, and
-        prediction type
-      - Service methods handle edge cases like missing data and invalid inputs
+      - Repository methods retrieve driver standings with correct sorting by points
+      - Repository methods retrieve constructor standings with correct sorting by
+        points
+      - Methods support filtering by season and individual driver/constructor ID
       AgentType: backend-engineer
       Dependencies: []
-      Description: Create the analytics service layer implementing Brier score calculation,
-        correct winner percentage tracking, and historical accuracy breakdown. Include
-        methods for calculating metrics from stored predictions and race results,
-        with proper error handling and caching logic.
+      Description: Create the repository layer for accessing driver and constructor
+        standings data from the database. Implement query methods for current standings,
+        historical standings by season, and filtering by driver/constructor.
+      EstimatedEffort: S
+      Files:
+      - f1-analytics/backend/app/repositories/standings_repository.py
+      ID: task-f1-prediction-analytics-feat-standings-api-1
+      Title: Implement standings repository layer
+    - AcceptanceCriteria:
+      - Schemas correctly serialize driver and constructor standings with all required
+        fields
+      - GET /api/standings/drivers endpoint returns properly formatted driver standings
+      - GET /api/standings/constructors endpoint returns properly formatted constructor
+        standings
+      - Endpoints support query parameters for season and ID filtering
+      AgentType: backend-engineer
+      Dependencies:
+      - task-f1-prediction-analytics-feat-standings-api-1
+      Description: Create Marshmallow schemas for serializing driver and constructor
+        standings responses. Implement Flask REST endpoints for retrieving current
+        and historical standings with query parameter support for filtering.
       EstimatedEffort: M
       Files:
-      - f1-analytics/backend/app/services/analytics_service.py
-      ID: task-f1-prediction-analytics-feat-analytics-api-1
-      Title: Implement analytics service with accuracy metrics calculation
+      - f1-analytics/backend/app/schemas/standings_schema.py
+      - f1-analytics/backend/app/routes/standings.py
+      ID: task-f1-prediction-analytics-feat-standings-api-2
+      Title: Implement standings schemas and API endpoints
+  - FeatureID: f1-prediction-analytics-feat-calendar-api
+    FeatureTitle: Race Calendar API
+    Tasks:
     - AcceptanceCriteria:
-      - GET /api/analytics/accuracy returns overall and filtered accuracy metrics
-        with Brier score and correct percentage
-      - GET /api/analytics/drivers returns ranked driver list with performance metrics
-        and historical trends
-      - GET /api/analytics/teams returns ranked team list with performance metrics
-      - All endpoints require authentication and return proper error responses for
-        invalid requests
+      - Calendar schema serializes race data with prediction availability fields
+      - Race repository queries return races with prediction status
+      - Schema validation handles required and optional fields correctly
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Create Marshmallow schema for race calendar data serialization
+        and implement race repository with methods to fetch race schedules and prediction
+        availability status. Include database query logic for retrieving races with
+        associated prediction metadata.
+      EstimatedEffort: M
+      Files:
+      - f1-analytics/backend/app/schemas/calendar_schema.py
+      - f1-analytics/backend/app/repositories/race_repository.py
+      ID: task-f1-prediction-analytics-feat-calendar-api-1
+      Title: Implement race calendar schema and repository
+    - AcceptanceCriteria:
+      - GET /calendar endpoint returns race schedule with prediction status
+      - Query parameters for filtering work correctly
+      - Endpoint returns proper HTTP status codes and error messages
+      - Response matches calendar schema format
+      AgentType: backend-engineer
+      Dependencies:
+      - task-f1-prediction-analytics-feat-calendar-api-1
+      Description: Create Flask route for race calendar with GET endpoint that returns
+        race schedule data using the calendar schema and race repository. Include
+        query parameter support for filtering by season/year and proper error handling.
+      EstimatedEffort: S
+      Files:
+      - f1-analytics/backend/app/routes/calendar.py
+      ID: task-f1-prediction-analytics-feat-calendar-api-2
+      Title: Implement race calendar API endpoint
+  - FeatureID: f1-prediction-analytics-feat-analytics-api
+    FeatureTitle: Analytics REST API
+    Tasks:
+    - AcceptanceCriteria:
+      - Repository methods retrieve model accuracy metrics with Brier scores
+      - Driver performance history queries work with date range filtering
+      - ELO rating evolution data can be fetched by driver and timeframe
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Create repository classes for accessing model accuracy metrics,
+        prediction history, and ELO rating evolution data. Implement efficient database
+        queries with proper filtering and aggregation for analytics endpoints.
+      EstimatedEffort: M
+      Files:
+      - f1-analytics/backend/app/repositories/analytics_repository.py
+      ID: task-f1-prediction-analytics-feat-analytics-api-1
+      Title: Implement analytics repository layer
+    - AcceptanceCriteria:
+      - GET /api/analytics/model-accuracy returns accuracy metrics with Brier scores
+      - GET /api/analytics/driver-performance returns historical performance data
+      - GET /api/analytics/elo-evolution returns ELO rating trends over time
+      - All endpoints include proper error handling and validation
       AgentType: backend-engineer
       Dependencies:
       - task-f1-prediction-analytics-feat-analytics-api-1
-      Description: Create FastAPI route handlers for analytics endpoints including
-        prediction accuracy metrics, driver rankings, and team rankings. Implement
-        query parameter handling for time range filtering, pagination, and historical
-        breakdown views. Wire up the analytics service and add proper authentication
-        middleware.
+      Description: Create Flask routes for analytics data including model accuracy
+        metrics, driver performance history, and ELO evolution endpoints. Implement
+        request validation, response serialization with Marshmallow schemas, and integrate
+        caching for performance.
       EstimatedEffort: M
       Files:
       - f1-analytics/backend/app/routes/analytics.py
+      - f1-analytics/backend/app/schemas/analytics_schema.py
       ID: task-f1-prediction-analytics-feat-analytics-api-2
-      Title: Implement analytics API endpoints
-  Sprint: 6
-- Features:
-  - FeatureID: f1-prediction-analytics-feat-frontend-dashboard
-    FeatureTitle: Web Dashboard Frontend
+      Title: Implement analytics REST API endpoints
+  - FeatureID: f1-prediction-analytics-feat-dashboard-components
+    FeatureTitle: Dashboard UI Components
     Tasks:
     - AcceptanceCriteria:
-      - Users can register and login with JWT token storage
-      - Protected routes redirect unauthenticated users to login
-      - API client includes auth headers on all requests
-      - Token refresh logic handles expired sessions
+      - All three table components render data correctly from API
+      - Tables support sorting and responsive layouts
+      - TypeScript interfaces match backend schemas
+      - Loading and error states handled
       AgentType: frontend-engineer
       Dependencies: []
-      Description: Set up React Router with protected routes, implement AuthContext
-        for JWT token management, and create Login/Register pages with form validation.
-        Configure axios client with authentication interceptors and error handling.
+      Description: Create PredictionTable, StandingsTable, and RaceCalendar components
+        with proper TypeScript interfaces, data fetching hooks, and responsive table
+        layouts. These components display data from the backend API in tabular format
+        with sorting and filtering capabilities.
       EstimatedEffort: M
       Files:
-      - f1-analytics/frontend/src/App.tsx
-      - f1-analytics/frontend/src/pages/LoginPage.tsx
-      - f1-analytics/frontend/src/pages/RegisterPage.tsx
-      - f1-analytics/frontend/src/context/AuthContext.tsx
-      - f1-analytics/frontend/src/api/client.ts
-      ID: task-f1-prediction-analytics-feat-frontend-dashboard-1
-      Title: Implement authentication and routing infrastructure
+      - f1-analytics/frontend/src/components/PredictionTable.tsx
+      - f1-analytics/frontend/src/components/StandingsTable.tsx
+      - f1-analytics/frontend/src/components/RaceCalendar.tsx
+      ID: task-f1-prediction-analytics-feat-dashboard-components-1
+      Title: Implement data display components
     - AcceptanceCriteria:
-      - HomePage displays next race with top 3 driver predictions
-      - Probability bars show percentage with color gradients
-      - CalendarPage lists all races with dates and circuits
-      - usePredictions hook handles loading and error states
+      - Charts render performance data with proper scaling
+      - Interactive tooltips and legends work correctly
+      - Charts are responsive and accessible
+      - AccuracyMetrics displays model statistics clearly
       AgentType: frontend-engineer
-      Dependencies:
-      - task-f1-prediction-analytics-feat-frontend-dashboard-1
-      Description: Implement HomePage with next race predictions using PredictionCard
-        component, DriverProbabilityBar visualization, and CalendarPage showing full
-        season schedule. Create custom hooks for data fetching and state management.
-      EstimatedEffort: L
+      Dependencies: []
+      Description: Build PerformanceChart component using Chart.js for time-series
+        performance data and AccuracyMetrics component for displaying model accuracy
+        statistics. Include chart configuration, tooltips, legends, and responsive
+        design.
+      EstimatedEffort: M
       Files:
-      - f1-analytics/frontend/src/pages/HomePage.tsx
-      - f1-analytics/frontend/src/pages/CalendarPage.tsx
-      - f1-analytics/frontend/src/components/predictions/PredictionCard.tsx
-      - f1-analytics/frontend/src/components/predictions/DriverProbabilityBar.tsx
-      - f1-analytics/frontend/src/hooks/usePredictions.ts
-      - f1-analytics/frontend/src/api/predictionsApi.ts
-      - f1-analytics/frontend/src/api/racesApi.ts
-      ID: task-f1-prediction-analytics-feat-frontend-dashboard-2
-      Title: Build prediction display and race calendar pages
+      - f1-analytics/frontend/src/components/PerformanceChart.tsx
+      - f1-analytics/frontend/src/components/AccuracyMetrics.tsx
+      ID: task-f1-prediction-analytics-feat-dashboard-components-2
+      Title: Implement Chart.js visualization components
     - AcceptanceCriteria:
-      - AccuracyChart displays prediction accuracy trends using line chart
-      - DriverRankingsTable shows current standings with sortable columns
-      - Charts are responsive and render correctly on mobile
-      - Analytics API integration fetches historical performance data
+      - Displays metrics for all model types
+      - Visual highlighting of best-performing model
+      - Comparison view is clear and intuitive
+      - Integrates with backend analytics endpoints
       AgentType: frontend-engineer
       Dependencies:
-      - task-f1-prediction-analytics-feat-frontend-dashboard-1
-      Description: Implement AnalyticsPage with Chart.js accuracy charts showing model
-        performance over time, and RankingsPage with interactive driver/team rankings
-        tables. Include sorting, filtering, and responsive design for mobile devices.
-      EstimatedEffort: L
+      - task-f1-prediction-analytics-feat-dashboard-components-2
+      Description: Create ModelComparison component that displays side-by-side metrics
+        for different ML models (regression, random forest, XGBoost, ELO). Include
+        visual indicators for best-performing models and comparison charts.
+      EstimatedEffort: S
+      Files:
+      - f1-analytics/frontend/src/components/ModelComparison.tsx
+      ID: task-f1-prediction-analytics-feat-dashboard-components-3
+      Title: Implement model comparison component
+  - FeatureID: f1-prediction-analytics-feat-api-client
+    FeatureTitle: Frontend API Client
+    Tasks:
+    - AcceptanceCriteria:
+      - Axios instance configured with base URL and timeout settings
+      - Request and response interceptors handle errors gracefully
+      - Retry logic implemented for failed requests
+      - TypeScript interfaces defined for API responses and errors
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create the foundational Axios client instance with error handling
+        interceptors, request/response transformers, and retry logic. Set up base
+        configuration for API communication including headers, timeout settings, and
+        authentication handling.
+      EstimatedEffort: M
+      Files:
+      - f1-analytics/frontend/src/services/api.ts
+      ID: task-f1-prediction-analytics-feat-api-client-1
+      Title: Implement base API client with Axios configuration
+    - AcceptanceCriteria:
+      - Prediction types defined with model outputs and confidence scores
+      - Standings types cover both driver and constructor standings
+      - Race types include schedule, results, and metadata
+      - All interfaces align with backend API schemas
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create comprehensive TypeScript type definitions for predictions,
+        standings, and race data. Include interfaces for request/response payloads,
+        error types, and domain entities to ensure type safety across the frontend.
+      EstimatedEffort: S
+      Files:
+      - f1-analytics/frontend/src/types/prediction.ts
+      - f1-analytics/frontend/src/types/standings.ts
+      - f1-analytics/frontend/src/types/race.ts
+      ID: task-f1-prediction-analytics-feat-api-client-2
+      Title: Define TypeScript interfaces for domain models
+    - AcceptanceCriteria:
+      - Service methods fetch predictions for upcoming races
+      - Driver and constructor predictions retrieved with confidence intervals
+      - Historical accuracy metrics accessible via service methods
+      - Error responses properly handled and typed
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-f1-prediction-analytics-feat-api-client-1
+      - task-f1-prediction-analytics-feat-api-client-2
+      Description: Build the predictions service with methods for fetching race predictions,
+        driver position predictions, and historical prediction accuracy. Include filtering
+        and pagination support, error handling, and response transformation.
+      EstimatedEffort: M
+      Files:
+      - f1-analytics/frontend/src/services/predictions.ts
+      ID: task-f1-prediction-analytics-feat-api-client-3
+      Title: Implement predictions service module
+    - AcceptanceCriteria:
+      - Standings service fetches current and historical driver/constructor standings
+      - Calendar service retrieves race schedules with filtering by season
+      - Race results accessible with detailed session information
+      - Services use shared API client and type definitions
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-f1-prediction-analytics-feat-api-client-1
+      - task-f1-prediction-analytics-feat-api-client-2
+      Description: Create service modules for standings (driver and constructor) and
+        calendar data. Implement methods for current standings, historical standings
+        by season, race schedule retrieval, and race results lookup.
+      EstimatedEffort: M
+      Files:
+      - f1-analytics/frontend/src/services/standings.ts
+      - f1-analytics/frontend/src/services/calendar.ts
+      ID: task-f1-prediction-analytics-feat-api-client-4
+      Title: Implement standings and calendar service modules
+    - AcceptanceCriteria:
+      - Service fetches model performance metrics and accuracy trends
+      - Feature importance data accessible for different model types
+      - Comparative analysis endpoints integrated
+      - Analytics responses properly typed and transformed
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-f1-prediction-analytics-feat-api-client-1
+      - task-f1-prediction-analytics-feat-api-client-2
+      Description: Build the analytics service with methods for fetching model performance
+        metrics, prediction accuracy trends, feature importance data, and comparative
+        analysis. Support time-range filtering and aggregation options.
+      EstimatedEffort: M
+      Files:
+      - f1-analytics/frontend/src/services/analytics.ts
+      ID: task-f1-prediction-analytics-feat-api-client-5
+      Title: Implement analytics service module
+  - FeatureID: f1-prediction-analytics-feat-dashboard-pages
+    FeatureTitle: Dashboard Application Pages
+    Tasks:
+    - AcceptanceCriteria:
+      - DashboardContext provides prediction data, loading, and error states
+      - Custom hooks (useDashboard) available for consuming components
+      - Context handles data fetching from API client
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create the React Context for dashboard state management including
+        predictions, loading states, and error handling. Implement context provider
+        with hooks for consuming components. This provides centralized state management
+        for all dashboard pages.
+      EstimatedEffort: S
+      Files:
+      - f1-analytics/frontend/src/contexts/DashboardContext.tsx
+      ID: task-f1-prediction-analytics-feat-dashboard-pages-1
+      Title: Implement Dashboard Context and state management
+    - AcceptanceCriteria:
+      - Dashboard page displays next race predictions correctly
+      - Page integrates with DashboardContext and API client
+      - Loading and error states handled appropriately
+      - Responsive layout with dashboard components
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-f1-prediction-analytics-feat-dashboard-pages-1
+      Description: Create the main Dashboard page showing next race predictions. Integrate
+        with DashboardContext for state management and dashboard components for rendering
+        predictions. Display race information, driver predictions, and quick stats.
+      EstimatedEffort: M
+      Files:
+      - f1-analytics/frontend/src/pages/Dashboard.tsx
+      ID: task-f1-prediction-analytics-feat-dashboard-pages-2
+      Title: Implement Dashboard main page
+    - AcceptanceCriteria:
+      - Predictions page displays detailed prediction data
+      - Filtering by race, driver, and date range works
+      - Historical accuracy metrics displayed
+      - Page integrates with DashboardContext
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-f1-prediction-analytics-feat-dashboard-pages-1
+      Description: Create the PredictionsPage for detailed prediction views including
+        historical predictions, accuracy metrics, and driver-specific predictions.
+        Implement filtering and sorting capabilities.
+      EstimatedEffort: M
+      Files:
+      - f1-analytics/frontend/src/pages/PredictionsPage.tsx
+      ID: task-f1-prediction-analytics-feat-dashboard-pages-3
+      Title: Implement Predictions detail page
+    - AcceptanceCriteria:
+      - Analytics page displays model performance metrics
+      - Charts and visualizations render correctly
+      - Comparative analysis between models shown
+      - Page integrates with DashboardContext and analytics components
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-f1-prediction-analytics-feat-dashboard-pages-1
+      Description: Create the AnalyticsPage showing model performance metrics, prediction
+        trends, and comparative analysis. Display charts and visualizations for model
+        accuracy, confidence intervals, and historical performance.
+      EstimatedEffort: M
       Files:
       - f1-analytics/frontend/src/pages/AnalyticsPage.tsx
-      - f1-analytics/frontend/src/pages/RankingsPage.tsx
-      - f1-analytics/frontend/src/components/analytics/AccuracyChart.tsx
-      - f1-analytics/frontend/src/components/analytics/DriverRankingsTable.tsx
-      - f1-analytics/frontend/src/api/analyticsApi.ts
-      ID: task-f1-prediction-analytics-feat-frontend-dashboard-3
-      Title: Create analytics and rankings visualization pages
-  Sprint: 7
+      ID: task-f1-prediction-analytics-feat-dashboard-pages-4
+      Title: Implement Analytics page
+    - AcceptanceCriteria:
+      - All routes configured and navigable
+      - DashboardContext provider wraps routed components
+      - Navigation between pages works correctly
+      - Application renders without errors
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-f1-prediction-analytics-feat-dashboard-pages-2
+      - task-f1-prediction-analytics-feat-dashboard-pages-3
+      - task-f1-prediction-analytics-feat-dashboard-pages-4
+      Description: Update App.tsx to configure React Router with routes for all dashboard
+        pages. Wrap application with DashboardContext provider and ensure proper navigation
+        between pages. Add route guards and lazy loading if needed.
+      EstimatedEffort: S
+      Files:
+      - f1-analytics/frontend/src/App.tsx
+      ID: task-f1-prediction-analytics-feat-dashboard-pages-5
+      Title: Configure routing and application integration
+  - FeatureID: f1-prediction-analytics-feat-infrastructure
+    FeatureTitle: Deployment Infrastructure
+    Tasks:
+    - AcceptanceCriteria:
+      - docker-compose up successfully starts all services (PostgreSQL, Redis, Celery,
+        Flask, React)
+      - Services can communicate with each other on defined network
+      - Environment variables and volumes properly configured
+      - Worker Dockerfile builds successfully and runs Celery tasks
+      AgentType: devops-engineer
+      Dependencies: []
+      Description: Set up Docker Compose configuration for local development with
+        PostgreSQL, Redis, Celery workers, Flask API, and React frontend. Include
+        worker Dockerfile with Celery dependencies and proper networking between services.
+      EstimatedEffort: M
+      Files:
+      - f1-analytics/infrastructure/docker-compose.dev.yml
+      - f1-analytics/backend/Dockerfile.worker
+      ID: task-f1-prediction-analytics-feat-infrastructure-1
+      Title: Create Docker Compose development environment
+    - AcceptanceCriteria:
+      - Celery deployment manifest is valid and can be applied to cluster
+      - Resource requests and limits are defined appropriately
+      - Health checks (liveness/readiness probes) configured
+      - Environment variables sourced from ConfigMaps/Secrets
+      AgentType: devops-engineer
+      Dependencies:
+      - task-f1-prediction-analytics-feat-infrastructure-1
+      Description: Implement Kubernetes deployment configurations for Celery workers
+        with proper resource limits, replicas, health checks, and environment configuration.
+        Include ConfigMaps/Secrets references for production settings.
+      EstimatedEffort: M
+      Files:
+      - f1-analytics/infrastructure/kubernetes/celery-deployment.yaml
+      ID: task-f1-prediction-analytics-feat-infrastructure-2
+      Title: Create Kubernetes production deployment manifests
+  - FeatureID: f1-prediction-analytics-feat-utility-scripts
+    FeatureTitle: Management Scripts
+    Tasks:
+    - AcceptanceCriteria:
+      - Script successfully trains all four model types
+      - Trained models are saved to configured storage location
+      - Script can be invoked with configuration parameters (date range, model selection)
+      - Error handling and logging are in place
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Create command-line script for manual model training. Includes
+        loading training data, training all models (regression, random forest, XGBoost,
+        ELO), saving trained models, and handling errors. Must support command-line
+        arguments for configuration.
+      EstimatedEffort: M
+      Files:
+      - f1-analytics/scripts/train_models.py
+      ID: task-f1-prediction-analytics-feat-utility-scripts-1
+      Title: Implement model training script
+    - AcceptanceCriteria:
+      - Script successfully imports historical race and results data
+      - Script populates driver and constructor standings
+      - Date range can be specified via command-line arguments
+      - API rate limiting and retry logic is implemented
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Create command-line script for backfilling historical F1 data from
+        Ergast API. Includes fetching historical races, results, driver standings,
+        constructor standings, and persisting to database. Must support date range
+        parameters and handle API rate limits.
+      EstimatedEffort: M
+      Files:
+      - f1-analytics/scripts/import_historical_data.py
+      ID: task-f1-prediction-analytics-feat-utility-scripts-2
+      Title: Implement historical data import script
+    - AcceptanceCriteria:
+      - Script loads all trained models successfully
+      - Script generates predictions for specified race
+      - Predictions are saved to database
+      - Script can target specific races or next upcoming race
+      AgentType: backend-engineer
+      Dependencies:
+      - task-f1-prediction-analytics-feat-utility-scripts-1
+      Description: Create command-line script for generating predictions for upcoming
+        races. Includes loading trained models, fetching current season data, generating
+        ensemble predictions, and saving predictions to database. Must support specifying
+        target race.
+      EstimatedEffort: M
+      Files:
+      - f1-analytics/scripts/generate_predictions.py
+      ID: task-f1-prediction-analytics-feat-utility-scripts-3
+      Title: Implement prediction generation script
+  Sprint: 0
