@@ -3,7 +3,12 @@ Database and application configuration management.
 """
 import os
 from typing import Optional
-from pydantic_settings import BaseSettings
+
+try:
+    from pydantic_settings import BaseSettings
+except ImportError:
+    # Fallback for older Pydantic versions
+    from pydantic import BaseSettings
 
 
 class DatabaseConfig(BaseSettings):
