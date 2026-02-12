@@ -17,6 +17,12 @@ data:
     max_connections = 200
     superuser_reserved_connections = 3
 
+    # Authentication & Security Settings
+    password_encryption = 'scram-sha-256'      # Use modern password encryption
+    ssl = on                                   # Enable SSL connections
+    ssl_cert_file = '/var/lib/postgresql/server.crt'
+    ssl_key_file = '/var/lib/postgresql/server.key'
+
     # Memory Configuration
     shared_buffers = 1GB                    # 25% of total memory (4GB)
     effective_cache_size = 3GB              # 75% of total memory
@@ -87,29 +93,30 @@ data:
     # TYPE  DATABASE        USER            ADDRESS                 METHOD
 
     # "local" is for Unix domain socket connections only
-    local   all             all                                     trust
+    # Use scram-sha-256 for better security instead of trust
+    local   all             postgres                                peer
+    local   all             all                                     scram-sha-256
 
     # IPv4 local connections:
-    host    all             all             127.0.0.1/32            md5
+    host    all             all             127.0.0.1/32            scram-sha-256
 
     # IPv6 local connections:
-    host    all             all             ::1/128                 md5
+    host    all             all             ::1/128                 scram-sha-256
 
-    # Allow replication connections from localhost, by a user with the
-    # replication privilege.
-    local   replication     all                                     trust
-    host    replication     all             127.0.0.1/32            md5
-    host    replication     all             ::1/128                 md5
+    # Allow replication connections with proper authentication
+    local   replication     replicator                              scram-sha-256
+    host    replication     replicator      127.0.0.1/32            scram-sha-256
+    host    replication     replicator      ::1/128                 scram-sha-256
 
-    # Kubernetes cluster connections
-    host    all             all             10.0.0.0/8              md5
-    host    all             all             172.16.0.0/12           md5
-    host    all             all             192.168.0.0/16          md5
+    # Kubernetes cluster connections - restrict to specific pod networks
+    # NOTE: Replace these CIDR ranges with your actual Kubernetes pod/service CIDRs
+    # Common Kubernetes pod CIDRs: 10.244.0.0/16 (flannel), 10.42.0.0/16 (rancher), 192.168.0.0/16 (kind)
+    host    all             all             10.244.0.0/16           scram-sha-256  # Typical flannel pod CIDR
+    host    all             all             10.96.0.0/12            scram-sha-256  # Typical service CIDR
 
-    # Replication connections from cluster
-    host    replication     replicator      10.0.0.0/8              md5
-    host    replication     replicator      172.16.0.0/12           md5
-    host    replication     replicator      192.168.0.0/16          md5
+    # Replication connections from cluster with restricted CIDRs
+    host    replication     replicator      10.244.0.0/16           scram-sha-256
+    host    replication     replicator      10.96.0.0/12            scram-sha-256
 
     # Deny all other connections
     host    all             all             0.0.0.0/0               reject

@@ -124,7 +124,7 @@ data:
     loglevel notice
 
     # Security
-    protected-mode no
+    protected-mode yes
 
     # Sentinel Scripts
     sentinel notification-script f1-redis-master /usr/local/bin/notify.sh
