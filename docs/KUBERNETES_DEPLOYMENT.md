@@ -152,12 +152,19 @@ kubectl describe certificate f1-analytics-tls -n f1-analytics
 # Deploy Prometheus
 kubectl apply -f infrastructure/monitoring/prometheus.yaml
 
+# Deploy Grafana dashboards ConfigMap
+kubectl apply -f f1-analytics/infrastructure/monitoring/grafana-dashboard-configmap.yaml
+
 # Deploy Grafana and AlertManager
 kubectl apply -f infrastructure/monitoring/grafana.yaml
 
 # Deploy metrics exporters
 kubectl apply -f infrastructure/monitoring/exporters.yaml
 ```
+
+**Grafana Dashboards**: The deployment includes two pre-configured dashboards:
+- **System Health Dashboard** (`system-health.json`): System metrics, CPU, memory, service availability
+- **ML Pipeline Dashboard** (`ml-pipeline.json`): ML performance, training progress, prediction metrics
 
 ### Step 8: Initialize Database
 
