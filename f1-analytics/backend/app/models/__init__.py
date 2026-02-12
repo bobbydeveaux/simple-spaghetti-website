@@ -1,9 +1,13 @@
 """
-Data models and schemas for F1 Prediction Analytics
+SQLAlchemy models package for F1 Prediction Analytics.
+
+This package contains all database models for the F1 prediction analytics system,
+including drivers, teams, circuits, races, predictions, and related entities.
+
+This module imports all models to ensure they are registered with SQLAlchemy
+for Alembic migration detection.
 """
 
-# ORM Models
-from .user import User, UserLegacy
 from .driver import Driver
 from .team import Team
 from .circuit import Circuit
@@ -13,15 +17,9 @@ from .qualifying_result import QualifyingResult
 from .weather_data import WeatherData
 from .prediction import Prediction
 from .prediction_accuracy import PredictionAccuracy
-
-# Pydantic Schemas (for backward compatibility)
-from .user import RegisterRequest, RegisterResponse, LoginRequest
-from .token import TokenResponse, RefreshRequest, ProtectedResponse
+from .user import User
 
 __all__ = [
-    # ORM Models
-    "User",
-    "UserLegacy",
     "Driver",
     "Team",
     "Circuit",
@@ -31,11 +29,5 @@ __all__ = [
     "WeatherData",
     "Prediction",
     "PredictionAccuracy",
-    # Pydantic Schemas
-    "RegisterRequest",
-    "RegisterResponse",
-    "LoginRequest",
-    "TokenResponse",
-    "RefreshRequest",
-    "ProtectedResponse"
+    "User",
 ]

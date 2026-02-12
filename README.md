@@ -64,7 +64,7 @@ python app.py
 npm install
 npm run dev
 
-# F1 Analytics setup (if implemented)
+# F1 Analytics setup
 cd f1-analytics/backend
 pip install -r requirements.txt
 uvicorn app.main:app --host 0.0.0.0 --port 8001
@@ -90,6 +90,9 @@ python -m pytest
 # Integration tests
 python test_voting_implementation.py
 
+# F1 Analytics tests
+python test_f1_models.py
+
 # Performance tests
 locust -f tests/performance/test_load.py
 ```
@@ -104,11 +107,29 @@ locust -f tests/performance/test_load.py
 ## 📊 F1 Prediction Analytics
 
 ### Features
-- **Race Winner Predictions**: ML-based probability calculations
-- **Driver Rankings**: ELO-based rating system
-- **Historical Analysis**: Prediction accuracy tracking
-- **Interactive Dashboard**: React-based visualization
-- **Real-time Updates**: Automated model retraining
+- **Race Winner Predictions**: ML-based probability calculations using ensemble models
+- **Driver Rankings**: ELO-based rating system with team associations
+- **Historical Analysis**: Prediction accuracy tracking and performance metrics
+- **Interactive Dashboard**: React-based visualization with real-time updates
+- **Data Ingestion**: Automated collection from Ergast API and weather services
+
+### Database Models
+
+#### Core F1 Models
+- `Driver`: F1 drivers with ELO ratings and team associations
+- `Team`: Constructor teams with performance metrics
+- `Circuit`: Race circuits with technical specifications
+- `Race`: Individual races with scheduling and status
+- `RaceResult`: Race finish positions and points
+- `QualifyingResult`: Qualifying session results
+- `WeatherData`: Weather conditions for each race
+
+#### Prediction Models
+- `Prediction`: ML-generated win probability predictions
+- `PredictionAccuracy`: Model performance tracking and metrics
+
+#### Authentication
+- `User`: User accounts with role-based permissions
 
 ### ML Pipeline
 1. **Data Ingestion**: Automated collection from Ergast API and weather services
@@ -116,6 +137,39 @@ locust -f tests/performance/test_load.py
 3. **Model Training**: Random Forest + XGBoost ensemble
 4. **Validation**: Staging environment testing
 5. **Deployment**: Production model updates with A/B testing
+
+### Technical Architecture
+The F1 analytics system follows a layered architecture:
+- **Models Layer**: SQLAlchemy ORM models with relationships
+- **Database Layer**: PostgreSQL with connection pooling
+- **API Layer**: FastAPI REST endpoints
+- **ML Layer**: Scikit-learn and XGBoost models
+- **Cache Layer**: Redis for performance optimization
+
+### Database Schema
+- Normalized F1 data structure
+- Optimized indexes for performance
+- Materialized views for complex queries
+- Foreign key constraints for data integrity
+- Check constraints for data validation
+
+### F1 Analytics Setup
+```bash
+# Set Environment Variables
+export DATABASE_URL="postgresql://user:pass@localhost:5432/f1_analytics"
+export JWT_SECRET_KEY="your-secret-key"
+
+# Initialize Database
+python -c "from api.migrations.001_initial_schema import create_initial_schema; create_initial_schema()"
+
+# Configuration
+# Key settings in api/config.py:
+# - Database connection settings
+# - JWT authentication parameters
+# - External API endpoints (Ergast, Weather)
+# - ML model configuration
+# - Rate limiting settings
+```
 
 ## 🛠️ Operations
 
@@ -155,6 +209,8 @@ alembic downgrade -1
 ├── api/                        # Backend API services
 │   ├── app.py                  # Flask application
 │   ├── main.py                 # FastAPI service
+│   ├── models/                 # SQLAlchemy ORM models
+│   ├── migrations/             # Database migration scripts
 │   └── voting/                 # PTA voting system
 ├── src/                        # Frontend React application
 │   ├── components/             # Reusable UI components
@@ -162,9 +218,13 @@ alembic downgrade -1
 │   └── utils/                  # Helper functions
 ├── f1-analytics/               # F1 prediction platform
 │   ├── backend/                # Python ML services
-│   │   ├── ml/                 # Machine learning modules
-│   │   ├── data_ingestion/     # Data pipeline
-│   │   └── api/                # FastAPI routes
+│   │   ├── app/                # FastAPI application
+│   │   │   ├── models/         # F1 data models
+│   │   │   ├── repositories/   # Data access layer
+│   │   │   ├── routes/         # API endpoints
+│   │   │   └── utils/          # Authentication and utilities
+│   │   ├── alembic/            # Database migrations
+│   │   └── tests/              # Test suites
 │   └── frontend/               # React dashboard
 ├── .github/workflows/          # CI/CD pipeline definitions
 ├── docs/                       # Documentation
@@ -225,6 +285,7 @@ alembic downgrade -1
 - [CI/CD Implementation Guide](docs/CI-CD-IMPLEMENTATION.md)
 - [Docker Deployment Guide](DOCKER_DEPLOYMENT.md) (auto-generated)
 - [F1 Analytics Architecture](docs/concepts/f1-prediction-analytics/)
+- [F1 Database Models](docs/F1_DATABASE_MODELS.md)
 - [PTA Voting System](docs/concepts/pta-voting-system/)
 
 ## 📧 Support
