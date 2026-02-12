@@ -1,0 +1,89 @@
+## Code Review - Changes Requested
+
+## ❌ BLOCKING ISSUES FOUND
+
+I have completed my comprehensive review of PR #166 for the Python Auth API implementation. This is a first review and I found several critical security vulnerabilities that prevent safe merging.
+
+### **CRITICAL SECURITY ISSUES (BLOCKING)**
+
+1. **Default JWT Secret in Production** (`api/config.py:11`)
+   - **CRITICAL**: The JWT secret uses a default value `"your-super-secret-jwt-key-change-in-production"`
+   - **Risk**: Anyone can forge JWT tokens if this default secret is used in production
+   - **Required Fix**: Remove default value and require JWT_SECRET environment variable
+
+2. **Overly Permissive CORS Configuration** (`api/main.py:19`)
+   - **CRITICAL**: `allow_origins=["*"]` allows any domain to make authenticated requests
+   - **Risk**: Enables cross-site request forgery (CSRF) attacks
+   - **Required Fix**: Restrict CORS origins to specific domains in production
+
+### **Major Implementation Issues**
+
+3. **Missing Password Hashing Implementation**
+   - The `User` dataclass accepts `password_hash` but there's no actual password hashing logic implemented
+   - PRD requires bcrypt hashing with 12+ rounds, but this is completely missing
+   - Users would currently store plaintext passwords
+
+4. **Incomplete API Implementation**
+   - No authentication routes (`/register`, `/login`, `/refresh`, `/protected`) are implemented
+   - No password hashing utilities or JWT token services
+   - The FastAPI app only has a basic health check endpoint
+
+5. **Overly Simplistic Email Validation** (`api/models/user.py:19`)
+   - Email validation only checks for "@" character presence
+   - This would accept invalid emails like "@", "a@", "@domain.com"
+   - Should use proper email validation library or regex
+
+### **Code Quality Issues (Non-blocking)**
+
+6. **Class-level State in UserRepository** (`api/services/user_repository.py:33-34`)
+   - Using class-level variables for storage means all instances share the same data
+   - This is intentional for singleton pattern but could be confusing
+   - Consider using instance variables with dependency injection
+
+7. **Missing Error Handling**
+   - No custom exception classes for business logic errors
+   - No validation of JWT expiration times in config
+   - No input sanitization beyond basic type checking
+
+### **Test Coverage Assessment**
+
+**Positive:** The test suite is comprehensive with:
+- 308 lines of thorough test coverage for UserRepository
+- Thread safety testing with concurrent operations
+- Edge case testing (duplicate emails, invalid inputs)
+- Proper test isolation with setup/teardown
+
+**Gap:** Tests only cover the repository layer. Missing tests for:
+- User model validation
+- Configuration settings
+- FastAPI application (though routes aren't implemented yet)
+
+### **Documentation Review**
+
+**Positive:** Good documentation structure exists:
+- Comprehensive PRD with clear acceptance criteria
+- Well-documented code with docstrings
+- README exists (though minimal)
+
+**Gap:** No API documentation or endpoint specifications written yet
+
+### **Performance Analysis**
+
+The in-memory dictionary approach with threading.Lock is appropriate for the stated requirements:
+- O(1) lookup performance is good for up to 1000 users as specified
+- Thread safety implementation is correct
+- No obvious performance bottlenecks in current code
+
+### **Summary**
+
+This PR implements the foundational data models and repository layer for a Python Auth API, but is missing critical security measures and the actual authentication functionality. The security vulnerabilities around JWT secrets and CORS configuration must be addressed before this can be safely deployed.
+
+The UserRepository implementation is well-tested and thread-safe, but the overall API is incomplete - it's essentially just the data layer without the authentication logic, route handlers, or security services that make up the core requirements.
+
+**Recommendation:** Request changes to address security issues and implement the missing authentication components before approval.
+
+
+**Action Required**: Please address the blocking issues above before merging.
+
+---
+*Reviewed by code-reviewer agent*
