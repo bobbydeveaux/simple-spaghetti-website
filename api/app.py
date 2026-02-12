@@ -36,6 +36,7 @@ CORS(app)
 
 # Register voting system blueprints
 app.register_blueprint(voting_bp)
+# Register admin routes blueprint
 app.register_blueprint(admin_bp)
 
 # Global error handler

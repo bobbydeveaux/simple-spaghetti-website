@@ -1,6 +1,6 @@
 """
 PTA Voting System Admin Routes
-Administrative endpoints for candidate management and audit log access.
+Administrative endpoints for candidate management, audit log access, and election administration.
 """
 
 from flask import Blueprint, request, jsonify
@@ -8,13 +8,18 @@ from typing import Dict, Any, Tuple, List
 import uuid
 from datetime import datetime
 import re
+import logging
 
+# Import existing utilities and models
 from .data_store import voting_data_store
-from .middleware import admin_required
 from .models import Candidate
+from .middleware import admin_required
 
 # Create Blueprint for admin routes
 admin_bp = Blueprint('admin', __name__, url_prefix='/api/voting/admin')
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
 def validate_candidate_data(data: Dict[str, Any], is_update: bool = False) -> Tuple[List[str], bool]:
@@ -60,6 +65,47 @@ def validate_candidate_data(data: Dict[str, Any], is_update: bool = False) -> Tu
     return errors, len(errors) == 0
 
 
+def validate_candidate_data_legacy(data: Dict[str, Any]) -> tuple[bool, str]:
+    """
+    Legacy validation function for backward compatibility.
+
+    Args:
+        data: Dictionary containing candidate data
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    required_fields = ['name', 'position']
+
+    # Check required fields
+    for field in required_fields:
+        if not data.get(field):
+            return False, f"Missing required field: {field}"
+
+    # Validate field types and lengths
+    if not isinstance(data['name'], str) or len(data['name'].strip()) < 2:
+        return False, "Name must be at least 2 characters"
+
+    if not isinstance(data['position'], str) or len(data['position'].strip()) < 2:
+        return False, "Position must be at least 2 characters"
+
+    # Validate bio if provided
+    if 'bio' in data and data['bio'] is not None:
+        if not isinstance(data['bio'], str):
+            return False, "Bio must be a string"
+        if len(data['bio']) > 1000:
+            return False, "Bio must be less than 1000 characters"
+
+    # Validate photo_url if provided
+    if 'photo_url' in data and data['photo_url'] is not None:
+        if not isinstance(data['photo_url'], str):
+            return False, "Photo URL must be a string"
+        if len(data['photo_url']) > 500:
+            return False, "Photo URL must be less than 500 characters"
+
+    return True, ""
+
+
 @admin_bp.route('/candidates', methods=['GET'])
 @admin_required
 def get_all_candidates() -> Tuple[Dict[str, Any], int]:
@@ -87,7 +133,14 @@ def get_all_candidates() -> Tuple[Dict[str, Any], int]:
 
         candidate_dicts = []
         for candidate in all_candidates:
-            candidate_dict = candidate.to_dict()
+            candidate_dict = candidate.to_dict() if hasattr(candidate, 'to_dict') else {
+                "candidate_id": candidate.candidate_id,
+                "name": candidate.name,
+                "position": candidate.position,
+                "bio": candidate.bio or "",
+                "photo_url": candidate.photo_url or "",
+                "created_at": candidate.created_at.isoformat() if candidate.created_at else None
+            }
             candidate_dicts.append(candidate_dict)
 
             position = candidate.position
@@ -102,6 +155,7 @@ def get_all_candidates() -> Tuple[Dict[str, Any], int]:
         }, 200
 
     except Exception as e:
+        logger.error(f"Error retrieving candidates: {str(e)}")
         print(f"Get all candidates error: {str(e)}")
         return {"error": "Failed to retrieve candidates"}, 500
 
@@ -186,11 +240,19 @@ def create_candidate() -> Tuple[Dict[str, Any], int]:
         voting_data_store.add_audit_log(audit_log)
 
         return {
-            "candidate": candidate.to_dict(),
+            "candidate": candidate.to_dict() if hasattr(candidate, 'to_dict') else {
+                "candidate_id": candidate.candidate_id,
+                "name": candidate.name,
+                "position": candidate.position,
+                "bio": candidate.bio or "",
+                "photo_url": candidate.photo_url or "",
+                "created_at": candidate.created_at.isoformat() if candidate.created_at else None
+            },
             "message": f"Candidate '{name}' created successfully for position '{position}'"
         }, 201
 
     except Exception as e:
+        logger.error(f"Error creating candidate: {str(e)}")
         print(f"Create candidate error: {str(e)}")
         return {"error": "Failed to create candidate"}, 500
 
@@ -285,11 +347,19 @@ def update_candidate(candidate_id: str) -> Tuple[Dict[str, Any], int]:
         voting_data_store.add_audit_log(audit_log)
 
         return {
-            "candidate": updated_candidate.to_dict(),
+            "candidate": updated_candidate.to_dict() if hasattr(updated_candidate, 'to_dict') else {
+                "candidate_id": updated_candidate.candidate_id,
+                "name": updated_candidate.name,
+                "position": updated_candidate.position,
+                "bio": updated_candidate.bio or "",
+                "photo_url": updated_candidate.photo_url or "",
+                "created_at": updated_candidate.created_at.isoformat() if updated_candidate.created_at else None
+            },
             "message": f"Candidate '{name}' updated successfully"
         }, 200
 
     except Exception as e:
+        logger.error(f"Error updating candidate {candidate_id}: {str(e)}")
         print(f"Update candidate error: {str(e)}")
         return {"error": "Failed to update candidate"}, 500
 
@@ -337,6 +407,7 @@ def delete_candidate(candidate_id: str) -> Tuple[Dict[str, Any], int]:
         }, 200
 
     except Exception as e:
+        logger.error(f"Error deleting candidate {candidate_id}: {str(e)}")
         print(f"Delete candidate error: {str(e)}")
         return {"error": "Failed to delete candidate"}, 500
 
@@ -383,7 +454,14 @@ def get_audit_logs() -> Tuple[Dict[str, Any], int]:
         # Convert to dicts
         logs_data = []
         for log in paginated_logs:
-            log_dict = log.to_dict()
+            log_dict = log.to_dict() if hasattr(log, 'to_dict') else {
+                "log_id": log.log_id,
+                "voter_id": log.voter_id,
+                "action": log.action,
+                "timestamp": log.timestamp.isoformat(),
+                "position": getattr(log, 'position', None),
+                "metadata": getattr(log, 'metadata', {})
+            }
 
             # Add voter email for easier identification
             voter = voting_data_store.get_voter_by_id(log.voter_id)
@@ -408,6 +486,7 @@ def get_audit_logs() -> Tuple[Dict[str, Any], int]:
     except ValueError as e:
         return {"error": "Invalid query parameters"}, 400
     except Exception as e:
+        logger.error(f"Error retrieving audit logs: {str(e)}")
         print(f"Get audit logs error: {str(e)}")
         return {"error": "Failed to retrieve audit logs"}, 500
 
@@ -428,9 +507,19 @@ def get_candidate(candidate_id: str) -> Tuple[Dict[str, Any], int]:
         if not candidate:
             return {"error": "Candidate not found"}, 404
 
-        return {"candidate": candidate.to_dict()}, 200
+        candidate_dict = candidate.to_dict() if hasattr(candidate, 'to_dict') else {
+            "candidate_id": candidate.candidate_id,
+            "name": candidate.name,
+            "position": candidate.position,
+            "bio": candidate.bio or "",
+            "photo_url": candidate.photo_url or "",
+            "created_at": candidate.created_at.isoformat() if candidate.created_at else None
+        }
+
+        return {"candidate": candidate_dict}, 200
 
     except Exception as e:
+        logger.error(f"Error retrieving candidate {candidate_id}: {str(e)}")
         print(f"Get candidate error: {str(e)}")
         return {"error": "Failed to retrieve candidate"}, 500
 
@@ -492,8 +581,53 @@ def get_admin_statistics() -> Tuple[Dict[str, Any], int]:
         return {"statistics": admin_stats}, 200
 
     except Exception as e:
+        logger.error(f"Error retrieving admin statistics: {str(e)}")
         print(f"Get admin statistics error: {str(e)}")
         return {"error": "Failed to retrieve statistics"}, 500
+
+
+# Legacy endpoint for getting candidates by position
+@admin_bp.route('/candidates/by-position/<string:position>', methods=['GET'])
+@admin_required
+def get_candidates_by_position(position: str):
+    """
+    Get all candidates for a specific position (legacy endpoint).
+
+    Args:
+        position: The position to filter candidates by
+
+    Returns:
+        200: List of candidates for the position
+        500: Server error
+    """
+    try:
+        candidates = voting_data_store.get_candidates_for_position(position)
+
+        # Convert candidates to dictionaries for JSON response
+        candidates_data = []
+        for candidate in candidates:
+            candidate_dict = candidate.to_dict() if hasattr(candidate, 'to_dict') else {
+                "candidate_id": candidate.candidate_id,
+                "name": candidate.name,
+                "position": candidate.position,
+                "bio": candidate.bio or "",
+                "photo_url": candidate.photo_url or "",
+                "created_at": candidate.created_at.isoformat() if candidate.created_at else None
+            }
+            candidates_data.append(candidate_dict)
+
+        return jsonify({
+            "position": position,
+            "candidates": candidates_data,
+            "total": len(candidates_data)
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error retrieving candidates for position {position}: {str(e)}")
+        return jsonify({
+            "error": "Failed to retrieve candidates for position",
+            "detail": str(e)
+        }), 500
 
 
 # Export the Blueprint

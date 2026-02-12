@@ -1,15 +1,12 @@
 {
   "method": "ai-assisted",
-  "filesResolved": 7,
-  "summary": "Successfully resolved merge conflicts by combining features from both branches. Preserved comprehensive validation and enhanced UI from HEAD branch while integrating audit log functionality, statistics endpoints, and additional admin features from origin/main. Updated PR metadata to reflect combined scope covering both candidate management UI enhancements and complete admin interface implementation.",
-  "strategyUsed": "preserved and combined both changes with intelligent merging - kept comprehensive validation and enhanced UI components from HEAD, integrated audit logs and statistics functionality from origin/main, unified admin routing and API endpoints, and consolidated PR descriptions to reflect complete feature set",
+  "filesResolved": 4,
+  "summary": "Successfully resolved merge conflicts in 4 files by combining functionality from both branches. Preserved comprehensive admin features from origin/main while maintaining backward compatibility from HEAD. Resolved conflicts in .claude-output.json, api/app.py, api/voting/admin_routes.py, and api/voting/data_store.py.",
+  "strategyUsed": "Combined both implementations: kept comprehensive PR description from origin/main, merged admin routes functionality by combining validation approaches, unified data store methods, and ensured no functionality was lost from either branch.",
   "conflictResolution": {
-    ".claude-output.json": "Combined PR titles and descriptions to reflect both candidate management enhancements and complete admin interface implementation",
-    "api/voting/admin_routes.py": "Merged comprehensive validation from HEAD with audit logging and statistics endpoints from origin/main",
-    "api/voting/data_store.py": "Kept HEAD implementation for CRUD methods with proper error handling",
-    "dist/index.html": "Used origin/main asset references as they are more recent",
-    "src/voting/App.jsx": "Combined enhanced navigation from HEAD with comprehensive routing from origin/main",
-    "src/voting/api/votingApi.js": "Merged both admin API function sets while maintaining compatibility",
-    "src/voting/pages/admin/CandidateManagement.jsx": "Used HEAD version with enhanced UI, validation, and user experience features"
+    ".claude-output.json": "Used comprehensive PR description from origin/main which covers broader feature set including admin dashboard integration and audit logs",
+    "api/app.py": "Simple merge - kept admin routes blueprint registration with descriptive comment from HEAD",
+    "api/voting/admin_routes.py": "Combined both implementations: kept comprehensive validation and audit logging from origin/main, added legacy validation function for backward compatibility, merged all admin endpoints including statistics and audit logs",
+    "api/voting/data_store.py": "Used origin/main implementation for update_candidate and delete_candidate methods with proper error handling and consistency checks"
   }
 }
