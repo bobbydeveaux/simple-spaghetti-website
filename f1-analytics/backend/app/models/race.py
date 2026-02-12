@@ -5,8 +5,8 @@ This module defines the Race SQLAlchemy model representing Formula 1 Grand Prix
 races with scheduling and status information.
 """
 
-from datetime import datetime
-from sqlalchemy import Column, Integer, String, Date, ForeignKey, DateTime
+from datetime import datetime, date
+from sqlalchemy import Column, Integer, String, Date, ForeignKey, DateTime, UniqueConstraint, CheckConstraint, Index
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -51,6 +51,18 @@ class Race(Base):
     predictions = relationship("Prediction", back_populates="race", cascade="all, delete-orphan")
     prediction_accuracy = relationship("PredictionAccuracy", back_populates="race", uselist=False, cascade="all, delete-orphan")
 
+    # Constraints
+    __table_args__ = (
+        UniqueConstraint("season_year", "round_number", name="uq_races_season_round"),
+        CheckConstraint(
+            status.in_(["scheduled", "completed", "cancelled"]),
+            name="ck_races_status"
+        ),
+        Index("idx_races_date", "race_date"),
+        Index("idx_races_season", "season_year", "round_number"),
+        Index("idx_races_status", "status"),
+    )
+
     def __repr__(self) -> str:
         """String representation of Race instance."""
         return f"<Race(id={self.race_id}, name='{self.race_name}', year={self.season_year}, round={self.round_number}, status='{self.status}')>"
@@ -70,6 +82,16 @@ class Race(Base):
         return self.status == "completed"
 
     @property
+    def is_upcoming(self) -> bool:
+        """Check if race is scheduled and in the future."""
+        return self.status == "scheduled" and self.race_date >= date.today()
+
+    @property
     def season_round_key(self) -> str:
         """Unique key combining season and round."""
+        return f"{self.season_year}-R{self.round_number:02d}"
+
+    @property
+    def season_round_identifier(self) -> str:
+        """Get season-round identifier for display."""
         return f"{self.season_year}-R{self.round_number:02d}"

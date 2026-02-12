@@ -1,11 +1,6 @@
 {
   "method": "ai-assisted",
-  "filesResolved": 3,
-  "summary": "Resolved conflicts in .pr-number (kept our PR #47), index.html (merged simple spaghetti website content with HTML5 best practices from main), and .claude-output.json (accepted deletion from main branch)",
-  "strategyUsed": "Preserved our branch's intent (simple spaghetti website for issue #4) while incorporating HTML5 best practices from main branch (lang attribute, meta charset, viewport). Fixed typo 'spagheeti' to 'spaghetti'. Kept our PR number 47 as this is PR #47.",
-  "conflictResolution": {
-    ".pr-number": "Kept our version (47) as this is PR #47",
-    "index.html": "Merged both versions: kept the simple spaghetti website content and theme from our branch, but incorporated HTML5 best practices from main (lang='en', meta charset, viewport). Fixed typo 'spagheeti' to 'spaghetti' for better presentation.",
-    ".claude-output.json": "Accepted deletion from main branch - file was deleted by them and we agreed to remove it"
-  }
+  "filesResolved": 21,
+  "summary": "Resolved merge conflicts between feature branch and main branch by combining the best features from both sides. Preserved comprehensive configuration using Pydantic BaseSettings from HEAD while keeping external API settings and cache TTL configurations from main. Unified database credentials to use f1_user/f1_password consistently. Combined model docstrings, functionality, and database optimizations from both branches.",
+  "strategyUsed": "Combined best features from both branches: used Pydantic BaseSettings configuration architecture from HEAD with additional external API and caching configurations from main; preserved all model functionality and database indexes; unified database credentials; resolved docstring conflicts by choosing the most comprehensive versions; maintained backward compatibility through aliases"
 }

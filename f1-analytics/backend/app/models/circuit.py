@@ -6,7 +6,7 @@ circuits and tracks with their characteristics.
 """
 
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, Numeric
+from sqlalchemy import Column, Integer, String, DateTime, Numeric, CheckConstraint
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -42,6 +42,14 @@ class Circuit(Base):
     # Relationships
     races = relationship("Race", back_populates="circuit")
 
+    # Constraints
+    __table_args__ = (
+        CheckConstraint(
+            track_type.in_(["street", "permanent"]),
+            name="ck_circuits_track_type"
+        ),
+    )
+
     def __repr__(self) -> str:
         """String representation of Circuit instance."""
         return f"<Circuit(id={self.circuit_id}, name='{self.circuit_name}', location='{self.location}')>"
@@ -59,3 +67,10 @@ class Circuit(Base):
             return f"{self.circuit_name}, {self.location}"
         else:
             return self.circuit_name
+
+    @property
+    def track_length_miles(self) -> float:
+        """Convert track length to miles."""
+        if self.track_length_km:
+            return float(self.track_length_km) * 0.621371
+        return 0.0

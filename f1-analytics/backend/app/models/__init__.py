@@ -3,6 +3,9 @@ SQLAlchemy models package for F1 Prediction Analytics.
 
 This package contains all database models for the F1 prediction analytics system,
 including drivers, teams, circuits, races, predictions, and related entities.
+
+This module imports all models to ensure they are registered with SQLAlchemy
+for Alembic migration detection.
 """
 
 from .driver import Driver

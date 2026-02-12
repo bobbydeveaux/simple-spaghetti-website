@@ -8,33 +8,45 @@ and sets up the basic API structure for the F1 analytics system.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import settings
+from app.config import app_config
 from app.database import create_tables
 
-# Create FastAPI application instance
-app = FastAPI(
-    title=settings.APP_NAME,
-    version=settings.APP_VERSION,
-    description="Formula 1 Prediction Analytics API - Advanced ML-powered race predictions",
-    docs_url="/docs" if settings.DEBUG else None,
-    redoc_url="/redoc" if settings.DEBUG else None,
-)
+# Import all models to ensure they are registered
+from app.models import *  # noqa: F401, F403
 
-# Configure CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"] if settings.DEBUG else ["https://your-frontend-domain.com"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
+def create_app() -> FastAPI:
+    """Create and configure the FastAPI application."""
+
+    app = FastAPI(
+        title=app_config.APP_NAME,
+        description="Formula 1 Prediction Analytics API - Advanced ML-powered race predictions",
+        version=app_config.APP_VERSION,
+        docs_url="/docs" if app_config.DEBUG else None,
+        redoc_url="/redoc" if app_config.DEBUG else None,
+    )
+
+    # Configure CORS middleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=app_config.CORS_ORIGINS if not app_config.DEBUG else ["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    return app
+
+
+# Create application instance
+app = create_app()
 
 
 @app.on_event("startup")
 async def startup_event():
     """Application startup event handler."""
     # Create database tables on startup (for development)
-    if settings.DEBUG:
+    if app_config.DEBUG:
         create_tables()
 
 
@@ -43,19 +55,20 @@ async def root():
     """Root endpoint with basic API information."""
     return {
         "message": "F1 Prediction Analytics API",
-        "version": settings.APP_VERSION,
+        "version": app_config.APP_VERSION,
         "status": "operational",
-        "docs_url": "/docs" if settings.DEBUG else None,
+        "docs_url": "/docs" if app_config.DEBUG else None,
     }
 
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint for monitoring."""
+    import datetime
     return {
         "status": "healthy",
-        "timestamp": "2026-02-12T15:43:00Z",
-        "version": settings.APP_VERSION,
+        "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+        "version": app_config.APP_VERSION,
     }
 
 
@@ -73,6 +86,6 @@ if __name__ == "__main__":
         "app.main:app",
         host="0.0.0.0",
         port=8000,
-        reload=settings.DEBUG,
-        log_level="debug" if settings.DEBUG else "info",
+        reload=app_config.DEBUG,
+        log_level="debug" if app_config.DEBUG else "info",
     )
