@@ -1,0 +1,217 @@
+Epic: f1-prediction-analytics
+Features:
+- dependencies: []
+  description: Create PostgreSQL tables for drivers, teams, circuits, races, race_results,
+    qualifying_results, weather_data, predictions, prediction_accuracy, and users
+    with proper indexes and partitioning
+  estimatedComplexity: medium
+  files:
+  - f1-analytics/backend/alembic/versions/001_initial_schema.py
+  - f1-analytics/backend/app/models/driver.py
+  - f1-analytics/backend/app/models/team.py
+  - f1-analytics/backend/app/models/circuit.py
+  - f1-analytics/backend/app/models/race.py
+  - f1-analytics/backend/app/models/race_result.py
+  - f1-analytics/backend/app/models/qualifying_result.py
+  - f1-analytics/backend/app/models/weather_data.py
+  - f1-analytics/backend/app/models/prediction.py
+  - f1-analytics/backend/app/models/prediction_accuracy.py
+  - f1-analytics/backend/app/models/user.py
+  id: f1-prediction-analytics-feat-database-schema
+  name: Database Schema Setup
+  project: f1-analytics
+  type: enabler
+- dependencies:
+  - f1-prediction-analytics-feat-database-schema
+  description: Fetch and store historical F1 data from Ergast API and weather data
+    from OpenWeatherMap API with validation and transformation
+  estimatedComplexity: high
+  files:
+  - f1-analytics/backend/data_ingestion/ergast_client.py
+  - f1-analytics/backend/data_ingestion/weather_client.py
+  - f1-analytics/backend/data_ingestion/ingest_races.py
+  - f1-analytics/backend/data_ingestion/ingest_qualifying.py
+  - f1-analytics/backend/data_ingestion/ingest_weather.py
+  - f1-analytics/backend/data_ingestion/transform.py
+  - f1-analytics/backend/airflow/dags/daily_ingestion.py
+  id: f1-prediction-analytics-feat-data-ingestion
+  name: Data Ingestion Pipeline
+  project: f1-analytics
+  type: enabler
+- dependencies:
+  - f1-prediction-analytics-feat-database-schema
+  description: Calculate and maintain ELO ratings for drivers and teams based on race
+    results
+  estimatedComplexity: medium
+  files:
+  - f1-analytics/backend/ml/elo_calculator.py
+  id: f1-prediction-analytics-feat-elo-system
+  name: ELO Rating System
+  project: f1-analytics
+  type: feature
+- dependencies:
+  - f1-prediction-analytics-feat-database-schema
+  - f1-prediction-analytics-feat-elo-system
+  description: Extract features from historical data including driver form, track-specific
+    performance, weather impact, and ELO ratings
+  estimatedComplexity: high
+  files:
+  - f1-analytics/backend/ml/feature_engineering.py
+  id: f1-prediction-analytics-feat-feature-engineering
+  name: Feature Engineering
+  project: f1-analytics
+  type: enabler
+- dependencies:
+  - f1-prediction-analytics-feat-feature-engineering
+  - f1-prediction-analytics-feat-data-ingestion
+  description: Train Random Forest and XGBoost models on historical data and save
+    to S3 with versioning
+  estimatedComplexity: high
+  files:
+  - f1-analytics/backend/ml/models/random_forest.py
+  - f1-analytics/backend/ml/models/xgboost_model.py
+  - f1-analytics/backend/ml/models/ensemble.py
+  - f1-analytics/backend/ml/training.py
+  - f1-analytics/backend/ml/evaluation.py
+  - f1-analytics/backend/airflow/dags/model_training.py
+  id: f1-prediction-analytics-feat-ml-training
+  name: ML Model Training
+  project: f1-analytics
+  type: feature
+- dependencies:
+  - f1-prediction-analytics-feat-ml-training
+  description: Generate race winner predictions using trained ML models with ensemble
+    averaging and probability normalization
+  estimatedComplexity: medium
+  files:
+  - f1-analytics/backend/ml/inference.py
+  - f1-analytics/backend/app/services/prediction_service.py
+  - f1-analytics/backend/app/services/cache_service.py
+  id: f1-prediction-analytics-feat-prediction-service
+  name: Prediction Generation Service
+  project: f1-analytics
+  type: feature
+- dependencies:
+  - f1-prediction-analytics-feat-database-schema
+  description: JWT-based authentication system with user registration, login, and
+    password hashing
+  estimatedComplexity: medium
+  files:
+  - f1-analytics/backend/app/services/auth_service.py
+  - f1-analytics/backend/app/routes/auth.py
+  - f1-analytics/backend/app/middleware/auth_middleware.py
+  - f1-analytics/backend/app/schemas/auth.py
+  id: f1-prediction-analytics-feat-authentication
+  name: User Authentication
+  project: f1-analytics
+  type: feature
+- dependencies:
+  - f1-prediction-analytics-feat-authentication
+  - f1-prediction-analytics-feat-prediction-service
+  description: REST API endpoints for retrieving next race predictions and historical
+    predictions with caching
+  estimatedComplexity: medium
+  files:
+  - f1-analytics/backend/app/routes/predictions.py
+  - f1-analytics/backend/app/schemas/prediction.py
+  - f1-analytics/backend/app/repositories/prediction_repository.py
+  id: f1-prediction-analytics-feat-prediction-api
+  name: Prediction API Endpoints
+  project: f1-analytics
+  type: feature
+- dependencies:
+  - f1-prediction-analytics-feat-authentication
+  - f1-prediction-analytics-feat-data-ingestion
+  description: REST API endpoints for race calendar, race results, and qualifying
+    data
+  estimatedComplexity: low
+  files:
+  - f1-analytics/backend/app/routes/races.py
+  - f1-analytics/backend/app/schemas/race.py
+  - f1-analytics/backend/app/repositories/race_repository.py
+  id: f1-prediction-analytics-feat-race-calendar-api
+  name: Race Calendar API
+  project: f1-analytics
+  type: feature
+- dependencies:
+  - f1-prediction-analytics-feat-authentication
+  - f1-prediction-analytics-feat-prediction-service
+  description: REST API endpoints for prediction accuracy metrics, driver rankings,
+    and team rankings
+  estimatedComplexity: medium
+  files:
+  - f1-analytics/backend/app/routes/analytics.py
+  - f1-analytics/backend/app/services/analytics_service.py
+  - f1-analytics/backend/app/schemas/analytics.py
+  id: f1-prediction-analytics-feat-analytics-api
+  name: Analytics API
+  project: f1-analytics
+  type: feature
+- dependencies:
+  - f1-prediction-analytics-feat-authentication
+  - f1-prediction-analytics-feat-prediction-api
+  description: CSV and JSON export functionality for race results and predictions
+  estimatedComplexity: low
+  files:
+  - f1-analytics/backend/app/routes/export.py
+  - f1-analytics/backend/app/services/export_service.py
+  id: f1-prediction-analytics-feat-data-export
+  name: Data Export
+  project: f1-analytics
+  type: feature
+- dependencies:
+  - f1-prediction-analytics-feat-prediction-api
+  - f1-prediction-analytics-feat-race-calendar-api
+  - f1-prediction-analytics-feat-analytics-api
+  description: React/TypeScript dashboard with pages for predictions, race calendar,
+    analytics, and rankings with Chart.js visualizations
+  estimatedComplexity: high
+  files:
+  - f1-analytics/frontend/src/App.tsx
+  - f1-analytics/frontend/src/pages/HomePage.tsx
+  - f1-analytics/frontend/src/pages/CalendarPage.tsx
+  - f1-analytics/frontend/src/pages/AnalyticsPage.tsx
+  - f1-analytics/frontend/src/pages/RankingsPage.tsx
+  - f1-analytics/frontend/src/pages/LoginPage.tsx
+  - f1-analytics/frontend/src/components/predictions/PredictionCard.tsx
+  - f1-analytics/frontend/src/components/predictions/DriverProbabilityBar.tsx
+  - f1-analytics/frontend/src/components/analytics/AccuracyChart.tsx
+  - f1-analytics/frontend/src/components/analytics/DriverRankingsTable.tsx
+  - f1-analytics/frontend/src/hooks/usePredictions.ts
+  - f1-analytics/frontend/src/hooks/useRaces.ts
+  - f1-analytics/frontend/src/hooks/useAnalytics.ts
+  - f1-analytics/frontend/src/context/AuthContext.tsx
+  id: f1-prediction-analytics-feat-web-dashboard
+  name: Web Dashboard Frontend
+  project: f1-analytics
+  type: feature
+- dependencies:
+  - f1-prediction-analytics-feat-authentication
+  description: Redis-backed rate limiting middleware to prevent API abuse (100 requests
+    per minute per user)
+  estimatedComplexity: low
+  files:
+  - f1-analytics/backend/app/middleware/rate_limiter.py
+  id: f1-prediction-analytics-feat-rate-limiting
+  name: API Rate Limiting
+  project: f1-analytics
+  type: feature
+- dependencies: []
+  description: Docker containerization, Kubernetes deployment manifests, and Terraform
+    infrastructure as code
+  estimatedComplexity: medium
+  files:
+  - f1-analytics/backend/Dockerfile
+  - f1-analytics/frontend/Dockerfile
+  - f1-analytics/infrastructure/docker-compose.yml
+  - f1-analytics/infrastructure/kubernetes/api-gateway-deployment.yaml
+  - f1-analytics/infrastructure/kubernetes/prediction-service-deployment.yaml
+  - f1-analytics/infrastructure/kubernetes/frontend-deployment.yaml
+  - f1-analytics/infrastructure/kubernetes/postgres-statefulset.yaml
+  - f1-analytics/infrastructure/kubernetes/redis-deployment.yaml
+  - f1-analytics/infrastructure/terraform/main.tf
+  id: f1-prediction-analytics-feat-infrastructure
+  name: Infrastructure and Deployment
+  project: f1-analytics
+  type: enabler
+Version: v1alpha1
