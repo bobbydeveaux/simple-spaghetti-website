@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/f1-logo.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>F1 Analytics Dashboard</title>
+    <meta name="description" content="Formula One Prediction Analytics Platform" />
+
+    <!-- Preconnect to external domains -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- Load F1 fonts (fallback to system fonts) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+    <!-- Meta tags for SEO and social -->
+    <meta property="og:title" content="F1 Analytics Dashboard" />
+    <meta property="og:description" content="Predict Formula One race winners with machine learning" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Theme and app metadata -->
+    <meta name="theme-color" content="#E10600" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+
+    <style>
+      /* Loading spinner styles */
+      .loading-spinner {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 9999;
+      }
+
+      .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #E10600;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      /* Hide loading when app loads */
+      .app-loaded .loading-spinner {
+        display: none;
+      }
+
+      /* Basic app shell styling */
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        background-color: #f8fafc;
+        color: #1a202c;
+      }
+
+      #root {
+        min-height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Loading indicator -->
+    <div class="loading-spinner" id="loading-spinner">
+      <div class="spinner"></div>
+      <div style="margin-top: 20px; text-align: center; color: #666;">
+        Loading F1 Analytics...
+      </div>
+    </div>
+
+    <!-- React app root -->
+    <div id="root"></div>
+
+    <!-- Vite build script -->
+    <script type="module" src="/src/main.tsx"></script>
+
+    <script>
+      // Hide loading spinner when DOM is ready
+      document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(() => {
+          document.body.classList.add('app-loaded');
+        }, 1000);
+      });
+
+      // Simple service worker registration (for caching in production)
+      if ('serviceWorker' in navigator && import.meta.env.PROD) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(registration => console.log('SW registered'))
+            .catch(registrationError => console.log('SW registration failed'));
+        });
+      }
+    </script>
+  </body>
+</html>

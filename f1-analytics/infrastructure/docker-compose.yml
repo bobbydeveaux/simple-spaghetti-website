@@ -1,0 +1,210 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: f1-analytics-postgres
+    environment:
+      POSTGRES_DB: f1_analytics
+      POSTGRES_USER: f1user
+      POSTGRES_PASSWORD: f1password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=en_US.UTF-8 --lc-ctype=en_US.UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U f1user -d f1_analytics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - f1-analytics-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: f1-analytics-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --requirepass f1redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - f1-analytics-network
+
+  # Backend API
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: f1-analytics-backend
+    environment:
+      # Database
+      DATABASE_URL: postgresql://f1user:f1password@postgres:5432/f1_analytics
+      # Redis
+      REDIS_URL: redis://:f1redis@redis:6379/0
+      # JWT
+      JWT_SECRET_KEY: dev-secret-key-change-in-production
+      JWT_ALGORITHM: HS256
+      JWT_EXPIRE_MINUTES: 1440
+      # API Keys (for development only)
+      ERGAST_API_URL: https://ergast.com/api/f1
+      WEATHER_API_KEY: dev-weather-api-key
+      WEATHER_API_URL: https://api.openweathermap.org/data/2.5
+      # Environment
+      ENVIRONMENT: development
+      DEBUG: true
+      LOG_LEVEL: INFO
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../backend:/app
+      - backend_models:/app/models
+      - backend_logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - f1-analytics-network
+
+  # Frontend Dashboard
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      target: production
+    container_name: f1-analytics-frontend
+    environment:
+      VITE_API_URL: http://localhost:8000
+      VITE_APP_NAME: F1 Analytics Dashboard
+      VITE_ENVIRONMENT: development
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - f1-analytics-network
+
+  # Celery Worker for Background Tasks
+  celery-worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: f1-analytics-celery-worker
+    command: celery -A app.celery.celery worker --loglevel=info --concurrency=2
+    environment:
+      # Database
+      DATABASE_URL: postgresql://f1user:f1password@postgres:5432/f1_analytics
+      # Redis
+      REDIS_URL: redis://:f1redis@redis:6379/0
+      CELERY_BROKER_URL: redis://:f1redis@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:f1redis@redis:6379/0
+      # Environment
+      ENVIRONMENT: development
+      DEBUG: true
+      LOG_LEVEL: INFO
+    volumes:
+      - ../backend:/app
+      - backend_models:/app/models
+      - backend_logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - f1-analytics-network
+
+  # Celery Beat for Scheduled Tasks
+  celery-beat:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: f1-analytics-celery-beat
+    command: celery -A app.celery.celery beat --loglevel=info
+    environment:
+      # Database
+      DATABASE_URL: postgresql://f1user:f1password@postgres:5432/f1_analytics
+      # Redis
+      REDIS_URL: redis://:f1redis@redis:6379/0
+      CELERY_BROKER_URL: redis://:f1redis@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:f1redis@redis:6379/0
+      # Environment
+      ENVIRONMENT: development
+      DEBUG: true
+      LOG_LEVEL: INFO
+    volumes:
+      - ../backend:/app
+      - backend_models:/app/models
+      - backend_logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - f1-analytics-network
+
+  # Flower for Monitoring Celery Tasks (Optional)
+  flower:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: f1-analytics-flower
+    command: celery -A app.celery.celery flower --port=5555
+    environment:
+      CELERY_BROKER_URL: redis://:f1redis@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:f1redis@redis:6379/0
+      FLOWER_BASIC_AUTH: admin:flower-admin
+    ports:
+      - "5555:5555"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - f1-analytics-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  backend_models:
+    driver: local
+  backend_logs:
+    driver: local
+
+networks:
+  f1-analytics-network:
+    driver: bridge
