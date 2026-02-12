@@ -70,3 +70,14 @@ async def root():
         "docs": "/docs",
         "health": "/health"
     }
+
+
+# For running directly
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "api.main:app",
+        host=config.host,
+        port=config.port,
+        reload=True
+    )
