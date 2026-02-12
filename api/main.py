@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
+from .routes import auth
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -21,6 +22,9 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
 )
+
+# Include routers
+app.include_router(auth.router)
 
 @app.get("/health")
 async def health_check():

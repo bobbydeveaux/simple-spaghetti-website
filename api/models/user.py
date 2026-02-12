@@ -4,7 +4,8 @@ User data models and Pydantic schemas.
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, EmailStr
+import re
+from pydantic import BaseModel, EmailStr, validator
 
 
 @dataclass
@@ -16,10 +17,19 @@ class User:
 
     def __post_init__(self):
         """Validate email format and ensure created_at is set."""
-        if not self.email or "@" not in self.email:
-            raise ValueError("Invalid email format")
+        self._validate_email()
         if not self.password_hash:
             raise ValueError("Password hash cannot be empty")
+
+    def _validate_email(self):
+        """Validate email format using regex."""
+        if not self.email:
+            raise ValueError("Email cannot be empty")
+
+        # Improved email validation regex
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_pattern, self.email):
+            raise ValueError("Invalid email format")
 
 
 # Pydantic models for API requests and responses
@@ -28,6 +38,17 @@ class RegisterRequest(BaseModel):
     """Request model for user registration."""
     email: EmailStr
     password: str
+
+    @validator('password')
+    def validate_password_strength(cls, v):
+        """Validate password meets security requirements."""
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters long')
+        if not re.search(r'[A-Za-z]', v):
+            raise ValueError('Password must contain at least one letter')
+        if not re.search(r'[0-9]', v):
+            raise ValueError('Password must contain at least one digit')
+        return v
 
     class Config:
         json_schema_extra = {
