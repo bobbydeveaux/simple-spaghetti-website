@@ -8,6 +8,7 @@ This backend provides the data layer and API endpoints for the F1 prediction ana
 
 - **Database Models**: 10 core entities for F1 data (drivers, teams, races, predictions, etc.)
 - **REST API**: FastAPI endpoints for data access and analytics
+- **Data Ingestion**: Automated F1 data collection from Ergast API
 - **ML Integration**: Model prediction storage and accuracy tracking
 - **Authentication**: JWT-based user authentication and authorization
 
@@ -125,6 +126,67 @@ python scripts/seed_sample_data.py
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
+## Data Ingestion
+
+The F1 analytics backend includes comprehensive data ingestion capabilities for importing race and qualifying data.
+
+### Quick Start Data Ingestion
+
+```bash
+# Import complete 2024 season data (races + qualifying)
+python ../scripts/ingest_f1_data.py season 2024
+
+# Import specific race data
+python ../scripts/ingest_f1_data.py race 2024 --round 5
+
+# Import qualifying data for a specific race
+python ../scripts/ingest_f1_data.py qualifying 2024 --round 5
+
+# Validate data integrity
+python ../scripts/ingest_f1_data.py validate 2024
+```
+
+### Programmatic Usage
+
+```python
+from app.ingestion import RaceIngestionService, QualifyingIngestionService
+from app.database import db_manager
+import asyncio
+
+async def ingest_season_data():
+    """Example of programmatic data ingestion."""
+    race_service = RaceIngestionService()
+    qualifying_service = QualifyingIngestionService()
+
+    # Import race data
+    race_results = await race_service.run_ingestion(season=2024)
+    print(f"Imported {race_results['races_created']} races")
+
+    # Import qualifying data
+    qualifying_results = await qualifying_service.run_ingestion(season=2024)
+    print(f"Imported {qualifying_results['qualifying_results_created']} qualifying results")
+
+# Run the ingestion
+asyncio.run(ingest_season_data())
+```
+
+### Configuration
+
+Data ingestion settings can be configured via environment variables:
+
+```bash
+# Ergast API settings
+F1_ERGAST_BASE_URL=https://ergast.com/api/f1
+F1_ERGAST_TIMEOUT=30
+F1_ERGAST_RETRY_ATTEMPTS=3
+
+# Weather API (optional)
+F1_WEATHER_API_KEY=your_openweather_api_key
+F1_WEATHER_BASE_URL=https://api.openweathermap.org/data/2.5
+```
+
+See [F1 Data Ingestion Documentation](../../docs/F1_DATA_INGESTION.md) for detailed usage information.
+
 ## Database Migration
 
 ### Create Migration
@@ -177,6 +239,12 @@ f1-analytics/backend/
 │   │   ├── race.py
 │   │   ├── user.py            # User authentication model
 │   │   └── ...
+│   ├── ingestion/              # Data ingestion services
+│   │   ├── base.py            # Base ingestion service
+│   │   ├── race_ingestion.py  # Race data ingestion
+│   │   ├── qualifying_ingestion.py # Qualifying data ingestion
+│   │   ├── config.py          # Ingestion configuration
+│   │   └── cli.py             # Command-line interface
 │   ├── schemas/                # Pydantic schemas
 │   ├── repositories/           # Data access layer
 │   │   ├── base.py            # Base repository with CRUD operations
@@ -197,6 +265,7 @@ f1-analytics/backend/
 │   ├── unit/                 # Unit tests
 │   │   └── test_models.py
 │   ├── test_database.py      # Database functionality tests
+│   ├── test_ingestion.py     # Data ingestion tests
 │   └── test_session_management.py # Session and JWT tests
 ├── requirements.txt          # Python dependencies
 ├── alembic.ini              # Alembic configuration
@@ -234,6 +303,7 @@ pytest --cov=app --cov-report=html
 # Run specific test categories
 pytest tests/test_database.py
 pytest tests/test_session_management.py
+pytest tests/test_ingestion.py
 ```
 
 ## Environment Variables
@@ -320,9 +390,13 @@ Always use Alembic migrations for schema changes to maintain version control and
 
 ## Future Enhancements
 
+### Implemented Features
+- ✅ **External API Data Ingestion**: Complete Ergast F1 API integration with race and qualifying data
+- ✅ **Data Validation**: Comprehensive validation and error handling for ingested data
+- ✅ **CLI Tools**: Command-line interface for data management operations
+
 ### Planned Features
 - ML model training integration
-- External API data ingestion (Ergast F1 API)
 - Real-time prediction updates
 - Advanced analytics and reporting
 - API rate limiting per endpoint
