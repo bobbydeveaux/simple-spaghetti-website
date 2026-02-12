@@ -25,10 +25,26 @@ FastAPI-based authentication API with JWT token management.
 
 ## Running the Application
 
-Start the FastAPI development server:
+There are multiple ways to start the FastAPI development server:
 
+### Option 1: Using uvicorn directly
 ```bash
 uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### Option 2: Running as a Python module
+```bash
+python3 -m api
+```
+
+### Option 3: Using the run script
+```bash
+python3 run.py
+```
+
+### Option 4: Direct execution
+```bash
+python3 api/main.py
 ```
 
 The API will be available at:
@@ -69,6 +85,7 @@ The application uses environment variables for configuration:
 ```
 api/
 ├── __init__.py              # Package initializer
+├── __main__.py              # Entry point for module execution
 ├── main.py                  # FastAPI app initialization, CORS, exception handlers
 ├── config.py                # Environment variables, JWT secret, token expiry
 ├── routes/                  # API endpoints (future sprints)
@@ -79,6 +96,7 @@ api/
 └── README.md               # This file
 
 requirements.txt             # Python dependencies
+run.py                       # Simple execution script
 ```
 
 ## Development
@@ -90,9 +108,13 @@ requirements.txt             # Python dependencies
    pip3 install -r requirements.txt
    ```
 
-2. Start the server:
+2. Start the server (any of the methods above):
    ```bash
    uvicorn api.main:app --reload
+   # OR
+   python3 -m api
+   # OR
+   python3 run.py
    ```
 
 3. Test endpoints:
