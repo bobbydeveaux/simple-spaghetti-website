@@ -1,0 +1,135 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: f1-analytics
+  labels:
+    app: redis
+    component: cache-config
+data:
+  redis.conf: |
+    # Redis 7 Configuration for F1 Analytics Platform
+    # Optimized for caching and session management
+
+    # Network Configuration
+    bind 0.0.0.0
+    port 6379
+    protected-mode yes
+    timeout 300
+    tcp-keepalive 60
+
+    # Authentication
+    requirepass ${REDIS_PASSWORD}
+
+    # Memory Management
+    maxmemory 1.5gb
+    maxmemory-policy allkeys-lru
+    maxmemory-samples 10
+
+    # Persistence Configuration
+    # RDB snapshots for backup
+    save 900 1
+    save 300 10
+    save 60 10000
+    rdbcompression yes
+    rdbchecksum yes
+    dbfilename dump.rdb
+    dir /data
+
+    # AOF (Append Only File) for durability
+    appendonly yes
+    appendfilename "appendonly.aof"
+    appendfsync everysec
+    no-appendfsync-on-rewrite no
+    auto-aof-rewrite-percentage 100
+    auto-aof-rewrite-min-size 64mb
+
+    # Replication Configuration
+    replica-serve-stale-data yes
+    replica-read-only yes
+    repl-diskless-sync no
+    repl-diskless-sync-delay 5
+
+    # Security
+    rename-command FLUSHALL ""
+    rename-command FLUSHDB ""
+    rename-command CONFIG f1_config_cmd
+    rename-command DEBUG ""
+
+    # Performance Tuning
+    tcp-backlog 511
+    databases 16
+
+    # F1 Analytics Specific Settings
+    # Optimize for prediction caching (7-day TTL)
+    hash-max-ziplist-entries 512
+    hash-max-ziplist-value 64
+    list-max-ziplist-size -2
+    list-compress-depth 0
+    set-max-intset-entries 512
+    zset-max-ziplist-entries 128
+    zset-max-ziplist-value 64
+
+    # Logging
+    loglevel notice
+    logfile ""
+    syslog-enabled no
+
+    # Client Management
+    maxclients 10000
+
+    # Slow Log
+    slowlog-log-slower-than 10000
+    slowlog-max-len 128
+
+    # Latency Monitoring
+    latency-monitor-threshold 100
+
+    # Memory Usage Tracking
+    activedefrag yes
+    active-defrag-ignore-bytes 100mb
+    active-defrag-threshold-lower 10
+    active-defrag-threshold-upper 100
+    active-defrag-cycle-min 5
+    active-defrag-cycle-max 75
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-sentinel-config
+  namespace: f1-analytics
+  labels:
+    app: redis-sentinel
+    component: cache-config
+data:
+  sentinel.conf: |
+    # Redis Sentinel Configuration for F1 Analytics Platform
+    # High Availability and Automatic Failover
+
+    # Network Configuration
+    port 26379
+    bind 0.0.0.0
+
+    # Sentinel Configuration
+    sentinel monitor f1-redis-master redis-service 6379 2
+    sentinel down-after-milliseconds f1-redis-master 5000
+    sentinel parallel-syncs f1-redis-master 1
+    sentinel failover-timeout f1-redis-master 10000
+
+    # Authentication
+    sentinel auth-pass f1-redis-master ${REDIS_PASSWORD}
+
+    # Logging
+    logfile ""
+    loglevel notice
+
+    # Security
+    protected-mode no
+
+    # Sentinel Scripts
+    sentinel notification-script f1-redis-master /usr/local/bin/notify.sh
+    sentinel client-reconfig-script f1-redis-master /usr/local/bin/reconfig.sh
+
+    # Announce IP
+    sentinel announce-ip redis-sentinel-service
+    sentinel announce-port 26379

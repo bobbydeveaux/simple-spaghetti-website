@@ -1,0 +1,115 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: f1-analytics
+  labels:
+    app: postgres
+    component: database-config
+data:
+  postgresql.conf: |
+    # PostgreSQL 15 Configuration for F1 Analytics Platform
+    # Optimized for high-performance analytics workloads
+
+    # Connection Settings
+    listen_addresses = '*'
+    port = 5432
+    max_connections = 200
+    superuser_reserved_connections = 3
+
+    # Memory Configuration
+    shared_buffers = 1GB                    # 25% of total memory (4GB)
+    effective_cache_size = 3GB              # 75% of total memory
+    work_mem = 16MB                         # For sort/hash operations
+    maintenance_work_mem = 256MB            # For vacuum, index creation
+
+    # Write Ahead Logging (WAL) Configuration
+    wal_level = replica                     # Enable replication
+    max_wal_size = 2GB
+    min_wal_size = 512MB
+    checkpoint_completion_target = 0.9
+    wal_buffers = 32MB
+
+    # Replication Configuration
+    archive_mode = on
+    archive_command = '/bin/true'           # Replace with actual archival command
+    max_wal_senders = 5
+    max_replication_slots = 5
+    hot_standby = on
+    hot_standby_feedback = on
+
+    # Query Performance
+    random_page_cost = 1.1                  # SSD storage optimization
+    effective_io_concurrency = 200          # SSD can handle more concurrent I/O
+
+    # Parallel Query Configuration
+    max_parallel_workers_per_gather = 4
+    max_parallel_workers = 8
+    max_worker_processes = 16
+
+    # Logging Configuration
+    log_destination = 'stderr'
+    logging_collector = on
+    log_directory = 'log'
+    log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log'
+    log_rotation_age = 1d
+    log_rotation_size = 100MB
+    log_min_duration_statement = 1000      # Log queries taking > 1 second
+    log_checkpoints = on
+    log_connections = on
+    log_disconnections = on
+    log_lock_waits = on
+
+    # Table Partitioning Optimization
+    enable_partition_pruning = on
+    enable_partitionwise_join = on
+    enable_partitionwise_aggregate = on
+
+    # F1 Analytics Specific Settings
+    # Optimize for time-series data and analytical queries
+    default_statistics_target = 500        # Better statistics for complex queries
+    constraint_exclusion = partition       # Optimize partitioned table queries
+
+    # Auto-vacuum Configuration
+    autovacuum = on
+    autovacuum_max_workers = 3
+    autovacuum_naptime = 30s
+    autovacuum_vacuum_threshold = 500
+    autovacuum_vacuum_scale_factor = 0.1
+    autovacuum_analyze_threshold = 250
+    autovacuum_analyze_scale_factor = 0.05
+
+    # Extensions (loaded automatically)
+    shared_preload_libraries = 'pg_stat_statements'
+
+  pg_hba.conf: |
+    # PostgreSQL Client Authentication Configuration File
+    # TYPE  DATABASE        USER            ADDRESS                 METHOD
+
+    # "local" is for Unix domain socket connections only
+    local   all             all                                     trust
+
+    # IPv4 local connections:
+    host    all             all             127.0.0.1/32            md5
+
+    # IPv6 local connections:
+    host    all             all             ::1/128                 md5
+
+    # Allow replication connections from localhost, by a user with the
+    # replication privilege.
+    local   replication     all                                     trust
+    host    replication     all             127.0.0.1/32            md5
+    host    replication     all             ::1/128                 md5
+
+    # Kubernetes cluster connections
+    host    all             all             10.0.0.0/8              md5
+    host    all             all             172.16.0.0/12           md5
+    host    all             all             192.168.0.0/16          md5
+
+    # Replication connections from cluster
+    host    replication     replicator      10.0.0.0/8              md5
+    host    replication     replicator      172.16.0.0/12           md5
+    host    replication     replicator      192.168.0.0/16          md5
+
+    # Deny all other connections
+    host    all             all             0.0.0.0/0               reject
