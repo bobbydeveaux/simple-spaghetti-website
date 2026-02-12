@@ -5,12 +5,37 @@ User data models and Pydantic schemas for authentication
 from dataclasses import dataclass, field
 from typing import Optional
 from pydantic import BaseModel, EmailStr, Field
+from sqlalchemy import Column, Integer, String, DateTime, CheckConstraint
+from datetime import datetime
 import uuid
+from api.database import Base
+
+
+class User(Base):
+    """
+    User ORM model for F1 Prediction Analytics authentication
+    """
+    __tablename__ = "users"
+
+    user_id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)
+    username = Column(String(100))
+    role = Column(
+        String(20),
+        default="user",
+        CheckConstraint("role IN ('user', 'admin')")
+    )
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_login = Column(DateTime)
+
+    def __repr__(self):
+        return f"<User(user_id={self.user_id}, email='{self.email}', role='{self.role}')>"
 
 
 @dataclass
-class User:
-    """User dataclass for internal application use"""
+class UserLegacy:
+    """Legacy User dataclass for backward compatibility"""
     email: str
     hashed_password: str
     username: str

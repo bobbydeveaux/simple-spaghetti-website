@@ -1,8 +1,10 @@
 """
-F1 Analytics Backend FastAPI Application.
+Main FastAPI application for F1 Prediction Analytics.
 
-Main entry point for the F1 prediction analytics API server.
+This module initializes the FastAPI application, configures middleware,
+and sets up the basic API structure for the F1 analytics system.
 """
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -17,17 +19,17 @@ def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
 
     app = FastAPI(
-        title="F1 Analytics API",
-        description="Formula One prediction analytics and data platform",
-        version="1.0.0",
-        docs_url="/api/docs",
-        redoc_url="/api/redoc",
+        title=app_config.APP_NAME,
+        description="Formula 1 Prediction Analytics API - Advanced ML-powered race predictions",
+        version=app_config.APP_VERSION,
+        docs_url="/docs" if app_config.DEBUG else None,
+        redoc_url="/redoc" if app_config.DEBUG else None,
     )
 
-    # Configure CORS
+    # Configure CORS middleware
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=app_config.CORS_ORIGINS,
+        allow_origins=app_config.CORS_ORIGINS if not app_config.DEBUG else ["*"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -40,29 +42,50 @@ def create_app() -> FastAPI:
 app = create_app()
 
 
+@app.on_event("startup")
+async def startup_event():
+    """Application startup event handler."""
+    # Create database tables on startup (for development)
+    if app_config.DEBUG:
+        create_tables()
+
+
 @app.get("/")
 async def root():
-    """Root endpoint for health check."""
+    """Root endpoint with basic API information."""
     return {
-        "message": "F1 Analytics API",
-        "version": "1.0.0",
-        "status": "running"
+        "message": "F1 Prediction Analytics API",
+        "version": app_config.APP_VERSION,
+        "status": "operational",
+        "docs_url": "/docs" if app_config.DEBUG else None,
     }
 
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
-    return {"status": "healthy"}
+    """Health check endpoint for monitoring."""
+    import datetime
+    return {
+        "status": "healthy",
+        "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+        "version": app_config.APP_VERSION,
+    }
 
+
+# Note: Additional route modules will be added in future sprints:
+# - Authentication routes (/api/v1/auth)
+# - Race data routes (/api/v1/races)
+# - Prediction routes (/api/v1/predictions)
+# - Analytics routes (/api/v1/analytics)
+# - Export routes (/api/v1/export)
 
 if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        "main:app",
+        "app.main:app",
         host="0.0.0.0",
         port=8000,
-        reload=True if app_config.DEBUG else False,
+        reload=app_config.DEBUG,
         log_level="debug" if app_config.DEBUG else "info",
     )

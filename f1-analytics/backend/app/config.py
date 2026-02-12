@@ -1,6 +1,11 @@
 """
-Database and application configuration management.
+Configuration module for F1 Prediction Analytics application.
+
+This module defines application configuration including database settings,
+environment variables, and other configuration parameters needed for the
+F1 analytics system.
 """
+
 import os
 from typing import Optional
 
@@ -18,8 +23,8 @@ class DatabaseConfig(BaseSettings):
     DB_HOST: str = "localhost"
     DB_PORT: int = 5432
     DB_NAME: str = "f1_analytics"
-    DB_USER: str = "postgres"
-    DB_PASSWORD: str = "password"
+    DB_USER: str = "f1_user"  # Use consistent user from main branch
+    DB_PASSWORD: str = "f1_password"  # Use consistent password from main branch
 
     # Connection pool settings
     DB_POOL_SIZE: int = 20
@@ -51,6 +56,10 @@ class AppConfig(BaseSettings):
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
 
+    # Application metadata
+    APP_NAME: str = "F1 Prediction Analytics"
+    APP_VERSION: str = "1.0.0"
+
     # Security
     SECRET_KEY: str = "dev-secret-key-change-in-production"
     JWT_SECRET_KEY: str = "jwt-secret-key-change-in-production"
@@ -69,6 +78,16 @@ class AppConfig(BaseSettings):
 
     # Rate limiting
     RATE_LIMIT_PER_MINUTE: int = 100
+
+    # External API settings
+    ERGAST_API_BASE_URL: str = "http://ergast.com/api/f1"
+    WEATHER_API_KEY: Optional[str] = None
+    WEATHER_API_BASE_URL: str = "https://api.openweathermap.org/data/2.5"
+
+    # Cache TTL settings (in seconds)
+    PREDICTION_CACHE_TTL: int = 604800  # 7 days
+    RACE_CALENDAR_CACHE_TTL: int = 86400  # 24 hours
+    DRIVER_RANKINGS_CACHE_TTL: int = 3600  # 1 hour
 
     class Config:
         env_file = ".env"
@@ -90,6 +109,10 @@ class MLConfig(BaseSettings):
     ELO_K_FACTOR: int = 32
     ELO_BASE_RATING: int = 1500
 
+    # Model storage settings
+    MODEL_STORAGE_BUCKET: str = "f1-models"
+    MODEL_STORAGE_PREFIX: str = "models"
+
     # Training settings
     RANDOM_FOREST_N_ESTIMATORS: int = 100
     XGBOOST_MAX_DEPTH: int = 6
@@ -107,3 +130,6 @@ class MLConfig(BaseSettings):
 db_config = DatabaseConfig()
 app_config = AppConfig()
 ml_config = MLConfig()
+
+# For backward compatibility with main branch naming
+settings = app_config

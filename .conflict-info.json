@@ -1,11 +1,27 @@
 {
-  "prNumber": 47,
+  "prNumber": 163,
   "baseBranch": "main",
-  "headBranch": "feature/4-simple-spaghetti-website-sprint-1-issue-4",
+  "headBranch": "feature/139-f1-prediction-analytics-sprint-1-issue-139",
   "conflictedFiles": [
-    ".claude-output.json",
-    ".pr-number",
-    "index.html"
+    "f1-analytics/backend/alembic.ini",
+    "f1-analytics/backend/alembic/env.py",
+    "f1-analytics/backend/alembic/script.py.mako",
+    "f1-analytics/backend/app/__init__.py",
+    "f1-analytics/backend/app/config.py",
+    "f1-analytics/backend/app/database.py",
+    "f1-analytics/backend/app/main.py",
+    "f1-analytics/backend/app/models/__init__.py",
+    "f1-analytics/backend/app/models/circuit.py",
+    "f1-analytics/backend/app/models/driver.py",
+    "f1-analytics/backend/app/models/prediction.py",
+    "f1-analytics/backend/app/models/prediction_accuracy.py",
+    "f1-analytics/backend/app/models/qualifying_result.py",
+    "f1-analytics/backend/app/models/race.py",
+    "f1-analytics/backend/app/models/race_result.py",
+    "f1-analytics/backend/app/models/team.py",
+    "f1-analytics/backend/app/models/user.py",
+    "f1-analytics/backend/app/models/weather_data.py",
+    "f1-analytics/backend/requirements.txt"
   ],
-  "conflictCount": 3
+  "conflictCount": 19
 }

@@ -1,8 +1,13 @@
-"""Driver ORM model."""
-from datetime import datetime, date
-from typing import Optional, List
+"""
+Driver model for F1 Prediction Analytics.
 
-from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey, Index
+This module defines the Driver SQLAlchemy model representing Formula 1 drivers
+with their personal information, team associations, and ELO ratings.
+"""
+
+from datetime import datetime, date
+from typing import Optional
+from sqlalchemy import Column, Integer, String, Date, ForeignKey, DateTime, Index
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -10,23 +15,34 @@ from app.database import Base
 
 class Driver(Base):
     """
-    Driver entity representing F1 drivers.
+    SQLAlchemy model for Formula 1 drivers.
 
-    Tracks driver information including personal details, current team,
-    and ELO rating for performance tracking.
+    This model stores driver information including personal details,
+    current team association, and performance rating (ELO).
+
+    Attributes:
+        driver_id: Primary key, unique identifier for driver
+        driver_code: Three-letter code (e.g., 'VER', 'HAM', 'LEC')
+        driver_name: Full name of the driver
+        nationality: Driver's nationality
+        date_of_birth: Driver's birth date
+        current_team_id: Foreign key to current team (nullable for retired drivers)
+        current_elo_rating: Current ELO rating for performance ranking
+        created_at: Timestamp when record was created
+        updated_at: Timestamp when record was last updated
     """
 
     __tablename__ = "drivers"
 
     driver_id = Column(Integer, primary_key=True, index=True)
-    driver_code = Column(String(3), unique=True, nullable=False)
+    driver_code = Column(String(3), unique=True, nullable=False, index=True)
     driver_name = Column(String(100), nullable=False)
     nationality = Column(String(50))
     date_of_birth = Column(Date)
-    current_team_id = Column(Integer, ForeignKey("teams.team_id"))
-    current_elo_rating = Column(Integer, default=1500)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    current_team_id = Column(Integer, ForeignKey("teams.team_id"), nullable=True)
+    current_elo_rating = Column(Integer, default=1500, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     team = relationship("Team", back_populates="drivers")
@@ -41,7 +57,12 @@ class Driver(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<Driver(driver_id={self.driver_id}, driver_code='{self.driver_code}', name='{self.driver_name}')>"
+        """String representation of Driver instance."""
+        return f"<Driver(id={self.driver_id}, code='{self.driver_code}', name='{self.driver_name}', elo={self.current_elo_rating})>"
+
+    def __str__(self) -> str:
+        """Human-readable string representation."""
+        return f"{self.driver_name} ({self.driver_code})"
 
     @property
     def age(self) -> Optional[int]:
