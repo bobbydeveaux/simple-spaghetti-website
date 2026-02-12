@@ -69,7 +69,10 @@ check_prerequisites() {
     # Check required files
     required_files=(
         "infrastructure/kubernetes/namespace.yaml"
-        "infrastructure/kubernetes/secrets.yaml"
+        "infrastructure/kubernetes/external-secrets/external-secrets-operator.yaml"
+        "infrastructure/kubernetes/external-secrets/aws-iam-role.yaml"
+        "infrastructure/kubernetes/external-secrets/aws-secret-store.yaml"
+        "infrastructure/kubernetes/external-secrets/external-secrets.yaml"
         "infrastructure/kubernetes/configmaps.yaml"
         "infrastructure/kubernetes/postgres-statefulset.yaml"
         "infrastructure/kubernetes/redis-deployment.yaml"
@@ -117,23 +120,41 @@ deploy_namespaces() {
     log_success "Namespaces created"
 }
 
-# Deploy secrets (with validation)
+# Deploy External Secrets Operator and secrets
 deploy_secrets() {
-    log_info "Deploying secrets..."
+    log_info "Deploying External Secrets Operator and secrets..."
 
-    # Check if secrets contain placeholder values
-    if grep -q "CHANGE THIS" "$PROJECT_ROOT/infrastructure/kubernetes/secrets.yaml"; then
-        log_error "Secrets file contains placeholder values!"
-        log_warning "Please update all 'CHANGE THIS!' values in infrastructure/kubernetes/secrets.yaml"
-        read -p "Continue anyway? (y/N): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            exit 1
-        fi
+    # Check if External Secrets Operator directory exists
+    if [[ ! -d "$PROJECT_ROOT/infrastructure/kubernetes/external-secrets" ]]; then
+        log_error "External Secrets configuration not found!"
+        log_error "Please ensure external-secrets/ directory exists with proper configuration"
+        exit 1
     fi
 
-    kubectl apply -f "$PROJECT_ROOT/infrastructure/kubernetes/secrets.yaml"
-    log_success "Secrets deployed"
+    # Deploy External Secrets Operator
+    log_info "Deploying External Secrets Operator..."
+    kubectl apply -f "$PROJECT_ROOT/infrastructure/kubernetes/external-secrets/external-secrets-operator.yaml" || {
+        log_warning "External Secrets Operator may already be installed, continuing..."
+    }
+
+    # Wait for operator to be ready
+    log_info "Waiting for External Secrets Operator to be ready..."
+    sleep 30
+
+    # Deploy IAM role and service account
+    log_info "Deploying IAM roles and service accounts..."
+    kubectl apply -f "$PROJECT_ROOT/infrastructure/kubernetes/external-secrets/aws-iam-role.yaml"
+
+    # Deploy secret stores
+    log_info "Deploying AWS Secret Stores..."
+    kubectl apply -f "$PROJECT_ROOT/infrastructure/kubernetes/external-secrets/aws-secret-store.yaml"
+
+    # Deploy external secrets
+    log_info "Deploying External Secrets..."
+    kubectl apply -f "$PROJECT_ROOT/infrastructure/kubernetes/external-secrets/external-secrets.yaml"
+
+    log_success "External Secrets Operator and secrets deployed"
+    log_info "Secrets will be automatically synchronized from AWS Secrets Manager"
 }
 
 # Deploy configuration
@@ -203,13 +224,22 @@ deploy_applications() {
 deploy_ingress() {
     log_info "Deploying ingress..."
 
-    # Check if domain is configured
-    if grep -q "example.com" "$PROJECT_ROOT/infrastructure/kubernetes/ingress.yaml"; then
-        log_warning "Ingress configuration uses example.com domain"
-        log_warning "Please update domain names in infrastructure/kubernetes/ingress.yaml for production use"
+    # Deploy environment-specific domain configuration first
+    if [[ -f "$PROJECT_ROOT/infrastructure/kubernetes/environments/$ENVIRONMENT/domains.yaml" ]]; then
+        kubectl apply -f "$PROJECT_ROOT/infrastructure/kubernetes/environments/$ENVIRONMENT/domains.yaml"
+        log_info "Environment-specific domain configuration applied"
     fi
 
-    kubectl apply -f "$PROJECT_ROOT/infrastructure/kubernetes/ingress.yaml"
+    # Deploy environment-specific ingress if available
+    if [[ -f "$PROJECT_ROOT/infrastructure/kubernetes/environments/$ENVIRONMENT/ingress.yaml" ]]; then
+        kubectl apply -f "$PROJECT_ROOT/infrastructure/kubernetes/environments/$ENVIRONMENT/ingress.yaml"
+        log_info "Environment-specific ingress applied"
+    else
+        # Deploy general ingress
+        kubectl apply -f "$PROJECT_ROOT/infrastructure/kubernetes/ingress.yaml"
+        log_info "General ingress applied"
+    fi
+
     log_success "Ingress deployed"
 }
 
@@ -261,20 +291,29 @@ print_access_info() {
 
     case $ENVIRONMENT in
         production)
-            echo "Frontend: https://f1-analytics.example.com"
-            echo "API: https://api.f1-analytics.example.com"
-            echo "Airflow: https://airflow.f1-analytics.example.com"
-            echo "Grafana: https://grafana.f1-analytics.example.com"
+            echo "Frontend: https://f1-analytics.com"
+            echo "API: https://api.f1-analytics.com"
+            echo "Airflow: https://airflow.f1-analytics.com"
+            echo "Grafana: https://grafana.f1-analytics.com"
+            echo ""
+            echo "NOTE: Replace f1-analytics.com with your actual domain in:"
+            echo "  - infrastructure/kubernetes/environments/production/domains.yaml"
+            echo "  - infrastructure/kubernetes/environments/production/ingress.yaml"
             ;;
         staging)
-            echo "Frontend: https://staging.f1-analytics.example.com"
-            echo "API: https://staging-api.f1-analytics.example.com"
-            echo "Airflow: https://staging-airflow.f1-analytics.example.com"
+            echo "Frontend: https://staging.f1-analytics.com"
+            echo "API: https://staging-api.f1-analytics.com"
+            echo "Airflow: https://staging-airflow.f1-analytics.com"
+            echo ""
+            echo "NOTE: Replace with your actual staging domain in:"
+            echo "  - infrastructure/kubernetes/environments/staging/domains.yaml"
+            echo "  - infrastructure/kubernetes/environments/staging/ingress.yaml"
             ;;
         development)
             echo "Use kubectl port-forward for local access:"
             echo "kubectl port-forward svc/frontend-service 8080:80 -n $NAMESPACE"
             echo "kubectl port-forward svc/api-gateway-service 8000:8000 -n $NAMESPACE"
+            echo "kubectl port-forward svc/airflow-webserver 8081:8080 -n $NAMESPACE"
             ;;
     esac
 
