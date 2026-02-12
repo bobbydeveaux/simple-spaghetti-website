@@ -6,9 +6,9 @@ services:
     image: postgres:15-alpine
     container_name: f1-analytics-postgres
     environment:
-      POSTGRES_DB: f1_analytics
-      POSTGRES_USER: f1user
-      POSTGRES_PASSWORD: f1password
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=en_US.UTF-8 --lc-ctype=en_US.UTF-8"
     ports:
       - "5432:5432"
@@ -16,7 +16,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./init-scripts:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U f1user -d f1_analytics"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -31,9 +31,9 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes --requirepass f1redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "--raw", "incr", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -49,21 +49,21 @@ services:
     container_name: f1-analytics-backend
     environment:
       # Database
-      DATABASE_URL: postgresql://f1user:f1password@postgres:5432/f1_analytics
+      DATABASE_URL: ${DATABASE_URL}
       # Redis
-      REDIS_URL: redis://:f1redis@redis:6379/0
+      REDIS_URL: ${REDIS_URL}
       # JWT
-      JWT_SECRET_KEY: dev-secret-key-change-in-production
-      JWT_ALGORITHM: HS256
-      JWT_EXPIRE_MINUTES: 1440
-      # API Keys (for development only)
-      ERGAST_API_URL: https://ergast.com/api/f1
-      WEATHER_API_KEY: dev-weather-api-key
-      WEATHER_API_URL: https://api.openweathermap.org/data/2.5
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_ALGORITHM: ${JWT_ALGORITHM}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES}
+      # API Keys
+      ERGAST_API_URL: ${ERGAST_API_URL}
+      WEATHER_API_KEY: ${WEATHER_API_KEY}
+      WEATHER_API_URL: ${WEATHER_API_URL}
       # Environment
-      ENVIRONMENT: development
-      DEBUG: true
-      LOG_LEVEL: INFO
+      ENVIRONMENT: ${ENVIRONMENT}
+      DEBUG: ${DEBUG}
+      LOG_LEVEL: ${LOG_LEVEL}
     ports:
       - "8000:8000"
     volumes:
@@ -93,9 +93,9 @@ services:
       target: production
     container_name: f1-analytics-frontend
     environment:
-      VITE_API_URL: http://localhost:8000
-      VITE_APP_NAME: F1 Analytics Dashboard
-      VITE_ENVIRONMENT: development
+      VITE_API_URL: ${VITE_API_URL}
+      VITE_APP_NAME: ${VITE_APP_NAME}
+      VITE_ENVIRONMENT: ${VITE_ENVIRONMENT}
     ports:
       - "3000:3000"
     depends_on:
@@ -120,15 +120,15 @@ services:
     command: celery -A app.celery.celery worker --loglevel=info --concurrency=2
     environment:
       # Database
-      DATABASE_URL: postgresql://f1user:f1password@postgres:5432/f1_analytics
+      DATABASE_URL: ${DATABASE_URL}
       # Redis
-      REDIS_URL: redis://:f1redis@redis:6379/0
-      CELERY_BROKER_URL: redis://:f1redis@redis:6379/0
-      CELERY_RESULT_BACKEND: redis://:f1redis@redis:6379/0
+      REDIS_URL: ${REDIS_URL}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
       # Environment
-      ENVIRONMENT: development
-      DEBUG: true
-      LOG_LEVEL: INFO
+      ENVIRONMENT: ${ENVIRONMENT}
+      DEBUG: ${DEBUG}
+      LOG_LEVEL: ${LOG_LEVEL}
     volumes:
       - ../backend:/app
       - backend_models:/app/models
@@ -152,15 +152,15 @@ services:
     command: celery -A app.celery.celery beat --loglevel=info
     environment:
       # Database
-      DATABASE_URL: postgresql://f1user:f1password@postgres:5432/f1_analytics
+      DATABASE_URL: ${DATABASE_URL}
       # Redis
-      REDIS_URL: redis://:f1redis@redis:6379/0
-      CELERY_BROKER_URL: redis://:f1redis@redis:6379/0
-      CELERY_RESULT_BACKEND: redis://:f1redis@redis:6379/0
+      REDIS_URL: ${REDIS_URL}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
       # Environment
-      ENVIRONMENT: development
-      DEBUG: true
-      LOG_LEVEL: INFO
+      ENVIRONMENT: ${ENVIRONMENT}
+      DEBUG: ${DEBUG}
+      LOG_LEVEL: ${LOG_LEVEL}
     volumes:
       - ../backend:/app
       - backend_models:/app/models
@@ -183,9 +183,9 @@ services:
     container_name: f1-analytics-flower
     command: celery -A app.celery.celery flower --port=5555
     environment:
-      CELERY_BROKER_URL: redis://:f1redis@redis:6379/0
-      CELERY_RESULT_BACKEND: redis://:f1redis@redis:6379/0
-      FLOWER_BASIC_AUTH: admin:flower-admin
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
+      FLOWER_BASIC_AUTH: ${FLOWER_BASIC_AUTH}
     ports:
       - "5555:5555"
     depends_on:

@@ -64,58 +64,57 @@ mkdir -p f1-analytics/data/cache
 # Create environment files
 print_status "Creating environment configuration files..."
 
-# Backend .env file
-cat > f1-analytics/backend/.env << 'EOF'
-# F1 Analytics Backend Environment Variables (Development)
+# Check if .env file exists
+if [ ! -f .env ]; then
+    print_status "Creating .env file from template..."
+    if [ -f .env.example ]; then
+        cp .env.example .env
+        print_success "Created .env file from .env.example"
+    else
+        print_warning ".env.example not found, creating basic .env file..."
+        cat > .env << 'EOF'
+# F1 Analytics Environment Variables (Development)
 
-# Database
-DATABASE_URL=postgresql://f1user:f1password@localhost:5432/f1_analytics
+# Database Configuration
+POSTGRES_DB=f1_analytics
+POSTGRES_USER=f1user
+POSTGRES_PASSWORD=f1_dev_password_2024
+DATABASE_URL=postgresql://f1user:f1_dev_password_2024@postgres:5432/f1_analytics
 
-# Redis
-REDIS_URL=redis://:f1redis@localhost:6379/0
+# Redis Configuration
+REDIS_PASSWORD=redis_dev_password_2024
+REDIS_URL=redis://:redis_dev_password_2024@redis:6379/0
 
-# JWT
-JWT_SECRET_KEY=dev-secret-key-change-in-production-please
+# Celery Configuration
+CELERY_BROKER_URL=redis://:redis_dev_password_2024@redis:6379/0
+CELERY_RESULT_BACKEND=redis://:redis_dev_password_2024@redis:6379/0
+
+# JWT Configuration (development only - generate secure key for production)
+JWT_SECRET_KEY=dev_jwt_key_change_in_production_please
 JWT_ALGORITHM=HS256
 JWT_EXPIRE_MINUTES=1440
 
-# External APIs
+# Flower Monitoring Configuration
+FLOWER_BASIC_AUTH=admin:flower_dev_password
+
+# External API Configuration
 ERGAST_API_URL=https://ergast.com/api/f1
-WEATHER_API_KEY=your-openweathermap-api-key-here
+WEATHER_API_KEY=your_openweathermap_api_key_here
 WEATHER_API_URL=https://api.openweathermap.org/data/2.5
 
-# Celery
-CELERY_BROKER_URL=redis://:f1redis@localhost:6379/0
-CELERY_RESULT_BACKEND=redis://:f1redis@localhost:6379/0
-
-# Environment
+# Application Configuration
 ENVIRONMENT=development
 DEBUG=true
 LOG_LEVEL=INFO
-
-# Security
-CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
-ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
-
-# ML Models
-MODEL_STORAGE_PATH=/app/models
-MODEL_CACHE_TTL=3600
-EOF
-
-# Frontend .env file
-cat > f1-analytics/frontend/.env << 'EOF'
-# F1 Analytics Frontend Environment Variables (Development)
-
 VITE_API_URL=http://localhost:8000
 VITE_APP_NAME=F1 Analytics Dashboard
 VITE_ENVIRONMENT=development
-VITE_DEBUG=true
-
-# Features
-VITE_ENABLE_ANALYTICS=true
-VITE_ENABLE_PREDICTIONS=true
-VITE_ENABLE_HISTORICAL_DATA=true
 EOF
+        print_success "Created basic .env file"
+    fi
+else
+    print_warning ".env file already exists, skipping creation"
+fi
 
 print_success "Environment files created"
 
@@ -138,15 +137,20 @@ sleep 10
 # Check if services are running
 print_status "Checking service health..."
 
+# Source environment variables for health checks
+set -a
+source .env || print_warning "Could not source .env file"
+set +a
+
 # Check PostgreSQL
-if docker-compose exec postgres pg_isready -U f1user -d f1_analytics &> /dev/null; then
+if docker-compose exec postgres pg_isready -U "${POSTGRES_USER:-f1user}" -d "${POSTGRES_DB:-f1_analytics}" &> /dev/null; then
     print_success "PostgreSQL is ready"
 else
     print_error "PostgreSQL is not ready"
 fi
 
 # Check Redis
-if docker-compose exec redis redis-cli ping &> /dev/null; then
+if docker-compose exec redis redis-cli -a "${REDIS_PASSWORD:-redis_dev_password_2024}" ping &> /dev/null; then
     print_success "Redis is ready"
 else
     print_error "Redis is not ready"
@@ -208,11 +212,16 @@ echo "  • View logs: cd f1-analytics/infrastructure && docker-compose logs -f 
 echo "  • Stop services: cd f1-analytics/infrastructure && docker-compose down"
 echo "  • Restart services: cd f1-analytics/infrastructure && docker-compose restart"
 echo "  • Shell into backend: docker-compose exec backend bash"
-echo "  • Database shell: docker-compose exec postgres psql -U f1user -d f1_analytics"
+echo "  • Database shell: docker-compose exec postgres psql -U \$POSTGRES_USER -d \$POSTGRES_DB"
 echo
 echo "📝 Default admin credentials:"
 echo "  • Email: admin@f1analytics.com"
 echo "  • Password: admin123"
 echo
-print_warning "Don't forget to update API keys in the .env files for external services!"
+echo "🔐 Security notes:"
+echo "  • Update passwords in .env file for production"
+echo "  • Generate secure JWT secret: openssl rand -base64 32"
+echo "  • Add your OpenWeatherMap API key to WEATHER_API_KEY in .env"
+echo
+print_warning "Review and update credentials in .env file before production deployment!"
 echo
