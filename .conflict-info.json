@@ -1,12 +1,11 @@
 {
-  "prNumber": 131,
+  "prNumber": 47,
   "baseBranch": "main",
-  "headBranch": "feature/120-pta-voting-system-sprint-2-issue-120",
+  "headBranch": "feature/4-simple-spaghetti-website-sprint-1-issue-4",
   "conflictedFiles": [
     ".claude-output.json",
-    "dist/index.html",
-    "src/voting/App.jsx",
-    "src/voting/pages/admin/Dashboard.jsx"
+    ".pr-number",
+    "index.html"
   ],
-  "conflictCount": 4
+  "conflictCount": 3
 }
