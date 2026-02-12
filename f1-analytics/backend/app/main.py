@@ -16,6 +16,8 @@ from datetime import datetime
 import psycopg2
 import redis
 from core.exceptions import configure_exception_handlers, DatabaseConnectionError, RedisConnectionError
+from core.middleware import setup_middleware
+from core.config import get_settings
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -66,11 +68,14 @@ app = FastAPI(
 # Configure exception handlers
 configure_exception_handlers(app)
 
-# Configure CORS - use environment-based origins
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,http://frontend:3000")
+# Setup comprehensive middleware (security headers, rate limiting, logging)
+settings = get_settings()
+setup_middleware(app, settings)
+
+# Configure CORS - use environment-based origins from settings
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins.split(","),
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
