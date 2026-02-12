@@ -1,0 +1,73 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: f1-prediction-analytics-feat-database-schema
+        name: Database Schema Setup
+        type: enabler
+        files: [f1-analytics/backend/alembic/versions/001_initial_schema.py f1-analytics/backend/app/models/driver.py f1-analytics/backend/app/models/team.py f1-analytics/backend/app/models/circuit.py f1-analytics/backend/app/models/race.py f1-analytics/backend/app/models/race_result.py f1-analytics/backend/app/models/qualifying_result.py f1-analytics/backend/app/models/weather_data.py f1-analytics/backend/app/models/prediction.py f1-analytics/backend/app/models/prediction_accuracy.py f1-analytics/backend/app/models/user.py]
+      - id: f1-prediction-analytics-feat-infrastructure
+        name: Infrastructure and Deployment
+        type: enabler
+        files: [f1-analytics/backend/Dockerfile f1-analytics/frontend/Dockerfile f1-analytics/infrastructure/docker-compose.yml f1-analytics/infrastructure/kubernetes/api-gateway-deployment.yaml f1-analytics/infrastructure/kubernetes/prediction-service-deployment.yaml f1-analytics/infrastructure/kubernetes/frontend-deployment.yaml f1-analytics/infrastructure/kubernetes/postgres-statefulset.yaml f1-analytics/infrastructure/kubernetes/redis-deployment.yaml f1-analytics/infrastructure/kubernetes/airflow-deployment.yaml f1-analytics/infrastructure/kubernetes/ingress.yaml f1-analytics/infrastructure/terraform/main.tf]
+  - number: 2
+    features:
+      - id: f1-prediction-analytics-feat-data-ingestion
+        name: External Data Ingestion Pipeline
+        type: feature
+        files: [f1-analytics/backend/data_ingestion/ergast_client.py f1-analytics/backend/data_ingestion/weather_client.py f1-analytics/backend/data_ingestion/ingest_races.py f1-analytics/backend/data_ingestion/ingest_qualifying.py f1-analytics/backend/data_ingestion/ingest_weather.py f1-analytics/backend/data_ingestion/transform.py f1-analytics/backend/airflow/dags/daily_ingestion.py]
+      - id: f1-prediction-analytics-feat-monitoring
+        name: Monitoring and Observability
+        type: enabler
+        files: [f1-analytics/infrastructure/monitoring/prometheus-config.yaml f1-analytics/infrastructure/monitoring/grafana-dashboards/system-health.json f1-analytics/infrastructure/monitoring/grafana-dashboards/ml-pipeline.json f1-analytics/infrastructure/monitoring/alertmanager-config.yaml]
+      - id: f1-prediction-analytics-feat-elo-rating
+        name: ELO Rating System
+        type: feature
+        files: [f1-analytics/backend/ml/elo_calculator.py]
+  - number: 3
+    features:
+      - id: f1-prediction-analytics-feat-feature-engineering
+        name: ML Feature Engineering
+        type: feature
+        files: [f1-analytics/backend/ml/feature_engineering.py]
+      - id: f1-prediction-analytics-feat-authentication
+        name: User Authentication System
+        type: feature
+        files: [f1-analytics/backend/app/services/auth_service.py f1-analytics/backend/app/routes/auth.py f1-analytics/backend/app/middleware/auth_middleware.py f1-analytics/backend/app/repositories/user_repository.py]
+  - number: 4
+    features:
+      - id: f1-prediction-analytics-feat-model-training
+        name: ML Model Training Pipeline
+        type: feature
+        files: [f1-analytics/backend/ml/models/random_forest.py f1-analytics/backend/ml/models/xgboost_model.py f1-analytics/backend/ml/models/ensemble.py f1-analytics/backend/ml/training.py f1-analytics/backend/ml/evaluation.py f1-analytics/backend/airflow/dags/model_training.py]
+      - id: f1-prediction-analytics-feat-race-data-api
+        name: Race Data REST API
+        type: feature
+        files: [f1-analytics/backend/app/routes/races.py f1-analytics/backend/app/repositories/race_repository.py f1-analytics/backend/app/repositories/driver_repository.py]
+  - number: 5
+    features:
+      - id: f1-prediction-analytics-feat-prediction-inference
+        name: Prediction Inference Service
+        type: feature
+        files: [f1-analytics/backend/ml/inference.py f1-analytics/backend/app/services/prediction_service.py f1-analytics/backend/app/services/cache_service.py]
+      - id: f1-prediction-analytics-feat-data-export
+        name: Data Export API
+        type: feature
+        files: [f1-analytics/backend/app/routes/export.py f1-analytics/backend/app/services/export_service.py]
+  - number: 6
+    features:
+      - id: f1-prediction-analytics-feat-prediction-api
+        name: Prediction REST API
+        type: feature
+        files: [f1-analytics/backend/app/routes/predictions.py f1-analytics/backend/app/middleware/rate_limiter.py f1-analytics/backend/app/repositories/prediction_repository.py]
+      - id: f1-prediction-analytics-feat-analytics-api
+        name: Analytics and Accuracy API
+        type: feature
+        files: [f1-analytics/backend/app/routes/analytics.py f1-analytics/backend/app/services/analytics_service.py]
+  - number: 7
+    features:
+      - id: f1-prediction-analytics-feat-frontend-dashboard
+        name: Web Dashboard Frontend
+        type: feature
+        files: [f1-analytics/frontend/src/App.tsx f1-analytics/frontend/src/pages/HomePage.tsx f1-analytics/frontend/src/pages/CalendarPage.tsx f1-analytics/frontend/src/pages/AnalyticsPage.tsx f1-analytics/frontend/src/pages/RankingsPage.tsx f1-analytics/frontend/src/pages/LoginPage.tsx f1-analytics/frontend/src/pages/RegisterPage.tsx f1-analytics/frontend/src/components/predictions/PredictionCard.tsx f1-analytics/frontend/src/components/predictions/DriverProbabilityBar.tsx f1-analytics/frontend/src/components/analytics/AccuracyChart.tsx f1-analytics/frontend/src/components/analytics/DriverRankingsTable.tsx f1-analytics/frontend/src/api/client.ts f1-analytics/frontend/src/api/predictionsApi.ts f1-analytics/frontend/src/api/racesApi.ts f1-analytics/frontend/src/api/analyticsApi.ts f1-analytics/frontend/src/context/AuthContext.tsx f1-analytics/frontend/src/hooks/usePredictions.ts]
