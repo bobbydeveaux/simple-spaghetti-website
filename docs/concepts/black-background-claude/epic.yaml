@@ -1,6 +1,7 @@
 Epic: black-background-claude
 Features:
-- dependencies: []
+- Sprint: 1
+  dependencies: []
   description: Create single HTML file with black background and centered white 'Hello
     World' text using inline CSS and flexbox
   estimatedComplexity: low
