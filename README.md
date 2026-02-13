@@ -144,7 +144,12 @@ A comprehensive Formula One race prediction system built with modern microservic
 
 ### ML Pipeline
 1. **Data Ingestion**: Automated collection from Ergast API and weather services
-2. **Feature Engineering**: ELO ratings, recent form, track performance
+   - **Race Data**: Historical and live race results, qualifying data, driver/team statistics
+   - **Weather Data**: Geospatial weather matching with OpenWeatherMap API
+     - Historical weather backfilling for completed races
+     - Current weather updates for upcoming races
+     - Automatic weather condition classification (DRY/WET/MIXED)
+2. **Feature Engineering**: ELO ratings, recent form, track performance, weather conditions
 3. **Model Training**: Random Forest + XGBoost ensemble
 4. **Validation**: Staging environment testing
 5. **Deployment**: Production model updates with A/B testing
@@ -338,6 +343,7 @@ alembic downgrade -1
 - [**🔐 External Secrets Setup**](infrastructure/kubernetes/external-secrets/README.md) - AWS Secrets Manager integration
 - [**🛡️ Security Validation**](scripts/validate-security.sh) - Automated security compliance checking
 - [**💻 Local Development Setup**](docs/concepts/f1-prediction-analytics/LLD.md) - Development environment configuration
+- [**🌤️ Weather Data Ingestion**](docs/WEATHER_DATA_INGESTION.md) - Geospatial weather data integration system
 
 ## 📧 Support
 

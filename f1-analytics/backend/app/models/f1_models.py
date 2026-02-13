@@ -144,11 +144,24 @@ class Circuit(Base):
     track_length_km = Column(SQLDecimal(5, 2), nullable=True)
     track_type = Column(SQLEnum(TrackType), nullable=True)
 
+    # Geospatial coordinates for weather data matching
+    latitude = Column(SQLDecimal(10, 8), nullable=True)  # -90.00000000 to 90.00000000
+    longitude = Column(SQLDecimal(11, 8), nullable=True)  # -180.00000000 to 180.00000000
+
     # Timestamps
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     races = relationship("Race", back_populates="circuit")
+
+    # Constraints and indexes
+    __table_args__ = (
+        Index('idx_circuits_country', 'country'),
+        Index('idx_circuits_location', 'location'),
+        Index('idx_circuits_coordinates', 'latitude', 'longitude'),
+        CheckConstraint('latitude >= -90 AND latitude <= 90', name='ck_circuits_latitude_range'),
+        CheckConstraint('longitude >= -180 AND longitude <= 180', name='ck_circuits_longitude_range'),
+    )
 
     def __repr__(self) -> str:
         return f"<Circuit(circuit_id={self.circuit_id}, name='{self.circuit_name}', country='{self.country}')>"
@@ -162,6 +175,8 @@ class Circuit(Base):
             "country": self.country,
             "track_length_km": float(self.track_length_km) if self.track_length_km else None,
             "track_type": self.track_type.value if self.track_type else None,
+            "latitude": float(self.latitude) if self.latitude else None,
+            "longitude": float(self.longitude) if self.longitude else None,
             "created_at": self.created_at.isoformat() if self.created_at else None
         }
 
