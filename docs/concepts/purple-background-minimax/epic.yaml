@@ -1,6 +1,7 @@
 Epic: purple-background-minimax
 Features:
-- dependencies: []
+- Sprint: 1
+  dependencies: []
   description: Create a single static HTML page with purple background (#800080) and
     white 'Hello World' text centered horizontally and vertically using CSS flexbox
   estimatedComplexity: low
