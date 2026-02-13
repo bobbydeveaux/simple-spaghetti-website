@@ -1,0 +1,24 @@
+GeneratedAt: "2026-02-13T16:58:38Z"
+Plan: purple-background-minimax-plan
+Sprints:
+- Features:
+  - FeatureID: purple-background-minimax-feat-purple-page
+    FeatureTitle: Purple Background Hello World Page
+    Tasks:
+    - AcceptanceCriteria:
+      - File exists at docs/plans/simple-spaghetti-website/index.html
+      - 'Background color is #800080 (purple)'
+      - Text 'Hello World' is white and centered both horizontally and vertically
+      - 'Uses CSS flexbox (display: flex, justify-content: center, align-items: center)
+        for centering'
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create a single static HTML page at docs/plans/simple-spaghetti-website/index.html
+        with purple background (#800080) and white 'Hello World' text centered horizontally
+        and vertically using CSS flexbox.
+      EstimatedEffort: S
+      Files:
+      - docs/plans/simple-spaghetti-website/index.html
+      ID: task-purple-background-minimax-feat-purple-page-1
+      Title: Create index.html with purple background and centered Hello World
+  Sprint: 1

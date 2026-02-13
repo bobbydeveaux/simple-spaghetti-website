@@ -1,0 +1,9 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: purple-background-minimax-feat-purple-page
+        name: Purple Background Hello World Page
+        type: feature
+        files: [docs/plans/simple-spaghetti-website/index.html]
