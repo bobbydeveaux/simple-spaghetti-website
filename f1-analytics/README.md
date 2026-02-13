@@ -80,8 +80,8 @@ graph TB
 The system uses PostgreSQL with comprehensive F1 data modeling:
 
 #### Core Entities
-- **Teams**: F1 constructors with Elo ratings and performance tracking
-- **Drivers**: F1 drivers with team associations and detailed statistics
+- **Teams**: F1 constructors with ELO ratings and performance tracking
+- **Drivers**: F1 drivers with team associations, detailed statistics, and ELO ratings
 - **Circuits**: Race tracks with characteristics (length, type, location)
 - **Races**: Race events with season/round information and status
 
@@ -93,15 +93,52 @@ The system uses PostgreSQL with comprehensive F1 data modeling:
 #### Predictions & Analysis
 - **Predictions**: ML-generated win probabilities by model version (partitioned by race_id)
 - **PredictionAccuracy**: Post-race accuracy metrics (Brier score, log loss)
+- **ELO Rating System**: Dynamic performance ratings for drivers and teams
 - **Users**: Authentication and role-based access control
 
-### Key Database Features
+### Key Features
 
+- **ELO Rating System**: Dynamic performance ratings for drivers and teams
 - **Comprehensive Constraints**: Check constraints for data validation
 - **Performance Indexes**: Optimized queries for race data and predictions
 - **Materialized Views**: Driver rankings for fast leaderboard queries
 - **Table Partitioning**: Ready for partitioning race_results and predictions by race_id
 - **Foreign Key Relationships**: Proper referential integrity across entities
+
+## 🎯 ELO Rating System
+
+The platform includes a sophisticated ELO rating system for drivers and teams:
+
+### Features
+- **Dynamic Ratings**: Continuously updated based on race performance
+- **Driver & Team Ratings**: Separate rating systems for individuals and constructors
+- **Configurable Parameters**: Adjustable K-factor (32) and base rating (1500)
+- **Race Predictions**: Generate win probabilities based on current ratings
+- **Batch Processing**: Efficient recalculation of historical ratings
+
+### Usage Examples
+
+```python
+from app.services.elo_service import get_elo_service
+
+# Update ratings after a race
+service = get_elo_service(db_session)
+driver_updates, team_updates = service.update_ratings_for_race(race_id=100)
+
+# Get current rankings
+top_drivers = service.get_driver_rankings(limit=20)
+top_teams = service.get_team_rankings(limit=10)
+
+# Generate race predictions
+predictions = service.predict_race_outcome(race_id=101)
+```
+
+### API Endpoints
+- `GET /api/v1/drivers/rankings` - Driver ELO rankings
+- `GET /api/v1/teams/rankings` - Team ELO rankings
+- `GET /api/v1/predictions/race/{race_id}` - ELO-based predictions
+
+For detailed information, see [ELO Rating System Documentation](../docs/ELO_RATING_SYSTEM.md).
 
 # Application
 ENVIRONMENT=development
