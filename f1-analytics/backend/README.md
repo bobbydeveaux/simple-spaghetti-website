@@ -11,6 +11,7 @@ This backend provides the data layer and API endpoints for the F1 prediction ana
 - **Data Ingestion**: Automated F1 data collection from Ergast API
 - **ML Integration**: Model prediction storage and accuracy tracking
 - **Authentication**: JWT-based user authentication and authorization
+- **Monitoring**: Comprehensive Prometheus metrics for observability
 
 ## Features
 
@@ -37,6 +38,12 @@ This backend provides the data layer and API endpoints for the F1 prediction ana
 - **Specialized Repositories**: Domain-specific methods for F1 data
 - **Async Support**: Both sync and async database operations
 - **Bulk Operations**: Efficient batch processing for large datasets
+
+### Monitoring & Observability
+- **Prometheus Metrics**: Comprehensive application and business metrics collection
+- **Custom F1 Metrics**: Prediction accuracy, ML inference latency, ELO calculations
+- **Performance Tracking**: HTTP request metrics, database query performance
+- **Health Checks**: Service health endpoints with dependency validation
 
 ## Database Schema
 

@@ -3,7 +3,8 @@ F1 Analytics Backend API - Main FastAPI application.
 
 This module combines comprehensive security features with clean database modeling
 for Formula 1 prediction analytics. It includes health checks, middleware setup,
-and basic API routing with placeholder endpoints for future development.
+Prometheus metrics collection, and basic API routing with placeholder endpoints
+for future development.
 """
 
 import os
@@ -26,6 +27,19 @@ from app.database import create_tables
 # Import all models to ensure they are registered
 from app.models import *  # noqa: F401, F403
 
+# Import Prometheus metrics
+from app.monitoring import (
+    instrument_fastapi_app,
+    PrometheusMiddleware,
+    get_metrics_summary,
+    initialize_metrics,
+    track_prediction_generated,
+    track_ml_inference,
+    track_cache_operation,
+    update_race_data_freshness,
+    update_driver_elo_rating
+)
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -47,6 +61,10 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager for startup and shutdown events."""
     # Startup
     logger.info("Starting F1 Analytics Backend API...")
+
+    # Initialize Prometheus metrics
+    initialize_metrics()
+    logger.info("Prometheus metrics initialized")
 
     # Create database tables on startup (for development)
     if app_config.DEBUG:
@@ -96,6 +114,16 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
 )
+
+# Add Prometheus metrics middleware
+app.add_middleware(
+    PrometheusMiddleware,
+    app_name="f1-analytics-api",
+    skip_paths=["/metrics", "/health", "/docs", "/redoc", "/openapi.json"]
+)
+
+# Instrument the FastAPI app for Prometheus
+instrument_fastapi_app(app)
 
 
 @app.get("/")
@@ -221,6 +249,12 @@ async def health_check() -> Dict[str, Any]:
                 if os.getenv("ENVIRONMENT") == "production":
                     health_status = "unhealthy"
 
+        # Check Prometheus metrics
+        metrics_summary = get_metrics_summary()
+        checks["metrics"] = "ok" if metrics_summary.get("metrics_enabled", False) else "warning"
+        if not metrics_summary.get("metrics_enabled", False):
+            checks["metrics_error"] = metrics_summary.get("error", "Unknown metrics error")
+
         response = {
             "status": health_status,
             "service": "f1-analytics-backend",
@@ -278,46 +312,97 @@ async def api_info() -> Dict[str, Any]:
 @app.get("/api/v1/predictions/next-race")
 async def get_next_race_predictions():
     """Get predictions for the next scheduled race."""
-    # Placeholder implementation
-    return {
-        "race_id": 1,
-        "race_name": "Monaco Grand Prix 2026",
-        "race_date": "2026-05-24",
-        "circuit": "Circuit de Monaco",
-        "predictions": [
-            {
-                "driver_id": 1,
-                "driver_name": "Max Verstappen",
-                "driver_code": "VER",
-                "team": "Red Bull Racing",
-                "win_probability": 35.2,
-                "team_color": "#0600EF"
-            },
-            {
-                "driver_id": 2,
-                "driver_name": "Charles Leclerc",
-                "driver_code": "LEC",
-                "team": "Ferrari",
-                "win_probability": 28.7,
-                "team_color": "#DC143C"
-            },
-            {
-                "driver_id": 3,
-                "driver_name": "Lewis Hamilton",
-                "driver_code": "HAM",
-                "team": "Mercedes",
-                "win_probability": 22.1,
-                "team_color": "#00D2BE"
-            }
-        ],
-        "model_version": "v1.0.0",
-        "generated_at": "2026-02-12T10:00:00Z"
-    }
+    # Track prediction generation metrics
+    try:
+        # Simulate ML inference tracking
+        with track_ml_inference("random_forest", "race_prediction"):
+            # Simulate some processing time
+            import asyncio
+            await asyncio.sleep(0.1)
+
+        # Track successful prediction generation
+        track_prediction_generated(
+            model_type="random_forest",
+            race_type="grand_prix",
+            success=True
+        )
+
+        # Check cache for data (simulate cache miss for demo)
+        track_cache_operation(
+            operation="get",
+            cache_type="race_predictions",
+            status="miss"
+        )
+
+        # Placeholder implementation
+        predictions_data = {
+            "race_id": 1,
+            "race_name": "Monaco Grand Prix 2026",
+            "race_date": "2026-05-24",
+            "circuit": "Circuit de Monaco",
+            "predictions": [
+                {
+                    "driver_id": 1,
+                    "driver_name": "Max Verstappen",
+                    "driver_code": "VER",
+                    "team": "Red Bull Racing",
+                    "win_probability": 35.2,
+                    "team_color": "#0600EF"
+                },
+                {
+                    "driver_id": 2,
+                    "driver_name": "Charles Leclerc",
+                    "driver_code": "LEC",
+                    "team": "Ferrari",
+                    "win_probability": 28.7,
+                    "team_color": "#DC143C"
+                },
+                {
+                    "driver_id": 3,
+                    "driver_name": "Lewis Hamilton",
+                    "driver_code": "HAM",
+                    "team": "Mercedes",
+                    "win_probability": 22.1,
+                    "team_color": "#00D2BE"
+                }
+            ],
+            "model_version": "v1.0.0",
+            "generated_at": "2026-02-12T10:00:00Z"
+        }
+
+        # Update cache with new data (simulate cache set)
+        track_cache_operation(
+            operation="set",
+            cache_type="race_predictions",
+            status="success"
+        )
+
+        return predictions_data
+
+    except Exception as e:
+        # Track failed prediction generation
+        track_prediction_generated(
+            model_type="random_forest",
+            race_type="grand_prix",
+            success=False
+        )
+        logger.error(f"Failed to generate predictions: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate predictions")
 
 
 @app.get("/api/v1/races/calendar")
 async def get_race_calendar():
     """Get the race calendar for the current season."""
+    # Check cache for race calendar
+    track_cache_operation(
+        operation="get",
+        cache_type="race_calendar",
+        status="hit"  # Simulate cache hit
+    )
+
+    # Update race data freshness metrics (simulate data age)
+    update_race_data_freshness("race_calendar", 300.0)  # 5 minutes old
+
     return {
         "season": 2026,
         "races": [
@@ -344,6 +429,20 @@ async def get_race_calendar():
 @app.get("/api/v1/drivers/rankings")
 async def get_driver_rankings():
     """Get current driver ELO rankings."""
+    # Check cache for driver rankings
+    track_cache_operation(
+        operation="get",
+        cache_type="driver_rankings",
+        status="hit"  # Simulate cache hit
+    )
+
+    # Update driver ELO ratings in metrics
+    update_driver_elo_rating("Max Verstappen", "VER", "Red Bull Racing", 2150.0)
+    update_driver_elo_rating("Charles Leclerc", "LEC", "Ferrari", 1980.0)
+
+    # Update race data freshness for driver standings
+    update_race_data_freshness("driver_standings", 1800.0)  # 30 minutes old
+
     return {
         "season": 2026,
         "rankings": [

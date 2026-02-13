@@ -30,7 +30,10 @@ Once setup is complete, access the application at:
 - **Frontend Dashboard**: http://localhost:3000
 - **Backend API**: http://localhost:8000
 - **API Documentation**: http://localhost:8000/docs
+- **Metrics Endpoint**: http://localhost:8000/metrics
 - **Task Monitor (Flower)**: http://localhost:5555
+- **Prometheus**: http://localhost:9090 (production environment)
+- **Grafana**: http://localhost:3001 (production environment)
 - **Database**: localhost:5432
 - **Redis**: localhost:6379
 
@@ -59,6 +62,12 @@ graph TB
         R[Redis<br/>Port: 6379]
     end
 
+    subgraph "Monitoring Stack"
+        PR[Prometheus<br/>Port: 9090]
+        GR[Grafana<br/>Port: 3001]
+        M[/metrics Endpoint]
+    end
+
     subgraph "External APIs"
         E1[Ergast F1 API]
         E2[Weather API]
@@ -67,12 +76,15 @@ graph TB
     F --> B
     B --> P
     B --> R
+    B --> M
     CW --> P
     CW --> R
     CB --> CW
     CW --> E1
     CW --> E2
     FL --> R
+    PR --> M
+    GR --> PR
 ```
 
 ### Database Schema
@@ -544,6 +556,129 @@ DATABASE_POOL_TIMEOUT=30
 DATABASE_POOL_RECYCLE=3600
 ```
 
+## 📊 Monitoring and Observability
+
+The F1 Analytics platform includes comprehensive monitoring and observability features powered by Prometheus and Grafana.
+
+### Metrics Collection
+
+#### Application Metrics
+- **HTTP Request Metrics**: Request count, duration, and status codes
+- **F1 Business Metrics**: Prediction generation, model accuracy, ELO calculations
+- **Performance Metrics**: ML inference latency, feature engineering duration
+- **Cache Metrics**: Redis hit/miss rates and operation counts
+- **Database Metrics**: Query duration and connection pool usage
+
+#### Infrastructure Metrics
+- **System Metrics**: CPU, memory, disk usage via Node Exporter
+- **Database Metrics**: PostgreSQL performance via postgres-exporter
+- **Cache Metrics**: Redis performance via redis-exporter
+- **Container Metrics**: Docker container resource usage
+
+### Accessing Metrics
+
+#### Development Environment
+```bash
+# View raw metrics from the FastAPI application
+curl http://localhost:8000/metrics
+
+# Check health endpoint with metrics status
+curl http://localhost:8000/health
+```
+
+#### Production Environment
+```bash
+# Access Prometheus UI
+open http://localhost:9090
+
+# Access Grafana dashboards
+open http://localhost:3001
+# Default credentials: admin / (check GRAFANA_ADMIN_PASSWORD)
+```
+
+### Prometheus Configuration
+
+The system uses a comprehensive Prometheus configuration with:
+
+- **30-day retention** policy with 50GB storage limit
+- **15-second scrape interval** for application metrics
+- **Service discovery** for both Docker Compose and Kubernetes
+- **Custom alert rules** for F1-specific metrics
+
+Key scrape targets:
+- `f1-analytics-api-gateway:8000/metrics` - Main API metrics
+- `f1-analytics-prediction-service:9091/metrics` - ML pipeline metrics
+- `postgres-exporter:9187` - Database metrics
+- `redis-exporter:9121` - Cache metrics
+
+### Alert Rules
+
+#### Application Alerts
+- **High Error Rate**: >5% HTTP 5xx errors for 2 minutes
+- **High Latency**: >2s 95th percentile API response time
+- **Prediction Service Down**: Service unavailable for >1 minute
+- **Low Prediction Accuracy**: Model accuracy <60% over 5 races
+
+#### Infrastructure Alerts
+- **High CPU Usage**: >80% CPU for 5 minutes
+- **High Memory Usage**: >85% memory for 5 minutes
+- **Database Connections**: >80% connection pool usage
+- **Redis Memory**: >90% memory usage
+- **Data Staleness**: F1 data not updated for >24 hours
+
+### Custom F1 Metrics
+
+The platform exposes F1-specific business metrics:
+
+```python
+# Example metrics available
+f1_predictions_generated_total{model_type="random_forest", race_type="grand_prix", success="success"}
+f1_prediction_accuracy{model_type="xgboost", race_type="sprint", timeframe="last_5_races"}
+f1_ml_inference_duration_seconds{model_type="random_forest", stage="race_prediction"}
+f1_driver_elo_rating{driver_name="Max Verstappen", driver_code="VER", team="Red Bull Racing"}
+f1_race_data_freshness_seconds{data_type="race_results"}
+f1_cache_operations_total{operation="get", cache_type="race_predictions", status="hit"}
+```
+
+### Monitoring Best Practices
+
+#### For Developers
+1. **Use the metrics context managers** for tracking ML operations:
+   ```python
+   from app.monitoring import track_ml_inference, track_prediction_generated
+
+   with track_ml_inference("random_forest", "race_prediction"):
+       # Your ML inference code here
+       predictions = model.predict(features)
+
+   track_prediction_generated("random_forest", "grand_prix", success=True)
+   ```
+
+2. **Check the /health endpoint** for service status including metrics health
+
+3. **Use the validation script** to verify monitoring setup:
+   ```bash
+   python validate_monitoring.py
+   ```
+
+#### For Operations
+1. **Monitor the key SLIs** (Service Level Indicators):
+   - API availability: >99.9% uptime
+   - API latency: <500ms 95th percentile
+   - Prediction accuracy: >70% for primary models
+   - Data freshness: <6 hours for race data
+
+2. **Set up alerting** based on the predefined alert rules
+
+3. **Use Grafana dashboards** for visualization and trend analysis
+
+### Configuration Files
+
+- **Prometheus Config**: `infrastructure/monitoring/prometheus-config.yaml`
+- **Docker Compose**: `infrastructure/monitoring/prometheus.yml`
+- **Alert Rules**: Included in Prometheus config
+- **Grafana**: Auto-provisioned dashboards (planned)
+
 ## Dependencies
 
 - **SQLAlchemy 2.0+**: ORM and database toolkit
@@ -552,6 +687,7 @@ DATABASE_POOL_RECYCLE=3600
 - **FastAPI**: Modern Python web framework for API endpoints
 - **Pydantic**: Data validation and serialization
 - **Redis**: Caching and session management
+- **Prometheus Client**: Metrics collection and exposition
 - **Security**: JWT authentication, bcrypt password hashing
 - **Testing**: Comprehensive test suite with >80% coverage requirement
 

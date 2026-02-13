@@ -1,0 +1,411 @@
+# Prometheus Configuration for F1 Analytics Infrastructure
+# This configuration file defines metrics collection, retention policies, and service discovery
+# for the F1 Prediction Analytics platform across both Docker Compose and Kubernetes deployments.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: f1-analytics-prometheus-config
+  namespace: f1-analytics
+  labels:
+    app: prometheus
+    component: monitoring
+    system: f1-analytics
+data:
+  prometheus.yml: |
+    # Global Prometheus configuration
+    global:
+      scrape_interval: 15s          # Default scrape interval for all jobs
+      evaluation_interval: 15s       # How frequently to evaluate rules
+      scrape_timeout: 10s            # Default timeout for scraping targets
+      external_labels:
+        cluster: 'f1-analytics'
+        environment: '{{ .Values.environment }}'
+        region: '{{ .Values.region | default "us-west-2" }}'
+
+    # Rule files for alerting
+    rule_files:
+      - "/etc/prometheus/rules/f1-analytics-*.yml"
+      - "/etc/prometheus/rules/infrastructure-*.yml"
+
+    # Alertmanager configuration
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets:
+              - alertmanager:9093
+          timeout: 10s
+          api_version: v2
+
+    # Scrape configurations for F1 Analytics services
+    scrape_configs:
+
+      # ===================================================================
+      # F1 Analytics Application Services
+      # ===================================================================
+
+      # F1 Analytics API Gateway (Main Backend)
+      - job_name: 'f1-analytics-api-gateway'
+        honor_labels: true
+        honor_timestamps: true
+        scrape_interval: 15s
+        scrape_timeout: 10s
+        metrics_path: '/metrics'
+        scheme: http
+        follow_redirects: true
+        enable_compression: true
+
+        # Service discovery for Kubernetes
+        kubernetes_sd_configs:
+        - role: pod
+          namespaces:
+            names:
+            - f1-analytics
+
+        # Static configuration for Docker Compose
+        static_configs:
+        - targets:
+          - 'backend:8000'
+          labels:
+            service: 'api-gateway'
+            component: 'backend'
+
+        # Relabeling for Kubernetes service discovery
+        relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_label_app]
+          action: keep
+          regex: api-gateway
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+          action: keep
+          regex: true
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+          action: replace
+          target_label: __address__
+          regex: (.+)
+          replacement: '${1}:9090'
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+          action: replace
+          target_label: __metrics_path__
+          regex: (.+)
+          replacement: '${1}'
+        - action: labelmap
+          regex: __meta_kubernetes_pod_label_(.+)
+
+      # F1 Analytics Prediction Service (ML Pipeline)
+      - job_name: 'f1-analytics-prediction-service'
+        honor_labels: true
+        scrape_interval: 15s
+        scrape_timeout: 10s
+        metrics_path: '/metrics'
+
+        # Service discovery for Kubernetes
+        kubernetes_sd_configs:
+        - role: pod
+          namespaces:
+            names:
+            - f1-analytics
+
+        # Static configuration for Docker Compose
+        static_configs:
+        - targets:
+          - 'prediction-service:9091'
+          labels:
+            service: 'prediction-service'
+            component: 'ml-pipeline'
+
+        # Relabeling for Kubernetes
+        relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_label_app]
+          action: keep
+          regex: prediction-service
+        - source_labels: [__address__]
+          action: replace
+          regex: ([^:]+)(?::\d+)?
+          replacement: $1:9091
+          target_label: __address__
+
+      # F1 Analytics Frontend Dashboard
+      - job_name: 'f1-analytics-frontend'
+        scrape_interval: 30s
+        scrape_timeout: 5s
+        metrics_path: '/api/metrics'  # If frontend implements metrics endpoint
+
+        static_configs:
+        - targets:
+          - 'frontend:3000'
+          labels:
+            service: 'frontend'
+            component: 'dashboard'
+
+      # ===================================================================
+      # Infrastructure Components
+      # ===================================================================
+
+      # Prometheus itself
+      - job_name: 'prometheus'
+        scrape_interval: 15s
+        static_configs:
+        - targets: ['localhost:9090']
+
+      # PostgreSQL Database Metrics
+      - job_name: 'postgresql-f1-analytics'
+        scrape_interval: 30s
+        scrape_timeout: 10s
+        static_configs:
+        - targets:
+          - 'postgres-exporter:9187'
+          labels:
+            service: 'postgresql'
+            component: 'database'
+            database: 'f1_analytics'
+
+        # Custom PostgreSQL queries for F1-specific metrics
+        params:
+          collect.custom_query.f1_metrics:
+            - 'f1_race_data_freshness'
+            - 'f1_prediction_count'
+            - 'f1_accuracy_metrics'
+            - 'f1_database_size'
+
+      # Redis Cache Metrics
+      - job_name: 'redis-f1-analytics'
+        scrape_interval: 30s
+        static_configs:
+        - targets:
+          - 'redis-exporter:9121'
+          labels:
+            service: 'redis'
+            component: 'cache'
+            instance: 'f1-analytics-cache'
+
+      # Nginx Load Balancer
+      - job_name: 'nginx-f1-analytics'
+        scrape_interval: 30s
+        static_configs:
+        - targets:
+          - 'nginx-exporter:9113'
+          labels:
+            service: 'nginx'
+            component: 'loadbalancer'
+
+      # Celery Background Tasks
+      - job_name: 'celery-f1-analytics'
+        scrape_interval: 30s
+        static_configs:
+        - targets:
+          - 'celery-exporter:9540'
+          labels:
+            service: 'celery'
+            component: 'task-queue'
+
+      # ===================================================================
+      # Kubernetes Infrastructure (when deployed on K8s)
+      # ===================================================================
+
+      # Kubernetes API Server
+      - job_name: 'kubernetes-apiservers'
+        kubernetes_sd_configs:
+        - role: endpoints
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          insecure_skip_verify: false
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        relabel_configs:
+        - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+          action: keep
+          regex: default;kubernetes;https
+
+      # Kubernetes Nodes
+      - job_name: 'kubernetes-nodes'
+        kubernetes_sd_configs:
+        - role: node
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          insecure_skip_verify: false
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        relabel_configs:
+        - action: labelmap
+          regex: __meta_kubernetes_node_label_(.+)
+
+      # Kubernetes Pods (with Prometheus annotations)
+      - job_name: 'kubernetes-pods'
+        kubernetes_sd_configs:
+        - role: pod
+          namespaces:
+            names:
+            - f1-analytics
+            - kube-system
+            - monitoring
+        relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+          action: keep
+          regex: true
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+          action: replace
+          target_label: __metrics_path__
+          regex: (.+)
+        - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+          action: replace
+          regex: ([^:]+)(?::\d+)?;(\d+)
+          replacement: $1:$2
+          target_label: __address__
+        - action: labelmap
+          regex: __meta_kubernetes_pod_label_(.+)
+        - source_labels: [__meta_kubernetes_namespace]
+          action: replace
+          target_label: kubernetes_namespace
+        - source_labels: [__meta_kubernetes_pod_name]
+          action: replace
+          target_label: kubernetes_pod_name
+
+      # Node Exporter (System Metrics)
+      - job_name: 'node-exporter'
+        kubernetes_sd_configs:
+        - role: pod
+        relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_label_app]
+          action: keep
+          regex: node-exporter
+        - source_labels: [__address__]
+          action: replace
+          regex: ([^:]+)(?::\d+)?
+          replacement: $1:9100
+          target_label: __address__
+
+  # F1 Analytics Alert Rules
+  f1-analytics-alerts.yml: |
+    groups:
+    - name: f1-analytics-application
+      interval: 30s
+      rules:
+
+      # High Error Rate for API Gateway
+      - alert: F1AnalyticsHighErrorRate
+        expr: rate(http_requests_total{job="f1-analytics-api-gateway",status=~"5.."}[5m]) / rate(http_requests_total{job="f1-analytics-api-gateway"}[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          service: f1-analytics
+          component: api-gateway
+        annotations:
+          summary: "F1 Analytics API Gateway high error rate"
+          description: "Error rate is {{ $value | humanizePercentage }} for the F1 Analytics API Gateway"
+
+      # High Latency for Predictions
+      - alert: F1PredictionsHighLatency
+        expr: histogram_quantile(0.95, rate(f1_ml_inference_duration_seconds_bucket{model_type=~".*"}[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: f1-analytics
+          component: ml-pipeline
+        annotations:
+          summary: "F1 prediction inference latency high"
+          description: "95th percentile prediction inference latency is {{ $value }}s for model {{ $labels.model_type }}"
+
+      # Prediction Service Down
+      - alert: F1PredictionServiceDown
+        expr: up{job="f1-analytics-prediction-service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: f1-analytics
+          component: prediction-service
+        annotations:
+          summary: "F1 Prediction service is down"
+          description: "F1 Prediction service has been down for more than 1 minute"
+
+      # Data Staleness
+      - alert: F1DataStale
+        expr: f1_race_data_freshness_seconds{data_type="race_results"} > 86400
+        for: 10m
+        labels:
+          severity: warning
+          service: f1-analytics
+          component: data-pipeline
+        annotations:
+          summary: "F1 race data is stale"
+          description: "F1 {{ $labels.data_type }} data has not been updated for {{ $value | humanizeDuration }}"
+
+      # Low Prediction Accuracy
+      - alert: F1PredictionAccuracyLow
+        expr: f1_prediction_accuracy{timeframe="last_5_races"} < 0.6
+        for: 15m
+        labels:
+          severity: warning
+          service: f1-analytics
+          component: ml-pipeline
+        annotations:
+          summary: "F1 prediction accuracy is low"
+          description: "F1 prediction accuracy for {{ $labels.model_type }} is {{ $value | humanizePercentage }} over the last 5 races"
+
+    - name: f1-analytics-infrastructure
+      interval: 60s
+      rules:
+
+      # Database Connection Pool High
+      - alert: F1DatabaseConnectionPoolHigh
+        expr: pg_stat_database_numbackends{datname="f1_analytics"} / pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: f1-analytics
+          component: database
+        annotations:
+          summary: "F1 Analytics database connection pool usage high"
+          description: "Database connection pool usage is {{ $value | humanizePercentage }} for F1 Analytics database"
+
+      # Redis Memory Usage High
+      - alert: F1RedisMemoryHigh
+        expr: redis_memory_used_bytes{job="redis-f1-analytics"} / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          service: f1-analytics
+          component: cache
+        annotations:
+          summary: "F1 Analytics Redis memory usage high"
+          description: "Redis memory usage is {{ $value | humanizePercentage }} for F1 Analytics cache"
+
+---
+# Retention Policy Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: f1-analytics-prometheus-retention
+  namespace: f1-analytics
+data:
+  retention-policy.yml: |
+    # Prometheus Retention Policy for F1 Analytics
+    # 30 days retention with 50GB storage limit as specified in acceptance criteria
+
+    global:
+      retention:
+        time: "30d"
+        size: "50GB"
+
+    # Different retention for different metric types
+    retention_policies:
+      # High-frequency application metrics
+      - metric_regex: "http_request.*|f1_ml_inference.*|f1_cache.*"
+        retention: "30d"
+        resolution: "15s"
+
+      # Business metrics (predictions, accuracy)
+      - metric_regex: "f1_prediction.*|f1_driver_elo.*"
+        retention: "30d"
+        resolution: "1m"
+
+      # Infrastructure metrics
+      - metric_regex: "node_.*|redis_.*|pg_.*"
+        retention: "30d"
+        resolution: "30s"
+
+    # Downsampling configuration
+    downsampling:
+      - resolution: "5m"
+        retention: "90d"  # Extended retention for downsampled data
+      - resolution: "1h"
+        retention: "1y"   # Long-term trending data
