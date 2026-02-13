@@ -1,0 +1,19 @@
+# Project Timeline
+
+metadata:
+  generated: 2026-02-13T16:57:32Z
+  totalSprints: 1
+  totalDuration: 7 days
+
+sprints:
+  - number: 1
+    startDate: 2026-02-13
+    endDate: 2026-02-20
+    duration: 7 days
+    features:
+      - id: black-background-claude-feat-html-page
+        name: Black Background HTML Page
+        type: feature
+
+criticalPath:
+  - black-background-claude-feat-html-page
