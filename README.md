@@ -92,6 +92,7 @@ python test_voting_implementation.py
 
 # F1 Analytics tests
 python test_f1_models.py
+python -m pytest f1-analytics/backend/tests/test_ingestion.py
 
 # Performance tests
 locust -f tests/performance/test_load.py
@@ -148,6 +149,42 @@ A comprehensive Formula One race prediction system built with modern microservic
 3. **Model Training**: Random Forest + XGBoost ensemble
 4. **Validation**: Staging environment testing
 5. **Deployment**: Production model updates with A/B testing
+
+### 📥 Data Ingestion System
+
+The F1 analytics platform includes a comprehensive data ingestion system that automatically imports race and qualifying data from external sources.
+
+#### Features
+- **Automated Data Collection**: Scheduled imports from Ergast Motor Racing API
+- **Race Data Import**: Complete race schedules, results, and metadata
+- **Qualifying Data Import**: Q1, Q2, Q3 session times and grid positions
+- **Data Validation**: Integrity checks and consistency validation
+- **Error Handling**: Robust retry mechanisms and comprehensive error reporting
+- **CLI Interface**: Command-line tools for manual data management operations
+
+#### Usage Examples
+
+```bash
+# Import complete 2024 season data
+python scripts/ingest_f1_data.py season 2024
+
+# Import specific race data
+python scripts/ingest_f1_data.py race 2024 --round 5
+
+# Import qualifying data
+python scripts/ingest_f1_data.py qualifying 2024
+
+# Validate data integrity
+python scripts/ingest_f1_data.py validate 2024
+```
+
+#### Data Sources
+- **Ergast Motor Racing API**: Historical F1 data from 1950 onwards
+- **Race schedules and results**: Complete championship data
+- **Driver and team information**: Current and historical records
+- **Circuit details**: Track characteristics and specifications
+
+See [F1 Data Ingestion Documentation](docs/F1_DATA_INGESTION.md) for detailed usage and configuration information.
 
 ### Technical Architecture
 The F1 analytics system follows a layered architecture:
