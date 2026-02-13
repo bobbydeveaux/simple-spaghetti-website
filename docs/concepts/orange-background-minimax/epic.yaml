@@ -1,0 +1,13 @@
+Epic: orange-background-minimax
+Features:
+- dependencies: []
+  description: Single static HTML page with orange background (#FFA500) and white
+    'Hello World' text centered both horizontally and vertically using CSS Flexbox
+  estimatedComplexity: low
+  files:
+  - docs/plans/simple-spaghetti-website/index.html
+  id: orange-background-minimax-feat-main-page
+  name: Main HTML Page with Orange Background
+  project: simple-spaghetti-repo
+  type: feature
+Version: v1alpha1
