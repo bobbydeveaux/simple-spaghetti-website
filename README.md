@@ -143,17 +143,31 @@ A comprehensive Formula One race prediction system built with modern microservic
 - `User`: User accounts with role-based permissions
 
 ### ML Pipeline
-1. **Data Ingestion**: Automated collection from Ergast API and weather services
+1. **Data Ingestion**: ✅ **IMPLEMENTED** - Comprehensive API clients for Ergast F1 API and OpenWeatherMap
+   - **ErgastClient**: Race results, standings, qualifying times, circuit data
+   - **WeatherClient**: Circuit weather data with 25+ F1 track coordinates
+   - **DataTransformer**: Validation and normalization of external data
+   - **F1DataIngestionService**: Complete ETL pipeline with retry logic and error handling
 2. **Feature Engineering**: ELO ratings, recent form, track performance
 3. **Model Training**: Random Forest + XGBoost ensemble
 4. **Validation**: Staging environment testing
 5. **Deployment**: Production model updates with A/B testing
 
+### Data Ingestion Features
+- **🔄 Automated Data Collection**: Async API clients with retry logic and rate limiting
+- **🌍 Weather Integration**: Real-time and historical weather for all F1 circuits
+- **📊 Data Validation**: Pydantic schemas for all external data transformation
+- **🧪 Comprehensive Testing**: 100+ unit tests covering all ingestion scenarios
+- **📈 Monitoring**: Health checks and ingestion statistics tracking
+
 ### Technical Architecture
 The F1 analytics system follows a layered architecture:
+- **Data Ingestion Layer**: ✅ API clients for external data sources (Ergast, OpenWeatherMap)
+- **Transformation Layer**: ✅ Pydantic schemas and data validation utilities
 - **Models Layer**: SQLAlchemy ORM models with relationships
-- **Database Layer**: PostgreSQL with connection pooling
-- **API Layer**: FastAPI REST endpoints
+- **Repository Layer**: Data access patterns with F1-specific query methods
+- **Database Layer**: PostgreSQL with connection pooling and migrations
+- **API Layer**: FastAPI REST endpoints with async support
 - **ML Layer**: Scikit-learn and XGBoost models
 - **Cache Layer**: Redis for performance optimization
 
@@ -193,18 +207,42 @@ kubectl apply -f infrastructure/kubernetes/
 
 ### F1 Analytics Setup
 ```bash
-# Set Environment Variables
+# Set Core Environment Variables
 export DATABASE_URL="postgresql://user:pass@localhost:5432/f1_analytics"
 export JWT_SECRET_KEY="your-secret-key"
 
+# Set Data Ingestion API Keys
+export F1_WEATHER_API_KEY="your-openweathermap-api-key"
+export F1_ERGAST_BASE_URL="https://ergast.com/api/f1"
+export F1_WEATHER_BASE_URL="https://api.openweathermap.org/data/2.5"
+
+# Optional: Configure API timeouts and retry logic
+export F1_ERGAST_TIMEOUT=30
+export F1_ERGAST_RETRY_ATTEMPTS=3
+
 # Initialize Database
-python -c "from api.migrations.001_initial_schema import create_initial_schema; create_initial_schema()"
+cd f1-analytics/backend
+alembic upgrade head
+
+# Test Data Ingestion
+python -c "
+import asyncio
+from app.services import F1DataIngestionService
+
+async def test_ingestion():
+    async with F1DataIngestionService() as service:
+        health = await service.health_check()
+        print('Health check:', health)
+
+asyncio.run(test_ingestion())
+"
 
 # Configuration
-# Key settings in api/config.py:
-# - Database connection settings
-# - JWT authentication parameters
-# - External API endpoints (Ergast, Weather)
+# Key settings in f1-analytics/backend/app/config.py:
+# ✅ Database connection settings
+# ✅ JWT authentication parameters
+# ✅ External API endpoints (Ergast, Weather) - IMPLEMENTED
+# ✅ Data ingestion configuration - IMPLEMENTED
 # - ML model configuration
 # - Rate limiting settings
 ```
@@ -334,6 +372,7 @@ alembic downgrade -1
 
 ### F1 Analytics Documentation
 - [**🔒 Secure Kubernetes Deployment**](docs/SECURE_DEPLOYMENT.md) - Complete production deployment with enterprise security
+- [**📊 Data Ingestion API**](docs/DATA_INGESTION_API.md) - ✅ **NEW** - Complete guide to F1 data ingestion system
 - [**📋 Security Implementation Checklist**](docs/SECURITY_CHECKLIST.md) - Verification and compliance guide
 - [**🔐 External Secrets Setup**](infrastructure/kubernetes/external-secrets/README.md) - AWS Secrets Manager integration
 - [**🛡️ Security Validation**](scripts/validate-security.sh) - Automated security compliance checking
