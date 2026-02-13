@@ -1,0 +1,13 @@
+Epic: black-background-claude
+Features:
+- dependencies: []
+  description: Single HTML file with black background, centered white 'Hello World'
+    text using inline CSS and flexbox
+  estimatedComplexity: low
+  files:
+  - spaghetti.html
+  id: black-background-claude-feat-html-page
+  name: Black Background HTML Page
+  project: simple-spaghetti-repo
+  type: feature
+Version: v1alpha1
