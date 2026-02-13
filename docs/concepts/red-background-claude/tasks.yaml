@@ -1,4 +1,4 @@
-GeneratedAt: "2026-02-13T15:19:29Z"
+GeneratedAt: "2026-02-13T16:25:36Z"
 Plan: red-background-claude-plan
 Sprints:
 - Features:
@@ -7,14 +7,15 @@ Sprints:
     Tasks:
     - AcceptanceCriteria:
       - index.html exists at repository root with valid HTML5 structure
-      - Page displays red background with white 'Hello World' text centered
-      - Manual verification in browser confirms correct rendering
+      - Page displays red background (#ff0000 or equivalent) when opened in browser
+      - White 'Hello World' text is centered both horizontally and vertically
+      - Page renders correctly in Chrome, Firefox, and Safari
       AgentType: frontend-engineer
       Dependencies: []
       Description: Create a single self-contained index.html file at the repository
         root with HTML5 doctype, inline CSS for red background and flexbox centering,
-        and an h1 element containing 'Hello World' in white text. Manually verify
-        the page displays correctly in a browser.
+        and a white 'Hello World' h1 element. No external dependencies or build process
+        required.
       EstimatedEffort: S
       Files:
       - index.html
