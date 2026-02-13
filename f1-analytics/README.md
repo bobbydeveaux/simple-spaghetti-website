@@ -318,6 +318,81 @@ DATABASE_POOL_RECYCLE=3600
 - **Security**: JWT authentication, bcrypt password hashing
 - **Testing**: Comprehensive test suite with >80% coverage requirement
 
+## 📊 Monitoring & Observability
+
+The platform includes comprehensive monitoring capabilities with pre-built Grafana dashboards and Prometheus metrics collection.
+
+### Grafana Dashboards
+
+Two primary dashboards are included for monitoring the F1 Analytics platform:
+
+#### 1. System Health Dashboard (`system-health.json`)
+- **API Request Rate**: Real-time requests per second
+- **API Error Rate**: Percentage of 5xx responses with thresholds
+- **Service CPU Usage**: CPU utilization across F1 Analytics containers
+- **API Response Time**: 95th and 50th percentile latency
+- **Database Connections**: Active PostgreSQL connections
+- **Service Memory Usage**: Memory utilization by service
+- **Refresh Rate**: 5 seconds for real-time monitoring
+
+#### 2. ML Pipeline Dashboard (`ml-pipeline.json`)
+- **Prediction Accuracy**: Current model accuracy with quality thresholds
+- **Model Inference Time**: 95th percentile inference latency
+- **Predictions Generated**: Hourly prediction throughput
+- **Model Performance by Type**: Accuracy trends by prediction model
+- **Feature Engineering Time**: Data processing performance
+- **Training Success Rate**: ML training pipeline reliability
+- **Data Processing Throughput**: Records processed per second
+- **Refresh Rate**: 30 seconds for ML metrics
+
+### Dashboard Configuration
+
+Dashboards are located in:
+- `f1-analytics/infrastructure/monitoring/grafana-dashboards/system-health.json`
+- `f1-analytics/infrastructure/monitoring/grafana-dashboards/ml-pipeline.json`
+
+The dashboards are automatically provisioned when deploying the monitoring stack:
+
+```bash
+# Deploy Grafana dashboards
+kubectl apply -f f1-analytics/infrastructure/monitoring/grafana-dashboard-configmap.yaml
+
+# Deploy Grafana with dashboard configuration
+kubectl apply -f infrastructure/monitoring/grafana.yaml
+```
+
+### Metrics Collection
+
+Prometheus collects metrics from:
+- F1 Analytics API Gateway (port 9090)
+- ML Prediction Service (port 9091)
+- PostgreSQL Exporter (port 9187)
+- Redis Exporter (port 9121)
+- Node Exporter (port 9100)
+- Nginx Ingress (port 10254)
+
+### Accessing Dashboards
+
+**Development Environment**:
+```bash
+kubectl port-forward svc/grafana-service 3000:3000 -n f1-analytics
+```
+Visit: http://localhost:3000 (admin credentials from secrets)
+
+**Production Environment**:
+Visit: https://grafana.f1-analytics.example.com
+
+### Alert Configuration
+
+Critical alerts are configured for:
+- High CPU usage (>80%)
+- High memory usage (>85%)
+- API Gateway errors (>5%)
+- High API latency (>2s)
+- Database issues (>80% connections)
+- ML inference latency (>5s)
+- Data staleness (>8 hours before race)
+
 ## Contributing
 
 This is a comprehensive F1 prediction analytics system combining advanced database modeling with Docker containerization and enterprise security practices. Future development will focus on ML pipeline enhancements and advanced analytics features.
