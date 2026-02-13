@@ -19,6 +19,7 @@ data:
 
     rule_files:
       - "/etc/prometheus/rules/*.yml"
+      - "/etc/prometheus/rules/f1-analytics-rules.yml"
 
     alerting:
       alertmanagers:
@@ -174,110 +175,8 @@ data:
           replacement: $1:9100
           target_label: __address__
 
-  # Alert Rules
-  alerts.yml: |
-    groups:
-    - name: f1-analytics.rules
-      rules:
-      # High CPU Usage
-      - alert: HighCPUUsage
-        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "High CPU usage detected"
-          description: "CPU usage is above 80% on {{ $labels.instance }}"
-
-      # High Memory Usage
-      - alert: HighMemoryUsage
-        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 15
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "High memory usage detected"
-          description: "Memory usage is above 85% on {{ $labels.instance }}"
-
-      # API Gateway High Error Rate
-      - alert: APIHighErrorRate
-        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
-        for: 2m
-        labels:
-          severity: critical
-        annotations:
-          summary: "API Gateway high error rate"
-          description: "Error rate is above 5% for {{ $labels.job }}"
-
-      # API Gateway High Latency
-      - alert: APIHighLatency
-        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "API Gateway high latency"
-          description: "95th percentile latency is above 2s for {{ $labels.job }}"
-
-      # Database Connection Issues
-      - alert: DatabaseConnectionHigh
-        expr: pg_stat_database_numbackends / pg_settings_max_connections > 0.8
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Database connection usage high"
-          description: "Database connections are above 80% on {{ $labels.instance }}"
-
-      # Redis Memory Usage
-      - alert: RedisHighMemoryUsage
-        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Redis memory usage high"
-          description: "Redis memory usage is above 90% on {{ $labels.instance }}"
-
-      # Prediction Service Down
-      - alert: PredictionServiceDown
-        expr: up{job="prediction-service"} == 0
-        for: 1m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Prediction service is down"
-          description: "Prediction service has been down for more than 1 minute"
-
-      # ML Model Inference Latency
-      - alert: MLInferenceHighLatency
-        expr: histogram_quantile(0.95, rate(ml_inference_duration_seconds_bucket[5m])) > 5
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "ML inference latency high"
-          description: "95th percentile ML inference latency is above 5s"
-
-      # Airflow DAG Failures
-      - alert: AirflowDAGFailing
-        expr: increase(airflow_dag_run_failed_total[1h]) > 0
-        for: 0m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Airflow DAG failure detected"
-          description: "DAG {{ $labels.dag_id }} has failed"
-
-      # Data Staleness Alert
-      - alert: DataStaleness
-        expr: (time() - max(last_data_update_timestamp)) > 86400
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Data staleness detected"
-          description: "Data has not been updated for more than 24 hours"
+  # Alert Rules are now managed in dedicated files
+  # See: alertmanager-rules.yaml for comprehensive F1 analytics alerting rules
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -316,6 +215,8 @@ spec:
         volumeMounts:
         - name: prometheus-config-volume
           mountPath: /etc/prometheus/
+        - name: alertmanager-rules-volume
+          mountPath: /etc/prometheus/rules/
         - name: prometheus-storage-volume
           mountPath: /prometheus/
         resources:
@@ -341,6 +242,9 @@ spec:
       - name: prometheus-config-volume
         configMap:
           name: prometheus-config
+      - name: alertmanager-rules-volume
+        configMap:
+          name: alertmanager-rules
       - name: prometheus-storage-volume
         persistentVolumeClaim:
           claimName: prometheus-storage

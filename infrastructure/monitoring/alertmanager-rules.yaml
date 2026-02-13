@@ -1,0 +1,347 @@
+# F1 Prediction Analytics - Alertmanager Rules
+# This file contains comprehensive alerting rules for monitoring F1 prediction analytics platform
+# These rules monitor prediction accuracy, model performance, data freshness, and system health
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-rules
+  namespace: f1-analytics
+  labels:
+    app: prometheus
+    component: monitoring
+data:
+  f1-analytics-rules.yml: |
+    groups:
+    # System Health and Infrastructure Alerts
+    - name: system-health
+      rules:
+      # High CPU Usage
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: infrastructure
+        annotations:
+          summary: "High CPU usage detected on {{ $labels.instance }}"
+          description: "CPU usage is above 80% on {{ $labels.instance }} for more than 5 minutes"
+          runbook_url: "https://docs.f1-analytics.com/runbooks/high-cpu"
+
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 15
+        for: 5m
+        labels:
+          severity: warning
+          service: infrastructure
+        annotations:
+          summary: "High memory usage detected on {{ $labels.instance }}"
+          description: "Available memory is below 15% on {{ $labels.instance }} for more than 5 minutes"
+          runbook_url: "https://docs.f1-analytics.com/runbooks/high-memory"
+
+      # Disk Space Critical
+      - alert: DiskSpaceCritical
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 10
+        for: 2m
+        labels:
+          severity: critical
+          service: infrastructure
+        annotations:
+          summary: "Critical disk space shortage on {{ $labels.instance }}"
+          description: "Available disk space is below 10% on {{ $labels.instance }}"
+          runbook_url: "https://docs.f1-analytics.com/runbooks/disk-space"
+
+    # API Gateway and Service Health
+    - name: api-health
+      rules:
+      # API Gateway High Error Rate
+      - alert: APIHighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          service: api-gateway
+        annotations:
+          summary: "API Gateway experiencing high error rate"
+          description: "Error rate is {{ $value | humanizePercentage }} for {{ $labels.job }}"
+          runbook_url: "https://docs.f1-analytics.com/runbooks/api-errors"
+
+      # API Gateway High Latency
+      - alert: APIHighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: api-gateway
+        annotations:
+          summary: "API Gateway experiencing high latency"
+          description: "95th percentile latency is {{ $value }}s for {{ $labels.job }}"
+          runbook_url: "https://docs.f1-analytics.com/runbooks/api-latency"
+
+      # Prediction Service Down
+      - alert: PredictionServiceDown
+        expr: up{job="prediction-service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: prediction-service
+        annotations:
+          summary: "Prediction service is down"
+          description: "Prediction service has been down for more than 1 minute"
+          runbook_url: "https://docs.f1-analytics.com/runbooks/service-down"
+
+    # F1 Prediction Analytics Specific Alerts
+    - name: f1-prediction-analytics
+      rules:
+      # ML Model Inference Latency
+      - alert: MLInferenceHighLatency
+        expr: histogram_quantile(0.95, rate(ml_inference_duration_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: prediction-service
+        annotations:
+          summary: "ML inference experiencing high latency"
+          description: "95th percentile ML inference latency is {{ $value }}s, exceeding 5s threshold"
+          runbook_url: "https://docs.f1-analytics.com/runbooks/ml-latency"
+
+      # Prediction Accuracy Degradation
+      - alert: PredictionAccuracyDegraded
+        expr: avg_over_time(f1_prediction_accuracy[24h]) < 0.65
+        for: 30m
+        labels:
+          severity: critical
+          service: prediction-service
+        annotations:
+          summary: "F1 prediction accuracy has degraded significantly"
+          description: "Average prediction accuracy over 24h is {{ $value | humanizePercentage }}, below 65% threshold"
+          runbook_url: "https://docs.f1-analytics.com/runbooks/accuracy-degradation"
+
+      # Low Prediction Volume
+      - alert: LowPredictionVolume
+        expr: rate(f1_predictions_total[1h]) < 5
+        for: 15m
+        labels:
+          severity: warning
+          service: prediction-service
+        annotations:
+          summary: "Low prediction generation rate detected"
+          description: "Prediction generation rate is {{ $value }} predictions/hour, below normal threshold of 5/hour"
+          runbook_url: "https://docs.f1-analytics.com/runbooks/low-prediction-volume"
+
+      # High Brier Score (Poor Model Performance)
+      - alert: HighBrierScore
+        expr: avg_over_time(f1_brier_score[6h]) > 0.3
+        for: 1h
+        labels:
+          severity: warning
+          service: prediction-service
+        annotations:
+          summary: "Model performance degraded - high Brier score"
+          description: "Average Brier score over 6h is {{ $value }}, above 0.3 threshold (lower is better)"
+          runbook_url: "https://docs.f1-analytics.com/runbooks/brier-score"
+
+      # Model Training Failure
+      - alert: ModelTrainingFailed
+        expr: increase(f1_model_training_failures_total[2h]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: ml-pipeline
+        annotations:
+          summary: "F1 model training has failed"
+          description: "Model training failure detected for model {{ $labels.model_type }}"
+          runbook_url: "https://docs.f1-analytics.com/runbooks/training-failure"
+
+      # Feature Engineering Latency
+      - alert: FeatureEngineeringHighLatency
+        expr: avg_over_time(f1_feature_engineering_duration_seconds[30m]) > 300
+        for: 15m
+        labels:
+          severity: warning
+          service: ml-pipeline
+        annotations:
+          summary: "Feature engineering taking too long"
+          description: "Average feature engineering duration is {{ $value }}s, exceeding 5 minute threshold"
+          runbook_url: "https://docs.f1-analytics.com/runbooks/feature-latency"
+
+    # Data Pipeline and Freshness Alerts
+    - name: data-pipeline
+      rules:
+      # Data Staleness Alert
+      - alert: F1DataStaleness
+        expr: (time() - max(f1_last_data_update_timestamp)) > 86400
+        for: 10m
+        labels:
+          severity: warning
+          service: data-ingestion
+        annotations:
+          summary: "F1 data has not been updated recently"
+          description: "F1 race data has not been updated for more than 24 hours"
+          runbook_url: "https://docs.f1-analytics.com/runbooks/data-staleness"
+
+      # Critical Data Staleness (Race Weekend)
+      - alert: F1DataStalenessCritical
+        expr: (time() - max(f1_last_data_update_timestamp)) > 7200
+        for: 5m
+        labels:
+          severity: critical
+          service: data-ingestion
+        annotations:
+          summary: "Critical: F1 data severely stale during race weekend"
+          description: "F1 race data has not been updated for more than 2 hours during active race weekend"
+          runbook_url: "https://docs.f1-analytics.com/runbooks/critical-data-staleness"
+
+      # Ergast API Unavailable
+      - alert: ErgastAPIUnavailable
+        expr: probe_success{job="blackbox", instance="http://ergast.com/api/f1/current"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          service: external-api
+        annotations:
+          summary: "Ergast F1 API is unavailable"
+          description: "External Ergast API health check has failed for more than 5 minutes"
+          runbook_url: "https://docs.f1-analytics.com/runbooks/ergast-api-down"
+
+      # Data Ingestion Failures
+      - alert: DataIngestionFailures
+        expr: increase(f1_data_ingestion_failures_total[1h]) > 3
+        for: 5m
+        labels:
+          severity: warning
+          service: data-ingestion
+        annotations:
+          summary: "Multiple data ingestion failures detected"
+          description: "{{ $value }} data ingestion failures in the last hour"
+          runbook_url: "https://docs.f1-analytics.com/runbooks/ingestion-failures"
+
+    # Database and Storage Alerts
+    - name: database-storage
+      rules:
+      # Database Connection Issues
+      - alert: DatabaseConnectionHigh
+        expr: pg_stat_database_numbackends / pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: postgresql
+        annotations:
+          summary: "Database connection usage is high"
+          description: "Database connections are at {{ $value | humanizePercentage }} capacity"
+          runbook_url: "https://docs.f1-analytics.com/runbooks/db-connections"
+
+      # Database Query Performance Degradation
+      - alert: DatabaseSlowQueries
+        expr: rate(pg_stat_database_tup_returned[5m]) / rate(pg_stat_database_tup_fetched[5m]) < 0.8
+        for: 10m
+        labels:
+          severity: warning
+          service: postgresql
+        annotations:
+          summary: "Database experiencing slow query performance"
+          description: "Query efficiency ratio has dropped to {{ $value | humanizePercentage }}"
+          runbook_url: "https://docs.f1-analytics.com/runbooks/slow-queries"
+
+      # Redis Memory Usage
+      - alert: RedisHighMemoryUsage
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          service: redis
+        annotations:
+          summary: "Redis memory usage is critically high"
+          description: "Redis memory usage is at {{ $value | humanizePercentage }} capacity"
+          runbook_url: "https://docs.f1-analytics.com/runbooks/redis-memory"
+
+      # Cache Hit Rate Degradation
+      - alert: RedisCacheHitRateLow
+        expr: rate(redis_keyspace_hits_total[10m]) / (rate(redis_keyspace_hits_total[10m]) + rate(redis_keyspace_misses_total[10m])) < 0.7
+        for: 15m
+        labels:
+          severity: warning
+          service: redis
+        annotations:
+          summary: "Redis cache hit rate is low"
+          description: "Cache hit rate has dropped to {{ $value | humanizePercentage }}"
+          runbook_url: "https://docs.f1-analytics.com/runbooks/cache-hit-rate"
+
+    # Airflow and Scheduling Alerts
+    - name: airflow-scheduling
+      rules:
+      # Airflow DAG Failures
+      - alert: AirflowDAGFailing
+        expr: increase(airflow_dag_run_failed_total[1h]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: airflow
+        annotations:
+          summary: "Airflow DAG failure detected"
+          description: "DAG {{ $labels.dag_id }} has failed in the last hour"
+          runbook_url: "https://docs.f1-analytics.com/runbooks/airflow-dag-failure"
+
+      # Airflow Task Queue Backlog
+      - alert: AirflowTaskBacklog
+        expr: airflow_task_instances{state="queued"} > 10
+        for: 30m
+        labels:
+          severity: warning
+          service: airflow
+        annotations:
+          summary: "Airflow task queue backlog detected"
+          description: "{{ $value }} tasks have been queued for more than 30 minutes"
+          runbook_url: "https://docs.f1-analytics.com/runbooks/airflow-backlog"
+
+      # Airflow Scheduler Down
+      - alert: AirflowSchedulerDown
+        expr: up{job="airflow"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: airflow
+        annotations:
+          summary: "Airflow scheduler is down"
+          description: "Airflow scheduler has been unreachable for more than 2 minutes"
+          runbook_url: "https://docs.f1-analytics.com/runbooks/airflow-down"
+
+    # Security and Anomaly Detection
+    - name: security-anomalies
+      rules:
+      # Unusual API Access Patterns
+      - alert: UnusualAPIAccessPattern
+        expr: rate(http_requests_total[5m]) > 100
+        for: 10m
+        labels:
+          severity: warning
+          service: api-gateway
+        annotations:
+          summary: "Unusual API access pattern detected"
+          description: "API request rate is {{ $value }} requests/second, significantly above normal"
+          runbook_url: "https://docs.f1-analytics.com/runbooks/unusual-access"
+
+      # High 4xx Error Rate (Potential Attack)
+      - alert: HighClientErrorRate
+        expr: rate(http_requests_total{status=~"4.."}[5m]) / rate(http_requests_total[5m]) > 0.3
+        for: 10m
+        labels:
+          severity: warning
+          service: api-gateway
+        annotations:
+          summary: "High client error rate detected"
+          description: "4xx error rate is {{ $value | humanizePercentage }}, potential malicious activity"
+          runbook_url: "https://docs.f1-analytics.com/runbooks/client-errors"
+
+      # Failed Authentication Attempts
+      - alert: HighFailedAuthAttempts
+        expr: rate(f1_auth_failures_total[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: authentication
+        annotations:
+          summary: "High rate of failed authentication attempts"
+          description: "{{ $value }} failed authentication attempts per second"
+          runbook_url: "https://docs.f1-analytics.com/runbooks/auth-failures"
