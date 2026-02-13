@@ -1,0 +1,14 @@
+Epic: red-background-claude
+Features:
+- Sprint: 1
+  dependencies: []
+  description: Single HTML file with red background and centered white 'Hello World'
+    text using inline CSS
+  estimatedComplexity: low
+  files:
+  - index.html
+  id: red-background-claude-feat-html-page
+  name: Red Background HTML Page
+  project: red-background-claude
+  type: feature
+Version: v1alpha1

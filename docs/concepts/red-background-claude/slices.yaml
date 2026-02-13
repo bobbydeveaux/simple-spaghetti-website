@@ -1,0 +1,9 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: red-background-claude-feat-html-page
+        name: Red Background HTML Page
+        type: feature
+        files: [index.html]

@@ -1,0 +1,19 @@
+# Project Timeline
+
+metadata:
+  generated: 2026-02-13T15:19:13Z
+  totalSprints: 1
+  totalDuration: 7 days
+
+sprints:
+  - number: 1
+    startDate: 2026-02-13
+    endDate: 2026-02-20
+    duration: 7 days
+    features:
+      - id: red-background-claude-feat-html-page
+        name: Red Background HTML Page
+        type: feature
+
+criticalPath:
+  - red-background-claude-feat-html-page
