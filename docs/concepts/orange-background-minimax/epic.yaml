@@ -1,6 +1,7 @@
 Epic: orange-background-minimax
 Features:
-- dependencies: []
+- Sprint: 1
+  dependencies: []
   description: Single static HTML page with orange background (#FFA500) and white
     'Hello World' text centered both horizontally and vertically using CSS Flexbox
   estimatedComplexity: low
