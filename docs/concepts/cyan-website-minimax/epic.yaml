@@ -1,6 +1,7 @@
 Epic: cyan-website-minimax
 Features:
-- dependencies: []
+- Sprint: 1
+  dependencies: []
   description: A single HTML page with cyan background (#00FFFF) and white 'Hello
     World' text (#FFFFFF) centered on the page using CSS flexbox
   estimatedComplexity: low
