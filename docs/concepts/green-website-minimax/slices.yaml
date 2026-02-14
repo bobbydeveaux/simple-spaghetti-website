@@ -1,0 +1,9 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: green-website-minimax-feat-main
+        name: Core Implementation
+        type: feature
+        files: [index.html]
