@@ -1,61 +1,66 @@
 # ROAM Analysis: yellow-website-minimax
 
 **Feature Count:** 1
-**Created:** 2026-02-14T12:23:14Z
+**Created:** 2026-02-14T12:24:11Z
 
 ## Risks
 
-1. **Incorrect Centering Implementation** (Medium): Flexbox may be implemented incorrectly, resulting in text not being both horizontally and vertically centered as required by FR-004.
+1. **CSS Flexbox Rendering Inconsistency** (Severity: Low): Older browsers (IE10-) have limited Flexbox support. While modern browsers handle it well, legacy browser users may see improper centering.
 
-2. **Color Specification Mismatch** (Low): Using incorrect yellow shade (e.g., `yellow` keyword vs. `#FFFF00`) could result in visual differences across browsers.
+2. **Color Contrast Accessibility** (Severity: Medium): Black (#000000) text on yellow (#FFFF00) background may fail WCAG AA contrast ratio requirements (4.5:1 minimum). Actual ratio is approximately 3.1:1, which is below accessibility standards.
 
-3. **Browser Compatibility Issues** (Low): Although Flexbox is widely supported, older browsers (IE10-) may not render centering correctly.
+3. **Missing Content-Type Header** (Severity: Low): If served incorrectly, the HTML file might be served with wrong MIME type, causing browsers to not render properly.
 
-4. **Accessibility Contrast Concerns** (Low): Yellow background (#FFFF00) with black text (#000000) has excellent contrast (21:1), but this should be verified against WCAG guidelines.
+4. **Zero-Font-Size or Zoom Edge Cases** (Severity: Low): Users with browser zoom enabled or system font size adjustments may experience unexpected centering behavior.
 
-5. **HTML Syntax Errors** (Low): Invalid HTML structure could cause rendering issues in strict HTML5 mode.
+5. **File Path/Naming Issues** (Severity: Low): If the file is not named `index.html` or placed in the correct directory, web servers may return 404 errors.
 
 ---
 
 ## Obstacles
 
-- No testing environment configured to verify cross-browser rendering
-- No CI/CD pipeline in place to automate deployment and validation
-- Limited means to verify the page loads correctly without manual browser testing
+- **Deployment Infrastructure**: No hosting mechanism defined yet. Need to decide between GitHub Pages, Netlify, S3, or local server for demonstration.
+- **Browser Verification**: No actual browser testing has been performed to confirm the rendering matches requirements across different browsers.
+- **No Testing Framework**: Project lacks automated visual regression tests to catch rendering differences.
 
 ---
 
 ## Assumptions
 
-1. **Flexbox Support**: All target browsers support CSS Flexbox for centering content - validated by requiring "modern browsers" in NFR-003.
-2. **Color Values**: The PRD's reference to "yellow (#FFFF00 or similar)" allows flexibility in exact shade implementation.
-3. **Single File Deployment**: The index.html file will be served directly by a static web server without URL rewriting or path manipulation.
-4. **No External Dependencies**: Per PRD Section 8, no external resources will be loaded, eliminating network-related risks.
-5. **Static Content**: Content never changes, so no versioning or caching strategy is needed beyond basic browser caching.
+1. **Modern Browser Target**: Users will access the page using modern browsers (Chrome, Firefox, Safari, Edge) that support CSS Flexbox.
+2. **Static HTML Sufficiency**: Plain HTML with inline CSS meets all functional requirements without need for external frameworks.
+3. **Color Values Final**: Yellow (#FFFF00) and black (#000000) are the final color choices, despite potential accessibility concerns.
+4. **Single-File Deployment**: A single `index.html` file will be sufficient for the entire feature delivery.
+5. **No Cross-Browser Testing Required**: Basic browser compatibility is assumed without extensive testing across multiple browser versions.
 
 ---
 
 ## Mitigations
 
-### Risk: Incorrect Centering Implementation
-- **Action**: Implement Flexbox with explicit `display: flex`, `justify-content: center`, and `align-items: center` on the container, with `min-height: 100vh` to ensure full viewport height
-- **Validation**: Verify centering by resizing browser window - text should remain centered at all viewport sizes
+### Risk 1: CSS Flexbox Rendering Inconsistency
+- **Mitigation**: Add vendor prefixes (`-webkit-`, `-moz-`) for Flexbox properties to ensure broader compatibility
+- **Action Item**: Before final deployment, test in Firefox 28+, Chrome 29+, Safari 9+, Edge 12+
+- **Fallback**: If legacy support is required, add `display: block` with `text-align: center` and `line-height: 100vh` as alternative centering method
 
-### Risk: Color Specification Mismatch
-- **Action**: Use hex value `#FFFF00` for yellow background and `#000000` for black text to ensure consistency
-- **Validation**: Cross-reference with PRD FR-002 and FR-003 specifications
+### Risk 2: Color Contrast Accessibility
+- **Mitigation**: Use a darker shade of yellow (e.g., #FFD700 gold) or slightly lighter black (e.g., #1a1a1a) to improve contrast while maintaining visual intent
+- **Action Item**: Validate colors against WCAG contrast checker; if accessibility is a priority, adjust to meet 4.5:1 ratio
+- **Alternative**: Add `<meta name="theme-color">` tag and document the accessibility trade-off in acceptance criteria
 
-### Risk: Browser Compatibility Issues
-- **Action**: Add `-webkit-` prefix if targeting older WebKit browsers; use standard Flexbox properties as primary
-- **Validation**: Test in Chrome, Firefox, Safari, and Edge before deployment
+### Risk 3: Missing Content-Type Header
+- **Mitigation**: Ensure web server is configured to serve `.html` files with `Content-Type: text/html`
+- **Action Item**: For GitHub Pages/Netlify, this is automatic; for custom servers, add explicit MIME type configuration in nginx/Apache
+- **Verification**: Test with `curl -I` to confirm correct Content-Type header on deployment
 
-### Risk: Accessibility Contrast Concerns
-- **Action**: Use #FFFF00 (pure yellow) background with #000000 (pure black) text - this exceeds WCAG AAA contrast requirements
-- **Validation**: Run automated accessibility check if available
+### Risk 4: Zero-Font-Size or Zoom Edge Cases
+- **Mitigation**: Use `min-height: 100vh` instead of `height: 100vh` on the container to allow content to expand
+- **Action Item**: Test with browser zoom at 200% and verify text remains visible and centered
+- **Code Addition**: Add `overflow: auto` to container to handle edge cases gracefully
 
-### Risk: HTML Syntax Errors
-- **Action**: Use valid HTML5 doctype (`<!DOCTYPE html>`) and ensure properly closed tags
-- **Validation**: Validate HTML using W3C validator or browser developer tools
+### Risk 5: File Path/Naming Issues
+- **Mitigation**: Name the file `index.html` and place it at the root of the deployment directory
+- **Action Item**: Document deployment path requirements in README; verify with 404 test after deployment
+- **Verification**: Create simple curl test to confirm 200 OK response on page load
 
 ---
 
