@@ -1,0 +1,19 @@
+# Project Timeline
+
+metadata:
+  generated: 2026-02-14T12:28:07Z
+  totalSprints: 1
+  totalDuration: 7 days
+
+sprints:
+  - number: 1
+    startDate: 2026-02-14
+    endDate: 2026-02-21
+    duration: 7 days
+    features:
+      - id: yellow-website-minimax-feat-main-page
+        name: Main Page Implementation
+        type: feature
+
+criticalPath:
+  - yellow-website-minimax-feat-main-page

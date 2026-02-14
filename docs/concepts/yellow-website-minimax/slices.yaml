@@ -1,0 +1,9 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: yellow-website-minimax-feat-main-page
+        name: Main Page Implementation
+        type: feature
+        files: [index.html]
