@@ -1,0 +1,19 @@
+# Project Timeline
+
+metadata:
+  generated: 2026-02-14T01:39:59Z
+  totalSprints: 1
+  totalDuration: 7 days
+
+sprints:
+  - number: 1
+    startDate: 2026-02-14
+    endDate: 2026-02-21
+    duration: 7 days
+    features:
+      - id: cyan-website-minimax-feat-hello-world-page
+        name: Hello World Static Page
+        type: feature
+
+criticalPath:
+  - cyan-website-minimax-feat-hello-world-page
