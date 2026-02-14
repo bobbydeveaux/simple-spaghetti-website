@@ -1,6 +1,7 @@
 Epic: yellow-website-minimax
 Features:
-- dependencies: []
+- Sprint: 1
+  dependencies: []
   description: Create a simple one-page HTML website with a yellow background and
     black 'Hello World' text centered using Flexbox
   estimatedComplexity: low
