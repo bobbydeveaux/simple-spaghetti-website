@@ -1,0 +1,12 @@
+Epic: green-website-minimax
+Features:
+- dependencies: []
+  description: Implement the complete solution in a single feature
+  estimatedComplexity: low
+  files:
+  - index.html
+  id: green-website-minimax-feat-main
+  name: Core Implementation
+  project: website
+  type: feature
+Version: v1alpha1
