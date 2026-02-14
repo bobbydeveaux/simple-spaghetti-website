@@ -84,7 +84,7 @@ echo "✅ PASS: HTML5 DOCTYPE found"
 # Test 7: Required HTML structure
 echo
 echo "✅ Test 7: Checking HTML structure..."
-if ! grep -q "<html>" "$HTML_FILE"; then
+if ! grep -q "<html" "$HTML_FILE"; then
     echo "❌ FAIL: <html> tag not found"
     exit 1
 fi
