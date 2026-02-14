@@ -1,0 +1,13 @@
+Epic: magenta-website-minimax
+Features:
+- dependencies: []
+  description: Single static HTML page with magenta background and white centered
+    'Hello World' text
+  estimatedComplexity: low
+  files:
+  - docs/plans/simple-spaghetti-website/index.html
+  id: magenta-website-minimax-feat-main
+  name: Core Implementation
+  project: magenta-website-minimax
+  type: feature
+Version: v1alpha1
