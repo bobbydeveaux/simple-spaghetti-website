@@ -1,6 +1,7 @@
 Epic: green-website-minimax
 Features:
-- dependencies: []
+- Sprint: 1
+  dependencies: []
   description: Implement the complete solution in a single feature
   estimatedComplexity: low
   files:
