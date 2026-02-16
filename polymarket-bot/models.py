@@ -112,22 +112,19 @@ class BotState(BaseModel):
     max_position_size: Decimal = Field(
         ...,
         description="Maximum size for a single position in USD",
-        gt=0,
-        decimal_places=2
+        gt=0
     )
 
     max_total_exposure: Decimal = Field(
         ...,
         description="Maximum total exposure across all positions in USD",
-        gt=0,
-        decimal_places=2
+        gt=0
     )
 
     risk_per_trade: Decimal = Field(
         ...,
         description="Maximum risk per individual trade in USD",
-        gt=0,
-        decimal_places=2
+        gt=0
     )
 
     # Active Trading State
@@ -151,15 +148,13 @@ class BotState(BaseModel):
 
     total_pnl: Decimal = Field(
         default=Decimal("0.00"),
-        description="Total profit and loss in USD",
-        decimal_places=2
+        description="Total profit and loss in USD"
     )
 
     current_exposure: Decimal = Field(
         default=Decimal("0.00"),
         description="Current total exposure in USD",
-        ge=0,
-        decimal_places=2
+        ge=0
     )
 
     # System Status
@@ -310,22 +305,19 @@ class Trade(BaseModel):
         ...,
         description="Order price (0.00 to 1.00 for probability)",
         ge=0,
-        le=1,
-        decimal_places=4
+        le=1
     )
 
     quantity: Decimal = Field(
         ...,
         description="Order quantity (number of shares)",
-        gt=0,
-        decimal_places=2
+        gt=0
     )
 
     filled_quantity: Decimal = Field(
         default=Decimal("0.00"),
         description="Quantity that has been filled",
-        ge=0,
-        decimal_places=2
+        ge=0
     )
 
     # Execution Status
@@ -349,8 +341,7 @@ class Trade(BaseModel):
     fee: Decimal = Field(
         default=Decimal("0.00"),
         description="Trading fee paid in USD",
-        ge=0,
-        decimal_places=2
+        ge=0
     )
 
     # Metadata
@@ -453,45 +444,39 @@ class Position(BaseModel):
     # Position Details
     quantity: Decimal = Field(
         ...,
-        description="Current position quantity (shares held)",
-        decimal_places=2
+        description="Current position quantity (shares held)"
     )
 
     entry_price: Decimal = Field(
         ...,
         description="Average entry price",
         ge=0,
-        le=1,
-        decimal_places=4
+        le=1
     )
 
     current_price: Decimal = Field(
         ...,
         description="Current market price",
         ge=0,
-        le=1,
-        decimal_places=4
+        le=1
     )
 
     exit_price: Optional[Decimal] = Field(
         default=None,
         description="Average exit price for closed positions",
         ge=0,
-        le=1,
-        decimal_places=4
+        le=1
     )
 
     # Profit and Loss
     realized_pnl: Decimal = Field(
         default=Decimal("0.00"),
-        description="Realized profit and loss in USD",
-        decimal_places=2
+        description="Realized profit and loss in USD"
     )
 
     unrealized_pnl: Decimal = Field(
         default=Decimal("0.00"),
-        description="Unrealized profit and loss in USD",
-        decimal_places=2
+        description="Unrealized profit and loss in USD"
     )
 
     # Related Trades
@@ -644,38 +629,33 @@ class MarketData(BaseModel):
         ...,
         description="Current YES outcome price (probability)",
         ge=0,
-        le=1,
-        decimal_places=4
+        le=1
     )
 
     no_price: Decimal = Field(
         ...,
         description="Current NO outcome price (probability)",
         ge=0,
-        le=1,
-        decimal_places=4
+        le=1
     )
 
     # Volume and Liquidity
     yes_volume: Decimal = Field(
         default=Decimal("0.00"),
         description="Total volume for YES outcome in USD",
-        ge=0,
-        decimal_places=2
+        ge=0
     )
 
     no_volume: Decimal = Field(
         default=Decimal("0.00"),
         description="Total volume for NO outcome in USD",
-        ge=0,
-        decimal_places=2
+        ge=0
     )
 
     total_liquidity: Decimal = Field(
         default=Decimal("0.00"),
         description="Total market liquidity in USD",
-        ge=0,
-        decimal_places=2
+        ge=0
     )
 
     # Market Status
