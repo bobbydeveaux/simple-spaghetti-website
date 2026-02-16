@@ -1,0 +1,19 @@
+# Project Timeline
+
+metadata:
+  generated: 2026-02-16T18:30:02Z
+  totalSprints: 1
+  totalDuration: 7 days
+
+sprints:
+  - number: 1
+    startDate: 2026-02-16
+    endDate: 2026-02-23
+    duration: 7 days
+    features:
+      - id: a-website-about-kitchen-designing-feat-kitchen-page
+        name: Kitchen Design Single Page
+        type: feature
+
+criticalPath:
+  - a-website-about-kitchen-designing-feat-kitchen-page
