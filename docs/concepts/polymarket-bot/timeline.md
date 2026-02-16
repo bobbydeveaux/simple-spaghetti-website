@@ -2,13 +2,13 @@
 
 **Generated:** 2026-02-16
 
-**Total Sprints:** 5
+**Total Sprints:** 4
 
-**Total Duration:** 39 days
+**Total Duration:** 31 days
 
 **Start Date:** 2026-02-16
 
-**Estimated Completion:** 2026-03-27
+**Estimated Completion:** 2026-03-19
 
 ---
 
@@ -20,8 +20,7 @@
 
 **Features:**
 
-- **polymarket-bot-feat-project-setup** (enabler): Project Setup and Configuration
-- **polymarket-bot-feat-data-models** (enabler): Core Data Models
+- **polymarket-bot-feat-config-models** (enabler): Configuration and Data Models
 
 ### Sprint 2
 
@@ -29,9 +28,8 @@
 
 **Features:**
 
-- **polymarket-bot-feat-state-persistence** (enabler): State Persistence
-- **polymarket-bot-feat-logging** (enabler): Structured Logging
-- **polymarket-bot-feat-price-feed** (feature): BTC Price Data Provider
+- **polymarket-bot-feat-market-data** (enabler): Market Data Integration
+- **polymarket-bot-feat-state-persistence** (enabler): State Persistence and Logging
 
 ### Sprint 3
 
@@ -39,9 +37,9 @@
 
 **Features:**
 
-- **polymarket-bot-feat-market-connector** (feature): Polymarket API Integration
 - **polymarket-bot-feat-prediction-engine** (feature): Prediction Engine
-- **polymarket-bot-feat-capital-allocation** (feature): Capital Allocation Strategy
+- **polymarket-bot-feat-risk-controls** (feature): Risk Management System
+- **polymarket-bot-feat-capital-allocation** (feature): Win-Streak Capital Allocator
 
 ### Sprint 4
 
@@ -49,17 +47,8 @@
 
 **Features:**
 
-- **polymarket-bot-feat-risk-management** (feature): Risk Management Controls
-- **polymarket-bot-feat-orchestrator** (feature): Main Execution Orchestrator
-
-### Sprint 5
-
-**Duration:** 2026-03-20 to 2026-03-27 (7 days)
-
-**Features:**
-
-- **polymarket-bot-feat-unit-tests** (enabler): Unit Tests
-- **polymarket-bot-feat-integration-tests** (enabler): Integration and E2E Tests
+- **polymarket-bot-feat-trade-execution** (feature): Trade Execution and Settlement
+- **polymarket-bot-feat-orchestrator** (feature): Main Orchestrator and Event Loop
 
 ---
 
@@ -67,9 +56,7 @@
 
 The longest dependency chain:
 
-1. polymarket-bot-feat-project-setup
-2. polymarket-bot-feat-data-models
-3. polymarket-bot-feat-price-feed
-4. polymarket-bot-feat-prediction-engine
-5. polymarket-bot-feat-orchestrator
-6. polymarket-bot-feat-unit-tests
+1. polymarket-bot-feat-config-models
+2. polymarket-bot-feat-market-data
+3. polymarket-bot-feat-prediction-engine
+4. polymarket-bot-feat-orchestrator
