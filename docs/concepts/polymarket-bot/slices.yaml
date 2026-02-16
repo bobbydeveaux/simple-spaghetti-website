@@ -1,0 +1,61 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: polymarket-bot-feat-project-setup
+        name: Project Setup and Configuration
+        type: enabler
+        files: [requirements.txt .env.example .gitignore README.md config.py utils/__init__.py utils/retry.py utils/time_sync.py utils/validation.py]
+      - id: polymarket-bot-feat-data-models
+        name: Core Data Models
+        type: enabler
+        files: [models/__init__.py models/bot_state.py models/position.py models/prediction.py models/trade_outcome.py]
+  - number: 2
+    features:
+      - id: polymarket-bot-feat-state-persistence
+        name: State Persistence
+        type: enabler
+        files: [core/state_manager.py]
+      - id: polymarket-bot-feat-logging
+        name: Structured Logging
+        type: enabler
+        files: [core/logger.py]
+      - id: polymarket-bot-feat-price-feed
+        name: BTC Price Data Provider
+        type: feature
+        files: [core/price_provider.py]
+  - number: 3
+    features:
+      - id: polymarket-bot-feat-market-connector
+        name: Polymarket API Integration
+        type: feature
+        files: [core/market_connector.py]
+      - id: polymarket-bot-feat-prediction-engine
+        name: Prediction Engine
+        type: feature
+        files: [core/prediction_engine.py]
+      - id: polymarket-bot-feat-capital-allocation
+        name: Capital Allocation Strategy
+        type: feature
+        files: [core/capital_allocator.py]
+  - number: 4
+    features:
+      - id: polymarket-bot-feat-risk-management
+        name: Risk Management Controls
+        type: feature
+        files: [core/risk_manager.py]
+      - id: polymarket-bot-feat-orchestrator
+        name: Main Execution Orchestrator
+        type: feature
+        files: [main.py]
+  - number: 5
+    features:
+      - id: polymarket-bot-feat-unit-tests
+        name: Unit Tests
+        type: enabler
+        files: [tests/__init__.py tests/test_market_connector.py tests/test_price_provider.py tests/test_prediction_engine.py tests/test_capital_allocator.py tests/test_risk_manager.py tests/test_state_manager.py]
+      - id: polymarket-bot-feat-integration-tests
+        name: Integration and E2E Tests
+        type: enabler
+        files: [tests/test_integration.py]

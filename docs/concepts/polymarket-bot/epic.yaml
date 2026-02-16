@@ -1,6 +1,7 @@
 Epic: polymarket-bot
 Features:
-- dependencies: []
+- Sprint: 1
+  dependencies: []
   description: Initialize project structure, dependencies (requirements.txt), environment
     configuration (.env), and basic utilities (retry decorator, time sync validation,
     price anomaly detection)
@@ -19,7 +20,8 @@ Features:
   name: Project Setup and Configuration
   project: polymarket-bot
   type: enabler
-- dependencies:
+- Sprint: 1
+  dependencies:
   - polymarket-bot-feat-project-setup
   description: Define dataclasses for BotState, Position, Prediction, TradeOutcome,
     and PricePoint with serialization methods
@@ -34,7 +36,8 @@ Features:
   name: Core Data Models
   project: polymarket-bot
   type: enabler
-- dependencies:
+- Sprint: 2
+  dependencies:
   - polymarket-bot-feat-data-models
   description: Implement JSON-based state management with atomic write-replace for
     crash recovery and equity curve CSV export
@@ -45,7 +48,8 @@ Features:
   name: State Persistence
   project: polymarket-bot
   type: enabler
-- dependencies:
+- Sprint: 2
+  dependencies:
   - polymarket-bot-feat-data-models
   description: Implement async JSONL logging for predictions and trades with console
     output for real-time monitoring
@@ -56,7 +60,8 @@ Features:
   name: Structured Logging
   project: polymarket-bot
   type: enabler
-- dependencies:
+- Sprint: 2
+  dependencies:
   - polymarket-bot-feat-data-models
   description: Implement WebSocket connection to Binance for real-time BTC prices
     with fallback to Coinbase/CoinGecko REST APIs, rolling 60-price buffer, and anomaly
@@ -68,7 +73,8 @@ Features:
   name: BTC Price Data Provider
   project: polymarket-bot
   type: feature
-- dependencies:
+- Sprint: 3
+  dependencies:
   - polymarket-bot-feat-project-setup
   description: Implement REST client for Polymarket API with authentication, market
     data fetching, order submission, and settlement polling with retry logic
@@ -79,7 +85,8 @@ Features:
   name: Polymarket API Integration
   project: polymarket-bot
   type: feature
-- dependencies:
+- Sprint: 3
+  dependencies:
   - polymarket-bot-feat-price-feed
   - polymarket-bot-feat-data-models
   description: Implement RSI (14-period) and EMA (9/21) calculation using pandas-ta
@@ -91,7 +98,8 @@ Features:
   name: Prediction Engine
   project: polymarket-bot
   type: feature
-- dependencies:
+- Sprint: 3
+  dependencies:
   - polymarket-bot-feat-data-models
   description: Implement win-streak-based position sizing with 1.5x scaling multiplier,
     $5 base size, $30 max exposure, and Decimal precision for currency calculations
@@ -102,7 +110,8 @@ Features:
   name: Capital Allocation Strategy
   project: polymarket-bot
   type: feature
-- dependencies:
+- Sprint: 4
+  dependencies:
   - polymarket-bot-feat-capital-allocation
   description: Implement 30% max drawdown monitoring, volatility filter (2x baseline
     threshold), and emergency stop mechanism
@@ -113,7 +122,8 @@ Features:
   name: Risk Management Controls
   project: polymarket-bot
   type: feature
-- dependencies:
+- Sprint: 4
+  dependencies:
   - polymarket-bot-feat-market-connector
   - polymarket-bot-feat-price-feed
   - polymarket-bot-feat-prediction-engine
@@ -130,7 +140,8 @@ Features:
   name: Main Execution Orchestrator
   project: polymarket-bot
   type: feature
-- dependencies:
+- Sprint: 5
+  dependencies:
   - polymarket-bot-feat-orchestrator
   description: Comprehensive unit tests for all core modules (market connector, price
     provider, prediction engine, capital allocator, risk manager, state manager) with
@@ -148,7 +159,8 @@ Features:
   name: Unit Tests
   project: polymarket-bot
   type: enabler
-- dependencies:
+- Sprint: 5
+  dependencies:
   - polymarket-bot-feat-orchestrator
   description: Integration tests for multi-interval execution flows (win streaks,
     emergency stop, volatility filter, crash recovery) and full 90-minute session
