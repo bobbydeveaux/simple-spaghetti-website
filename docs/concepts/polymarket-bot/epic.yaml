@@ -1,0 +1,163 @@
+Epic: polymarket-bot
+Features:
+- dependencies: []
+  description: Initialize project structure, dependencies (requirements.txt), environment
+    configuration (.env), and basic utilities (retry decorator, time sync validation,
+    price anomaly detection)
+  estimatedComplexity: low
+  files:
+  - requirements.txt
+  - .env.example
+  - .gitignore
+  - README.md
+  - config.py
+  - utils/__init__.py
+  - utils/retry.py
+  - utils/time_sync.py
+  - utils/validation.py
+  id: polymarket-bot-feat-project-setup
+  name: Project Setup and Configuration
+  project: polymarket-bot
+  type: enabler
+- dependencies:
+  - polymarket-bot-feat-project-setup
+  description: Define dataclasses for BotState, Position, Prediction, TradeOutcome,
+    and PricePoint with serialization methods
+  estimatedComplexity: low
+  files:
+  - models/__init__.py
+  - models/bot_state.py
+  - models/position.py
+  - models/prediction.py
+  - models/trade_outcome.py
+  id: polymarket-bot-feat-data-models
+  name: Core Data Models
+  project: polymarket-bot
+  type: enabler
+- dependencies:
+  - polymarket-bot-feat-data-models
+  description: Implement JSON-based state management with atomic write-replace for
+    crash recovery and equity curve CSV export
+  estimatedComplexity: low
+  files:
+  - core/state_manager.py
+  id: polymarket-bot-feat-state-persistence
+  name: State Persistence
+  project: polymarket-bot
+  type: enabler
+- dependencies:
+  - polymarket-bot-feat-data-models
+  description: Implement async JSONL logging for predictions and trades with console
+    output for real-time monitoring
+  estimatedComplexity: low
+  files:
+  - core/logger.py
+  id: polymarket-bot-feat-logging
+  name: Structured Logging
+  project: polymarket-bot
+  type: enabler
+- dependencies:
+  - polymarket-bot-feat-data-models
+  description: Implement WebSocket connection to Binance for real-time BTC prices
+    with fallback to Coinbase/CoinGecko REST APIs, rolling 60-price buffer, and anomaly
+    detection
+  estimatedComplexity: medium
+  files:
+  - core/price_provider.py
+  id: polymarket-bot-feat-price-feed
+  name: BTC Price Data Provider
+  project: polymarket-bot
+  type: feature
+- dependencies:
+  - polymarket-bot-feat-project-setup
+  description: Implement REST client for Polymarket API with authentication, market
+    data fetching, order submission, and settlement polling with retry logic
+  estimatedComplexity: medium
+  files:
+  - core/market_connector.py
+  id: polymarket-bot-feat-market-connector
+  name: Polymarket API Integration
+  project: polymarket-bot
+  type: feature
+- dependencies:
+  - polymarket-bot-feat-price-feed
+  - polymarket-bot-feat-data-models
+  description: Implement RSI (14-period) and EMA (9/21) calculation using pandas-ta
+    with deterministic signal rules for UP/DOWN predictions
+  estimatedComplexity: medium
+  files:
+  - core/prediction_engine.py
+  id: polymarket-bot-feat-prediction-engine
+  name: Prediction Engine
+  project: polymarket-bot
+  type: feature
+- dependencies:
+  - polymarket-bot-feat-data-models
+  description: Implement win-streak-based position sizing with 1.5x scaling multiplier,
+    $5 base size, $30 max exposure, and Decimal precision for currency calculations
+  estimatedComplexity: low
+  files:
+  - core/capital_allocator.py
+  id: polymarket-bot-feat-capital-allocation
+  name: Capital Allocation Strategy
+  project: polymarket-bot
+  type: feature
+- dependencies:
+  - polymarket-bot-feat-capital-allocation
+  description: Implement 30% max drawdown monitoring, volatility filter (2x baseline
+    threshold), and emergency stop mechanism
+  estimatedComplexity: low
+  files:
+  - core/risk_manager.py
+  id: polymarket-bot-feat-risk-management
+  name: Risk Management Controls
+  project: polymarket-bot
+  type: feature
+- dependencies:
+  - polymarket-bot-feat-market-connector
+  - polymarket-bot-feat-price-feed
+  - polymarket-bot-feat-prediction-engine
+  - polymarket-bot-feat-capital-allocation
+  - polymarket-bot-feat-risk-management
+  - polymarket-bot-feat-state-persistence
+  - polymarket-bot-feat-logging
+  description: Implement 18-interval trading loop with component initialization, time-based
+    scheduling, graceful shutdown, and state recovery on startup
+  estimatedComplexity: high
+  files:
+  - main.py
+  id: polymarket-bot-feat-orchestrator
+  name: Main Execution Orchestrator
+  project: polymarket-bot
+  type: feature
+- dependencies:
+  - polymarket-bot-feat-orchestrator
+  description: Comprehensive unit tests for all core modules (market connector, price
+    provider, prediction engine, capital allocator, risk manager, state manager) with
+    mocked external dependencies
+  estimatedComplexity: medium
+  files:
+  - tests/__init__.py
+  - tests/test_market_connector.py
+  - tests/test_price_provider.py
+  - tests/test_prediction_engine.py
+  - tests/test_capital_allocator.py
+  - tests/test_risk_manager.py
+  - tests/test_state_manager.py
+  id: polymarket-bot-feat-unit-tests
+  name: Unit Tests
+  project: polymarket-bot
+  type: enabler
+- dependencies:
+  - polymarket-bot-feat-orchestrator
+  description: Integration tests for multi-interval execution flows (win streaks,
+    emergency stop, volatility filter, crash recovery) and full 90-minute session
+    simulation
+  estimatedComplexity: medium
+  files:
+  - tests/test_integration.py
+  id: polymarket-bot-feat-integration-tests
+  name: Integration and E2E Tests
+  project: polymarket-bot
+  type: enabler
+Version: v1alpha1
