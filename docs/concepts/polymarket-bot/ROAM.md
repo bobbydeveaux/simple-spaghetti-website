@@ -1,107 +1,95 @@
 # ROAM Analysis: polymarket-bot
 
 **Feature Count:** 8
-**Created:** 2026-02-16T16:11:51Z
+**Created:** 2026-02-16T16:17:43Z
 
 ## Risks
 
-1. **Polymarket API Availability and Documentation** (High): The LLD references a hypothetical Polymarket API endpoint (`https://api.polymarket.com/v1`) with "actual endpoint TBD". Polymarket's actual API structure, authentication mechanism, market discovery endpoints, order placement flow, and settlement polling may differ significantly from assumptions. The bot's core trading functionality depends entirely on this integration working correctly.
+1. **Polymarket API Availability and Stability** (High): The entire system depends on undocumented/hypothetical Polymarket API endpoints. The LLD references `https://api.polymarket.com/v1` as "hypothetical, actual endpoint TBD". If the real API differs significantly in authentication, rate limits, market data structure, or settlement polling mechanisms, the bot may fail completely or require substantial rework. Additionally, API downtime during the 90-minute window would halt trading.
 
-2. **5-Minute Market Availability** (High): The entire strategy assumes BTC 5-minute directional markets are consistently available on Polymarket for 18 consecutive intervals. If such markets don't exist, are illiquid, or have irregular settlement times, the bot cannot execute its core function. Market availability, liquidity depth, and odds quality are unknown.
+2. **Technical Indicator Signal Quality** (High): The deterministic prediction engine relies on rigid thresholds (RSI<30/RSI>70, MACD crossovers, order book imbalance) that may produce poor signals in ranging or low-volatility BTC markets. The 5-minute interval is extremely short for technical analysis, and the strategy has no backtesting validation. High likelihood of consistent losses leading to rapid drawdown.
 
-3. **Technical Indicator Signal Quality** (Medium): The deterministic prediction logic using RSI < 30 / > 70 with MACD crossovers is a well-known retail trading strategy that may have poor win rates in efficient markets. The strategy assumes these indicators provide edge in 5-minute BTC prediction, but no backtesting validates this assumption. Poor signal quality could lead to rapid capital depletion.
+3. **Win-Streak Capital Scaling Risk** (Medium): The 1.5x multiplier on win streaks can quickly escalate position sizes (streak of 3 = $16.87, streak of 4 = $25 cap). A single bad streak could wipe out gains from multiple wins. The $25 cap (25% of capital) combined with potential for consecutive losses creates significant drawdown risk despite the 30% circuit breaker.
 
-4. **WebSocket Connection Stability** (Medium): The Binance WebSocket client maintains a price buffer critical for indicator calculation. Connection drops, message delays, or reconnection failures during the 90-minute window could result in stale data feeding into predictions. The 100-candle buffer requires ~100 minutes of historical data on startup, which may not be available if starting fresh.
+4. **WebSocket Connection Stability** (Medium): Binance WebSocket disconnections during critical intervals could force fallback to CoinGecko API with higher latency (3-5s vs <1s). This latency could result in stale price data for indicator calculations, leading to incorrect predictions. The 100-price buffer requirement means initial cycles may use incomplete data.
 
-5. **Win-Streak Amplification Risk** (Medium): The 1.5x multiplier per win can rapidly increase position sizes (base $5 → $11.25 → $16.88 → $25). A lucky early streak followed by losses at maximum position size could trigger the 30% drawdown limit prematurely. The strategy is vulnerable to variance despite the $25 cap.
+5. **Settlement Polling Timeout Risk** (Medium): The 300-second (5-minute) timeout for settlement polling creates a race condition. If Polymarket settlement is delayed beyond 5 minutes, the bot may mark a trade as failed while it's still pending, causing state corruption. Overlapping intervals could occur if settlement from interval N completes during interval N+2.
 
-6. **Settlement Timing and Slippage** (Medium): The bot must submit orders before each 5-minute interval closes and wait for settlement to know outcomes. Settlement delays, rejected orders, or partial fills could disrupt the sequential 18-interval execution model. The polling mechanism (`poll_settlement` with 300s timeout) may not align with actual Polymarket settlement speeds.
+6. **State Persistence Corruption** (Low): While atomic writes (temp file + rename) protect against mid-write crashes, the JSON-based state management has no schema validation or corruption detection. A single malformed write could make `bot_state.json` unreadable, causing the bot to reset to default state and potentially double-spend capital.
 
-7. **Third-Party Dependency Failures** (Low): The bot relies on ta-lib for indicator calculation, which requires system-level dependencies and can be difficult to install. Binance and CoinGecko APIs, while reliable, could rate-limit or change endpoints during execution. The fallback logic assumes CoinGecko provides comparable data quality.
+7. **Third-Party Dependency Chain** (Medium): Critical dependencies on `ta-lib` (requires system-level installation, not pure Python), `websocket-client`, and external APIs (Binance, Polymarket, CoinGecko) create multiple failure points. The `ta-lib` library is notoriously difficult to install on some systems and may block deployment.
 
 ---
 
 ## Obstacles
 
-- **Polymarket API Credentials and Access**: No documented process for obtaining Polymarket API keys. The platform may require KYC, minimum deposits, or restrict programmatic trading access. API access may not be publicly available.
+- **No Polymarket API Documentation or Credentials**: The design assumes API endpoints, authentication mechanisms, and market data formats that are currently hypothetical. Without actual API access for testing, the entire execution and market data modules cannot be validated until production deployment.
 
-- **Ta-lib Installation Complexity**: The ta-lib library requires C dependencies that are notoriously difficult to install on some systems (especially macOS and Windows). This could block development and testing if not addressed with clear setup documentation or Docker-only deployment.
+- **Lack of Backtesting Infrastructure**: The PRD explicitly excludes backtesting as a non-goal, but this means the prediction engine logic (RSI/MACD thresholds, order book imbalance ratios) is untested against historical BTC 5-minute data. No way to validate expected win rate or drawdown characteristics before risking real capital.
 
-- **Lack of Dry-Run Infrastructure**: While the LLD mentions a `--dry-run` flag, there's no implementation detail for mocking Polymarket order placement. Without this, testing the full 18-cycle flow requires real capital at risk.
+- **TA-Lib System Dependency**: The `ta-lib` library requires compilation of C extensions and system-level dependencies (numpy, build tools). This complicates containerization and may cause deployment failures on systems without build toolchains. Pure-Python alternatives (like `pandas-ta`) are not specified.
 
-- **5-Minute Execution Timing**: The bot must complete data fetch → prediction → order submission within each 5-minute window while leaving buffer time for settlement. Tight timing constraints with external API dependencies create execution risk.
+- **5-Minute Market Availability Uncertainty**: The bot assumes BTC 5-minute directional markets are continuously available on Polymarket for 90 minutes straight. If markets have gaps, close early, or have insufficient liquidity, the bot will skip intervals or fail to execute trades, invalidating the 18-trade assumption.
 
 ---
 
 ## Assumptions
 
-1. **Polymarket offers programmatic API access** with endpoints for market discovery, order placement, and settlement tracking similar to traditional exchanges. *Validation: Research Polymarket API documentation and developer portal before implementation.*
+1. **Polymarket API matches hypothetical specification**: The design assumes REST endpoints for market discovery (`/markets`), order placement (`/orders`), and settlement polling (`/orders/{id}`) with specific request/response formats. **Validation**: Obtain official Polymarket API documentation and verify endpoint contracts before implementation.
 
-2. **BTC 5-minute directional markets exist and settle reliably** on Polymarket with sufficient liquidity for $5-$25 positions. *Validation: Manual inspection of Polymarket platform to confirm market availability and settlement history.*
+2. **BTC 5-minute markets settle deterministically within 5 minutes**: The bot assumes each 5-minute market settles exactly at the interval boundary with WIN/LOSS outcome available immediately. **Validation**: Monitor actual Polymarket BTC markets for settlement timing patterns and edge cases (ties, cancellations, delays).
 
-3. **Binance WebSocket provides sufficient historical data** on connection to populate the 100-candle buffer needed for indicator calculation. *Validation: Test WebSocket client initialization and verify initial data payload structure.*
+3. **Binance WebSocket provides sufficient history for indicators**: The system assumes 100 1-minute candles are available from Binance WebSocket buffer to calculate RSI(14) and MACD(12,26,9) accurately from the first interval. **Validation**: Test WebSocket connection initialization and verify minimum data availability before first trade.
 
-4. **The 30% max drawdown threshold is sufficient** to prevent total capital loss while allowing the strategy to weather normal losing streaks. *Validation: Monte Carlo simulation of strategy with varying win rates (40-60%) to test drawdown distribution.*
+4. **Deterministic signals have positive expected value**: The prediction logic assumes RSI/MACD/order book thresholds will produce >50% win rate over 18 trades. **Validation**: Backtest signal logic against historical BTC 5-minute data to measure win rate, drawdown, and Sharpe ratio.
 
-5. **Settlement completes within 5 minutes** of each interval closing, allowing sequential non-overlapping trades. *Validation: Monitor actual Polymarket settlement times for 5-minute BTC markets if available.*
-
-6. **RSI/MACD signals generated from 1-minute Binance candles are applicable** to Polymarket 5-minute outcomes despite different market structures (spot exchange vs prediction market). *Validation: None possible without backtesting; accept as experimental premise.*
+5. **State persistence survives all failure modes**: The design assumes atomic file writes prevent corruption and that `bot_state.json` can always be read on restart. **Validation**: Implement schema validation with Pydantic models and add corruption detection with checksums or version numbers.
 
 ---
 
 ## Mitigations
 
-### Risk 1: Polymarket API Availability and Documentation
-- **Action 1.1**: Conduct upfront research sprint to locate official Polymarket API documentation, SDKs, or developer community resources before writing any integration code.
-- **Action 1.2**: If official API doesn't exist, explore alternative implementations: (a) Polymarket CLOB (Central Limit Order Book) integration if available, (b) Gamma Markets API if compatible, or (c) pivot to a different prediction market platform with documented APIs (e.g., Augur, Gnosis).
-- **Action 1.3**: Build a mock Polymarket API server for testing that simulates market discovery, order placement, and settlement responses based on assumed schema from LLD.
+### Risk 1: Polymarket API Availability and Stability
+- **Action 1.1**: Before implementation, create a standalone API exploration script to test real Polymarket endpoints, authentication, and response formats. Document actual API behavior vs assumptions.
+- **Action 1.2**: Implement comprehensive retry logic with exponential backoff (already specified) but add circuit breaker pattern: after 3 consecutive API failures, halt trading rather than continuing with stale data.
+- **Action 1.3**: Add API response validation layer that checks schema of all responses before processing. Log discrepancies and halt on critical mismatches.
+- **Action 1.4**: Build a mock Polymarket API server for local testing that simulates various failure modes (timeouts, rate limits, malformed responses).
 
-### Risk 2: 5-Minute Market Availability
-- **Action 2.1**: Before full implementation, manually verify on Polymarket UI that BTC 5-minute markets exist, their typical liquidity levels, and historical settlement reliability.
-- **Action 2.2**: Add market discovery validation to bot startup checks: if no active 5-min BTC market found, log critical error and exit immediately rather than proceeding.
-- **Action 2.3**: Implement flexible interval configuration to allow fallback to 10-minute or 15-minute markets if 5-minute markets prove unreliable (requires PRD adjustment).
+### Risk 2: Technical Indicator Signal Quality
+- **Action 2.1**: Implement a dry-run mode (already mentioned in LLD) that logs predictions against real market outcomes without placing trades. Run for multiple 90-minute windows to collect win rate data.
+- **Action 2.2**: Add confidence threshold filtering: only execute trades when confidence score exceeds 0.8 (vs current 0.75), reducing number of marginal signals.
+- **Action 2.3**: Extend prediction engine to check for "skip conditions": if BTC is in tight range (<1% 30-min movement), force SKIP regardless of indicators to avoid false signals.
+- **Action 2.4**: Post-deployment, log all prediction inputs (RSI, MACD, order book values) alongside outcomes to enable offline strategy refinement.
 
-### Risk 3: Technical Indicator Signal Quality
-- **Action 3.1**: Accept this as experimental risk inherent to the project scope. Document clearly in README that the strategy is for educational/experimental purposes, not production trading.
-- **Action 3.2**: Implement comprehensive trade logging (already planned) to enable post-mortem analysis of signal performance.
-- **Action 3.3**: Add configurable prediction thresholds (RSI levels, MACD crossover sensitivity) via environment variables to allow rapid iteration without code changes.
+### Risk 3: Win-Streak Capital Scaling Risk
+- **Action 3.1**: Add dynamic position sizing cap based on current capital: `max_position = min($25, current_capital * 0.2)` to prevent over-concentration as capital declines.
+- **Action 3.2**: Implement "profit lock" rule: after win streak >= 3, reduce multiplier to 1.2x instead of 1.5x to protect accumulated gains.
+- **Action 3.3**: Add early shutdown trigger: if capital drops below $50 (50% drawdown vs 30% threshold), halt immediately rather than waiting for 30% limit.
+- **Action 3.4**: Log Kelly Criterion calculations alongside position sizes to identify when bet sizing exceeds optimal leverage.
 
 ### Risk 4: WebSocket Connection Stability
-- **Action 4.1**: Implement aggressive reconnection logic with exponential backoff (already planned: max 5 retry attempts). Add connection health monitoring with heartbeat checks.
-- **Action 4.2**: Persist the last 100 price points to `price_buffer.json` after each update, allowing the bot to restore buffer state after crash/restart instead of requiring 100 minutes of fresh data.
-- **Action 4.3**: If WebSocket fails, immediately fallback to Binance REST API `/api/v3/klines` endpoint to fetch historical 1-minute candles and populate buffer, then switch to polling mode (1-minute interval requests).
+- **Action 4.1**: Implement pre-flight check: before first trade, verify Binance WebSocket has accumulated minimum 50 candles for indicator calculation. Delay trading start if needed.
+- **Action 4.2**: Add WebSocket health monitoring: track last message timestamp and reconnect proactively if no data received for 30 seconds.
+- **Action 4.3**: Enhance CoinGecko fallback: cache last known good Binance prices and use weighted average of CoinGecko + cached data to smooth out latency spikes.
+- **Action 4.4**: Extend price buffer to 150 candles (vs 100) to provide cushion during reconnection scenarios.
 
-### Risk 5: Win-Streak Amplification Risk
-- **Action 5.1**: Current design already caps position size at $25 (25% of capital), which limits single-trade loss exposure. Maintain this cap.
-- **Action 5.2**: Add simulation mode to model capital trajectories under different win-rate scenarios (45%, 50%, 55%) before live deployment to validate 30% drawdown threshold adequacy.
-- **Action 5.3**: Consider implementing a "cool-down" mechanism: after reaching max position size ($25), require 2 consecutive wins at max size before continuing, reducing variance exposure.
+### Risk 5: Settlement Polling Timeout Risk
+- **Action 5.1**: Increase settlement polling timeout to 420 seconds (7 minutes) to account for delayed settlements beyond interval boundary.
+- **Action 5.2**: Add settlement status tracking: if trade from interval N is still PENDING at start of interval N+1, skip N+1 trade to prevent overlaps.
+- **Action 5.3**: Implement settlement reconciliation: after bot completes 18 cycles, poll all order IDs one final time to catch late settlements and update final state.
+- **Action 5.4**: Log settlement timing metrics: track actual settlement duration for each trade to identify patterns and adjust timeout dynamically.
 
-### Risk 6: Settlement Timing and Slippage
-- **Action 6.1**: Build in 60-second buffer before interval close for order submission. If current time is within 60s of next interval start, skip the trade to avoid race conditions.
-- **Action 6.2**: Extend `poll_settlement` timeout to 600 seconds (10 minutes) to accommodate slow settlement, and add exponential backoff polling (start at 5s intervals, increase to 30s).
-- **Action 6.3**: Implement partial fill handling: if order partially fills, record actual filled amount and adjust position sizing calculations accordingly rather than assuming full fills.
+### Risk 6: State Persistence Corruption
+- **Action 6.1**: Replace plain dataclasses with Pydantic models for `BotState`, `Trade`, and all persisted objects to enforce schema validation on read/write.
+- **Action 6.2**: Implement state file versioning: add `"schema_version": "1.0"` field and reject reads of mismatched versions.
+- **Action 6.3**: Add backup state files: on each save, keep last 3 versions (`bot_state.json`, `bot_state.json.bak1`, `bot_state.json.bak2`) for manual recovery.
+- **Action 6.4**: Pre-deployment test: corrupt state file manually and verify bot detects corruption and fails gracefully with clear error message.
 
-### Risk 7: Third-Party Dependency Failures
-- **Action 7.1**: Provide Docker-based deployment as primary method (Dockerfile already planned) with pre-built ta-lib binaries in the image to eliminate installation issues.
-- **Action 7.2**: Add `requirements.txt` with pinned versions for all dependencies to ensure reproducible builds. Include alternative pure-Python indicator implementations as fallback if ta-lib import fails.
-- **Action 7.3**: Implement rate limit handling for Binance (unlikely given WebSocket) and CoinGecko (50 req/min): add request throttling and exponential backoff on 429 responses.
-
-### Obstacle: Polymarket API Credentials and Access
-- **Action O.1**: Immediate task: Create Polymarket account and navigate platform to locate API access settings or developer documentation.
-- **Action O.2**: If API access requires approval/waitlist, submit application immediately and prepare to adjust timeline or use testnet if available.
-- **Action O.3**: Document all credential requirements, KYC steps, and deposit minimums in setup README to unblock future users.
-
-### Obstacle: Ta-lib Installation Complexity
-- **Action O.4**: Make Docker deployment the primary/only supported deployment method to sidestep system-level dependency issues.
-- **Action O.5**: Add fallback to `pandas-ta` library (pure Python) if ta-lib import fails, with feature parity for RSI and MACD calculations.
-
-### Obstacle: Lack of Dry-Run Infrastructure
-- **Action O.6**: Implement `--dry-run` mode in `execution.py` that logs intended orders without API calls, returns mock order IDs, and simulates random WIN/LOSS outcomes with 50% probability for testing.
-- **Action O.7**: Create integration test fixtures with recorded API responses for full end-to-end testing without live API dependencies.
-
-### Obstacle: 5-Minute Execution Timing
-- **Action O.8**: Optimize data fetch with parallel API calls: fetch Polymarket odds concurrently with indicator calculation using `asyncio` or threading.
-- **Action O.9**: Add execution time logging to identify bottlenecks and ensure total cycle time stays under 60s threshold during testing.
+### Risk 7: Third-Party Dependency Chain
+- **Action 7.1**: Replace `ta-lib` with pure-Python alternative `pandas-ta` to eliminate C compilation dependency and simplify Docker builds.
+- **Action 7.2**: Pin all dependencies to exact versions in `requirements.txt` (use `==` not `>=`) to prevent breaking changes from upstream updates.
+- **Action 7.3**: Create Docker image with all dependencies pre-installed and test full build/run cycle in CI before production deployment.
+- **Action 7.4**: Add startup validation: verify all required libraries import successfully and external APIs are reachable before entering trading loop.
 
 ---
 
