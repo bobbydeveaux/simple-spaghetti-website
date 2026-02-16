@@ -1,550 +1,353 @@
-GeneratedAt: "2026-02-16T15:38:28Z"
+GeneratedAt: "2026-02-16T16:26:36Z"
 Plan: polymarket-bot-plan
 Sprints:
 - Features:
-  - FeatureID: polymarket-bot-feat-unit-tests
-    FeatureTitle: Unit Tests
+  - FeatureID: polymarket-bot-feat-config-models
+    FeatureTitle: Configuration and Data Models
     Tasks:
     - AcceptanceCriteria:
-      - pytest runs successfully with proper test discovery
-      - Mock factories for API responses and WebSocket streams are reusable across
-        test modules
-      - Shared fixtures for configuration and test data are available
-      AgentType: qa-engineer
-      Dependencies: []
-      Description: Set up the test infrastructure including pytest configuration,
-        shared fixtures, mock factories for external dependencies (Polymarket API,
-        Binance WebSocket), and test utilities. Create the base test module structure
-        with common test data generators for market data, price streams, and bot state.
-      EstimatedEffort: M
-      Files:
-      - tests/__init__.py
-      - tests/conftest.py
-      - tests/fixtures.py
-      ID: task-polymarket-bot-feat-unit-tests-1
-      Title: Implement test infrastructure and fixtures
-    - AcceptanceCriteria:
-      - All MarketConnector methods tested with mocked requests including error paths
-      - PriceDataProvider WebSocket lifecycle and reconnection tested with asyncio
-        mocks
-      - Test coverage >90% for both modules
-      AgentType: qa-engineer
-      Dependencies:
-      - task-polymarket-bot-feat-unit-tests-1
-      Description: Write comprehensive unit tests for MarketConnector covering API
-        request/response handling, retry logic, error scenarios, and rate limiting.
-        Implement PriceDataProvider tests covering WebSocket connection lifecycle,
-        message parsing, reconnection logic, and price buffer management with mocked
-        websocket connections.
-      EstimatedEffort: L
-      Files:
-      - tests/test_market_connector.py
-      - tests/test_price_provider.py
-      ID: task-polymarket-bot-feat-unit-tests-2
-      Title: Implement MarketConnector and PriceDataProvider tests
-    - AcceptanceCriteria:
-      - RSI and EMA calculations validated against expected values
-      - Signal generation tested for buy/sell/hold scenarios
-      - Edge cases handled (empty buffer, single data point, NaN values)
-      AgentType: qa-engineer
-      Dependencies:
-      - task-polymarket-bot-feat-unit-tests-1
-      Description: Write unit tests for PredictionEngine covering RSI and EMA calculation
-        accuracy, signal generation logic, edge cases with insufficient data, and
-        prediction output format. Use synthetic price data sequences to validate indicator
-        calculations against known expected values from pandas-ta library.
-      EstimatedEffort: M
-      Files:
-      - tests/test_prediction_engine.py
-      ID: task-polymarket-bot-feat-unit-tests-3
-      Title: Implement PredictionEngine tests
-    - AcceptanceCriteria:
-      - CapitalAllocator position sizing tested across win-streak scenarios with Decimal
-        accuracy
-      - RiskManager correctly triggers stops at drawdown and volatility thresholds
-      - Test coverage >90% for both modules
-      AgentType: qa-engineer
-      Dependencies:
-      - task-polymarket-bot-feat-unit-tests-1
-      Description: Write unit tests for CapitalAllocator covering position sizing
-        logic, win-streak scaling calculations, Decimal precision handling, and capital
-        limits. Implement RiskManager tests covering drawdown monitoring, volatility
-        thresholds, emergency stop conditions, and risk metrics calculations with
-        various portfolio scenarios.
-      EstimatedEffort: L
-      Files:
-      - tests/test_capital_allocator.py
-      - tests/test_risk_manager.py
-      ID: task-polymarket-bot-feat-unit-tests-4
-      Title: Implement CapitalAllocator and RiskManager tests
-    - AcceptanceCriteria:
-      - StateManager handles file I/O errors and atomic writes correctly
-      - Integration tests validate complete trade cycles with mocked APIs
-      - State recovery from crashes tested with partial state files
-      AgentType: qa-engineer
-      Dependencies:
-      - task-polymarket-bot-feat-unit-tests-2
-      - task-polymarket-bot-feat-unit-tests-3
-      - task-polymarket-bot-feat-unit-tests-4
-      Description: Write unit tests for StateManager covering JSON serialization/deserialization,
-        atomic file operations, crash recovery scenarios, and state migration. Create
-        integration tests that verify end-to-end workflows with all components working
-        together using mocked external dependencies, validating orchestrator coordination
-        and state persistence across trade cycles.
-      EstimatedEffort: M
-      Files:
-      - tests/test_state_manager.py
-      - tests/test_integration.py
-      ID: task-polymarket-bot-feat-unit-tests-5
-      Title: Implement StateManager and integration test suite
-  - FeatureID: polymarket-bot-feat-integration-tests
-    FeatureTitle: Integration and E2E Tests
-    Tasks:
-    - AcceptanceCriteria:
-      - Win streak scaling test verifies capital allocation increases after consecutive
-        wins
-      - Emergency stop test confirms bot halts on drawdown threshold breach
-      - Volatility filter test validates trade blocking during high volatility periods
-      - Crash recovery test ensures state restoration from persisted JSON after simulated
-        failure
-      AgentType: qa-engineer
-      Dependencies: []
-      Description: Create integration test suite covering win streak scaling, emergency
-        stop triggers, volatility filtering, and crash recovery scenarios. Tests should
-        validate component interactions across multiple 3-minute intervals with mocked
-        API responses and state persistence.
-      EstimatedEffort: L
-      Files:
-      - tests/test_integration.py
-      ID: task-polymarket-bot-feat-integration-tests-1
-      Title: Implement multi-interval integration tests
-    - AcceptanceCriteria:
-      - E2E test executes 30 consecutive 3-minute intervals without timing drift
-      - Test validates proper sequence of fetch price, analyze, allocate, execute,
-        and persist operations
-      - Comprehensive assertions verify final state matches expected outcomes from
-        simulated market data
-      AgentType: qa-engineer
-      Dependencies:
-      - task-polymarket-bot-feat-integration-tests-1
-      Description: Create end-to-end test simulating complete 90-minute trading session
-        (30 intervals) with realistic market conditions, API latency, and state transitions.
-        Test should validate orchestrator timing, drift correction, and complete workflow
-        from startup to shutdown.
-      EstimatedEffort: M
-      Files:
-      - tests/test_integration.py
-      ID: task-polymarket-bot-feat-integration-tests-2
-      Title: Implement full 90-minute E2E simulation
-  Sprint: 5
-- Features:
-  - FeatureID: polymarket-bot-feat-project-setup
-    FeatureTitle: Project Setup and Configuration
-    Tasks:
-    - AcceptanceCriteria:
-      - requirements.txt includes all dependencies (py-clob-client, pandas, aiohttp,
-        python-dotenv) with pinned versions
-      - config.py successfully loads and validates all required environment variables
-        from .env
-      - .env.example documents all required configuration variables
-      - README.md includes clear setup and installation instructions
+      - .env.example contains all required API key placeholders
+      - requirements.txt includes all dependencies with pinned versions
+      - config.py successfully loads environment variables and raises errors for missing
+        required keys
+      - Configuration can be imported and used by other modules
       AgentType: backend-engineer
       Dependencies: []
-      Description: Create the foundational project structure including requirements.txt
-        with pinned dependencies, environment configuration template (.env.example),
-        gitignore rules, basic README with setup instructions, and config.py for loading
-        and validating environment variables.
+      Description: Create the project structure with .env.example for API keys (Polymarket,
+        Binance, CoinGecko). Set up requirements.txt with all necessary dependencies
+        including websocket-client, ta-lib, and python-dotenv. Implement config.py
+        to load and validate environment variables using python-dotenv.
       EstimatedEffort: S
       Files:
-      - requirements.txt
-      - .env.example
-      - .gitignore
-      - README.md
-      - config.py
-      ID: task-polymarket-bot-feat-project-setup-1
-      Title: Initialize project structure and configuration
+      - polymarket-bot/.env.example
+      - polymarket-bot/requirements.txt
+      - polymarket-bot/config.py
+      ID: task-polymarket-bot-feat-config-models-1
+      Title: Implement environment configuration and dependencies
     - AcceptanceCriteria:
-      - Retry decorator successfully retries failed function calls with exponential
-        backoff
-      - Max attempts and delay parameters are configurable
-      - Decorator works with both sync and async functions
-      - Failed attempts are logged with appropriate detail
-      AgentType: backend-engineer
-      Dependencies:
-      - task-polymarket-bot-feat-project-setup-1
-      Description: Create a reusable retry decorator in utils/retry.py that implements
-        exponential backoff for API calls. Support configurable max attempts, base
-        delay, and max delay with proper error handling and logging.
-      EstimatedEffort: S
-      Files:
-      - utils/__init__.py
-      - utils/retry.py
-      ID: task-polymarket-bot-feat-project-setup-2
-      Title: Implement retry utility with exponential backoff
-    - AcceptanceCriteria:
-      - NTP client successfully queries time servers and calculates drift
-      - Validation raises error if drift exceeds threshold (2 seconds)
-      - Multiple NTP servers are tried with fallback logic
-      - Time sync check can be called at bot startup
-      AgentType: backend-engineer
-      Dependencies:
-      - task-polymarket-bot-feat-project-setup-1
-      Description: Create time sync validation utility in utils/time_sync.py that
-        uses NTP to detect clock drift. Implement checks to ensure local system time
-        is within acceptable bounds (±2 seconds) to prevent order timestamp issues.
-      EstimatedEffort: M
-      Files:
-      - utils/time_sync.py
-      ID: task-polymarket-bot-feat-project-setup-3
-      Title: Implement time synchronization validation
-    - AcceptanceCriteria:
-      - Z-score calculation correctly identifies price outliers beyond threshold (default
-        3.0)
-      - Rolling window maintains recent price history for statistical analysis
-      - Anomaly detection returns boolean flag and deviation magnitude
-      - Function handles edge cases (insufficient data, NaN values)
-      AgentType: backend-engineer
-      Dependencies:
-      - task-polymarket-bot-feat-project-setup-1
-      Description: Create validation utility in utils/validation.py to detect price
-        anomalies using z-score analysis. Implement outlier detection for BTC price
-        feeds to prevent trading on corrupt or stale data, with configurable thresholds
-        and rolling window statistics.
-      EstimatedEffort: M
-      Files:
-      - utils/validation.py
-      ID: task-polymarket-bot-feat-project-setup-4
-      Title: Implement price anomaly detection
-    - AcceptanceCriteria:
-      - data/ directory structure is created with placeholder files
-      - data/ directory is properly excluded in .gitignore
-      - JSON and JSONL file formats are documented
-      - Directory creation is handled gracefully if it doesn't exist
-      AgentType: backend-engineer
-      Dependencies:
-      - task-polymarket-bot-feat-project-setup-1
-      Description: Set up the data/ directory structure for state persistence and
-        logging. Create initial templates for bot_state.json and ensure directory
-        is properly gitignored while .example files provide structure documentation.
-      EstimatedEffort: S
-      Files:
-      - .gitignore
-      - data/.gitkeep
-      ID: task-polymarket-bot-feat-project-setup-5
-      Title: Create data directory structure and state file templates
-  - FeatureID: polymarket-bot-feat-data-models
-    FeatureTitle: Core Data Models
-    Tasks:
-    - AcceptanceCriteria:
-      - BotState dataclass includes all required fields from LLD Section 3 (capital,
-        positions list, trade history, win streak counter, start time)
-      - Position dataclass includes market_id, side, size, entry_price, entry_time
-        with proper types
-      - Both classes serialize/deserialize correctly via to_dict() and from_dict()
-        methods
-      - Basic unit tests verify serialization round-trips preserve data
+      - BotState tracks bot operational state and configuration
+      - Trade, Position, and MarketData models properly represent trading entities
+      - All models include validation for required fields and data types
+      - Models can be serialized to/from dictionaries for logging
       AgentType: backend-engineer
       Dependencies: []
-      Description: Create BotState dataclass to track capital, positions, trade history,
-        and win streak. Create Position dataclass to represent active market positions
-        with entry price, size, and timestamp. Both should include to_dict() and from_dict()
-        serialization methods for JSON persistence.
-      EstimatedEffort: S
-      Files:
-      - models/__init__.py
-      - models/bot_state.py
-      - models/position.py
-      ID: task-polymarket-bot-feat-data-models-1
-      Title: Implement BotState and Position dataclasses
-    - AcceptanceCriteria:
-      - Prediction dataclass includes timestamp, rsi_value, ema_short, ema_long, signal
-        (YES/NO/NONE), confidence (0.0-1.0)
-      - PricePoint dataclass includes timestamp and price with Decimal precision
-      - Serialization methods handle Decimal and datetime types correctly
-      - Unit tests verify data integrity after serialization
-      AgentType: backend-engineer
-      Dependencies: []
-      Description: Create Prediction dataclass to hold RSI and EMA values with trend
-        direction and signal strength. Create PricePoint dataclass for timestamped
-        BTC/USD prices. Both should support serialization for logging and state persistence.
-      EstimatedEffort: S
-      Files:
-      - models/__init__.py
-      - models/prediction.py
-      ID: task-polymarket-bot-feat-data-models-2
-      Title: Implement Prediction and PricePoint dataclasses
-    - AcceptanceCriteria:
-      - TradeOutcome dataclass includes market_id, side, size, entry_price, exit_price,
-        pnl, settlement_time, win_streak_at_trade
-      - All models properly exported from models/__init__.py
-      - Validation logic prevents invalid state (e.g., negative capital, invalid confidence
-        ranges)
-      - Integration tests verify models work together for common workflows (open position,
-        record trade outcome, update bot state)
-      AgentType: backend-engineer
-      Dependencies:
-      - task-polymarket-bot-feat-data-models-1
-      - task-polymarket-bot-feat-data-models-2
-      Description: Create TradeOutcome dataclass to record trade execution results
-        including market_id, side, size, entry/exit prices, profit/loss, and settlement
-        timestamp. Update models/__init__.py to export all dataclasses. Add validation
-        logic to ensure data integrity across models.
+      Description: Create models.py with core data classes for BotState, Trade, Position,
+        and MarketData. Each model should use dataclasses or Pydantic for validation,
+        include proper type hints, and support serialization for logging and persistence.
+        Ensure models align with Polymarket API response formats.
       EstimatedEffort: M
       Files:
-      - models/__init__.py
-      - models/trade_outcome.py
-      - models/bot_state.py
-      ID: task-polymarket-bot-feat-data-models-3
-      Title: Implement TradeOutcome dataclass and model integration
+      - polymarket-bot/models.py
+      ID: task-polymarket-bot-feat-config-models-2
+      Title: Implement core data models
+    - AcceptanceCriteria:
+      - Retry decorator implements exponential backoff for API calls
+      - Validation functions properly check data types and ranges
+      - Error handling utilities provide consistent logging format
+      - Utilities are modular and can be imported independently
+      AgentType: backend-engineer
+      Dependencies:
+      - task-polymarket-bot-feat-config-models-2
+      Description: Create utils.py with reusable utility functions including API request
+        retry logic with exponential backoff, input validation helpers, and error
+        handling wrappers. Include utilities for data validation, type checking, and
+        common operations used across the bot.
+      EstimatedEffort: M
+      Files:
+      - polymarket-bot/utils.py
+      ID: task-polymarket-bot-feat-config-models-3
+      Title: Implement utility functions for validation and retries
   Sprint: 1
 - Features:
-  - FeatureID: polymarket-bot-feat-state-persistence
-    FeatureTitle: State Persistence
+  - FeatureID: polymarket-bot-feat-market-data
+    FeatureTitle: Market Data Integration
     Tasks:
     - AcceptanceCriteria:
-      - StateManager loads and saves BotState from/to JSON with atomic file operations
-      - Atomic write-replace prevents state corruption on crashes
-      - Equity curve export to CSV works correctly
-      - Directory creation and error handling function properly
+      - WebSocket successfully connects to Binance and receives BTC/USDT price updates
+      - Price data is parsed and stored in appropriate data structures
+      - Reconnection logic handles disconnections gracefully
+      - Basic unit tests verify message parsing and data storage
       AgentType: backend-engineer
       Dependencies: []
-      Description: Implement the complete StateManager class in core/state_manager.py
-        with JSON-based state loading/saving, atomic write-replace operations for
-        crash safety, and equity curve CSV export functionality. Include proper error
-        handling, directory creation, and logging.
-      EstimatedEffort: S
-      Files:
-      - core/state_manager.py
-      ID: task-polymarket-bot-feat-state-persistence-1
-      Title: Implement StateManager with atomic persistence
-  - FeatureID: polymarket-bot-feat-logging
-    FeatureTitle: Structured Logging
-    Tasks:
-    - AcceptanceCriteria:
-      - BotLogger successfully logs predictions to predictions.jsonl and console
-      - BotLogger successfully logs trade outcomes to trades.jsonl and console
-      - Async file operations work without blocking
-      - Error handling prevents logger failures from crashing the bot
-      AgentType: backend-engineer
-      Dependencies: []
-      Description: Create core/logger.py with BotLogger class supporting async JSONL
-        logging for predictions and trades, console output for real-time monitoring,
-        and proper error handling. Includes both file-based JSONL logs and human-readable
-        console/file logging.
-      EstimatedEffort: S
-      Files:
-      - core/logger.py
-      ID: task-polymarket-bot-feat-logging-1
-      Title: Implement BotLogger with async JSONL logging
-  - FeatureID: polymarket-bot-feat-price-feed
-    FeatureTitle: BTC Price Data Provider
-    Tasks:
-    - AcceptanceCriteria:
-      - WebSocket successfully connects to Binance and receives real-time BTC prices
-      - Rolling buffer maintains exactly 60 price points with proper deque management
-      - REST fallback activates when WebSocket fails, trying Coinbase then CoinGecko
-      - Price validation rejects anomalies (>5% deviation and >3x baseline volatility)
-      AgentType: backend-engineer
-      Dependencies: []
-      Description: Implement the complete PriceDataProvider class with Binance WebSocket
-        connection, rolling 60-price buffer (30-second intervals), and REST API fallbacks
-        to Coinbase/CoinGecko. Include connection management, price validation, anomaly
-        detection, and volatility calculation methods.
+      Description: Create the Binance WebSocket client to fetch real-time BTC/USDT
+        price data. Implement connection handling, message parsing, and graceful reconnection
+        logic. Store the latest price and historical data for technical indicator
+        calculations.
       EstimatedEffort: M
       Files:
-      - core/price_provider.py
-      ID: task-polymarket-bot-feat-price-feed-1
-      Title: Implement PriceDataProvider with WebSocket and REST fallback
+      - polymarket-bot/market_data.py
+      - polymarket-bot/models.py
+      ID: task-polymarket-bot-feat-market-data-1
+      Title: Implement Binance WebSocket BTC price feed
     - AcceptanceCriteria:
-      - Unit tests cover all validation and calculation methods with >80% coverage
-      - Integration tests verify WebSocket connection and fallback behavior
-      - Tests validate anomaly detection triggers correctly (5% deviation, 3x volatility)
-      - All tests pass in CI environment
-      AgentType: qa-engineer
+      - RSI calculation produces correct values for given price history
+      - MACD calculation (MACD line, signal line, histogram) is accurate
+      - Order book imbalance metric is computed from bid/ask data
+      - Unit tests verify indicator calculations against known datasets
+      AgentType: backend-engineer
       Dependencies:
-      - task-polymarket-bot-feat-price-feed-1
-      Description: Create comprehensive test suite covering WebSocket connection handling,
-        REST API fallbacks, price validation logic, buffer management, and error scenarios.
-        Include mocked API responses and WebSocket failures.
+      - task-polymarket-bot-feat-market-data-1
+      Description: Add RSI and MACD calculation functions using the BTC price history
+        from the WebSocket feed. Implement order book imbalance calculation from Binance
+        data. Ensure indicators are updated on each new price tick and expose results
+        through the market data service interface.
       EstimatedEffort: M
       Files:
-      - tests/test_price_provider.py
-      ID: task-polymarket-bot-feat-price-feed-2
-      Title: Add unit tests and integration tests for PriceDataProvider
+      - polymarket-bot/market_data.py
+      - polymarket-bot/models.py
+      ID: task-polymarket-bot-feat-market-data-2
+      Title: Implement technical indicators and order book analysis
+    - AcceptanceCriteria:
+      - API successfully queries Polymarket for active BTC markets
+      - Market odds (Yes/No prices) are retrieved and parsed correctly
+      - Retry logic handles transient API failures
+      - Integration tests verify end-to-end market discovery and odds retrieval
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Implement Polymarket API client for discovering active BTC-related
+        prediction markets and fetching current odds. Add filtering logic to identify
+        relevant markets and expose market metadata and pricing through the market
+        data service. Handle API rate limits and errors with retry logic.
+      EstimatedEffort: M
+      Files:
+      - polymarket-bot/market_data.py
+      - polymarket-bot/models.py
+      - polymarket-bot/utils.py
+      ID: task-polymarket-bot-feat-market-data-3
+      Title: Integrate Polymarket API for market discovery and odds
+    - AcceptanceCriteria:
+      - Service interface provides unified access to BTC price, indicators, and Polymarket
+        odds
+      - All components (WebSocket, indicators, Polymarket API) work together seamlessly
+      - Service handles initialization, updates, and shutdown cleanly
+      - Integration tests verify complete data flow from sources to consumers
+      AgentType: backend-engineer
+      Dependencies:
+      - task-polymarket-bot-feat-market-data-2
+      - task-polymarket-bot-feat-market-data-3
+      Description: Create the unified market data service interface that combines
+        Binance price/indicators with Polymarket market data. Implement the main service
+        class that orchestrates WebSocket updates, indicator calculations, and Polymarket
+        API calls. Add comprehensive integration tests.
+      EstimatedEffort: M
+      Files:
+      - polymarket-bot/market_data.py
+      - polymarket-bot/models.py
+      ID: task-polymarket-bot-feat-market-data-4
+      Title: Integrate market data components and add service interface
+  - FeatureID: polymarket-bot-feat-state-persistence
+    FeatureTitle: State Persistence and Logging
+    Tasks:
+    - AcceptanceCriteria:
+      - State can be saved to and loaded from bot_state.json atomically
+      - Trade history is appended to trades.log with timestamps
+      - Metrics (win/loss streaks, drawdown, total trades) are tracked correctly
+      - Atomic writes prevent corruption on crashes (temp file + rename pattern)
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Create the complete state.py module with JSON-based state management
+        for bot_state.json, trade logging to trades.log, and metrics tracking. Implement
+        atomic file writes with crash recovery using temporary files and renames.
+        Include helper functions for loading, saving, and validating state.
+      EstimatedEffort: M
+      Files:
+      - polymarket-bot/state.py
+      ID: task-polymarket-bot-feat-state-persistence-1
+      Title: Implement state persistence and logging system
   Sprint: 2
 - Features:
-  - FeatureID: polymarket-bot-feat-market-connector
-    FeatureTitle: Polymarket API Integration
-    Tasks:
-    - AcceptanceCriteria:
-      - MarketConnector authenticates and makes successful API calls
-      - Retry logic handles transient errors (429, 500, 502, 503) with exponential
-        backoff
-      - Settlement polling works with 15s intervals and timeout handling
-      - Auth errors (401/403) raise exceptions without retry
-      AgentType: backend-engineer
-      Dependencies: []
-      Description: Implement the complete MarketConnector class with authentication,
-        market data fetching, order submission, and settlement polling. Include retry
-        logic with exponential backoff and comprehensive error handling for different
-        HTTP status codes.
-      EstimatedEffort: M
-      Files:
-      - core/market_connector.py
-      ID: task-polymarket-bot-feat-market-connector-1
-      Title: Implement MarketConnector with API integration
-    - AcceptanceCriteria:
-      - Tests cover all public methods with success and error cases
-      - Retry logic is verified with mocked transient failures
-      - Settlement polling timeout behavior is tested
-      - Test coverage exceeds 90%
-      AgentType: qa-engineer
-      Dependencies:
-      - task-polymarket-bot-feat-market-connector-1
-      Description: Create comprehensive unit tests covering all MarketConnector methods,
-        retry scenarios, error handling paths, and settlement polling logic. Mock
-        HTTP responses to test success and failure cases.
-      EstimatedEffort: S
-      Files:
-      - tests/test_market_connector.py
-      ID: task-polymarket-bot-feat-market-connector-2
-      Title: Add unit tests for MarketConnector
   - FeatureID: polymarket-bot-feat-prediction-engine
     FeatureTitle: Prediction Engine
     Tasks:
     - AcceptanceCriteria:
-      - PredictionEngine calculates RSI, EMA indicators correctly using pandas-ta
-      - Signal rules correctly identify RSI_OVERSOLD, RSI_OVERBOUGHT, EMA crossovers
-      - Returns Prediction objects with all required fields and confidence levels
-      - Unit tests verify indicator calculations and signal logic
+      - RSI and MACD indicators calculate correctly for BTC price data
+      - Order book imbalance integrates with signals to produce predictions
+      - Prediction output includes signal (UP/DOWN/SKIP) and confidence score (0-1)
+      - Prediction logic is deterministic and testable with sample data
       AgentType: backend-engineer
       Dependencies: []
-      Description: Implement the complete PredictionEngine class in core/prediction_engine.py
-        with RSI (14-period) and EMA (9/21) calculations using pandas-ta. Include
-        deterministic signal rules for RSI oversold/overbought and EMA crossover detection
-        with confidence levels.
+      Description: Build the deterministic rule-based prediction engine in prediction.py.
+        Implement RSI calculation (14-period), MACD calculation (12,26,9), and order
+        book imbalance logic. Generate UP/DOWN/SKIP predictions with confidence scores
+        based on combined signal strength and thresholds defined in config.
       EstimatedEffort: M
       Files:
-      - core/prediction_engine.py
+      - polymarket-bot/prediction.py
       ID: task-polymarket-bot-feat-prediction-engine-1
-      Title: Implement PredictionEngine with RSI and EMA indicators
-  - FeatureID: polymarket-bot-feat-capital-allocation
-    FeatureTitle: Capital Allocation Strategy
+      Title: Implement prediction engine with RSI/MACD signals
+  - FeatureID: polymarket-bot-feat-risk-controls
+    FeatureTitle: Risk Management System
     Tasks:
     - AcceptanceCriteria:
-      - CapitalAllocator correctly calculates position sizes with win-streak scaling
-        (base=$5, multiplier=1.5x, max=$30)
-      - Position sizes are capped at both max_exposure and current_equity, rounded
-        down to 2 decimal places
-      - Win streak increments on wins and resets to 0 on losses
-      - Unit tests verify all calculation paths, validation logic, and edge cases
+      - Drawdown calculation correctly compares current equity to starting capital
+        with 30% threshold
+      - Volatility circuit breaker validates 5-minute price range against 3% limit
+      - Trade approval function returns clear pass/fail with rejection reasons
+      - Module integrates with BotState and MarketData models from models.py
       AgentType: backend-engineer
       Dependencies: []
-      Description: Create the CapitalAllocator class in core/capital_allocator.py
-        with Decimal-based capital tracking, win-streak scaling logic (1.5x multiplier),
-        position size calculation with $5 base and $30 max exposure caps, equity validation,
-        and post-trade update methods. Include comprehensive unit tests covering edge
-        cases like streak scaling, equity constraints, and Decimal precision.
+      Description: Create the risk.py module implementing pre-trade validation checks.
+        Implement max drawdown monitoring with 30% threshold calculation against starting
+        capital, volatility circuit breaker checking 5-minute price range against
+        3% threshold, and trade approval logic that evaluates both conditions before
+        allowing trades. Include configuration loading and integration points for
+        market data and bot state.
+      EstimatedEffort: M
+      Files:
+      - polymarket-bot/risk.py
+      ID: task-polymarket-bot-feat-risk-controls-1
+      Title: Implement risk management validation logic
+    - AcceptanceCriteria:
+      - Tests cover drawdown threshold boundary conditions (29%, 30%, 31%)
+      - Tests verify volatility circuit breaker at boundary (2.9%, 3%, 3.1%)
+      - Tests validate rejection reasons are returned correctly
+      - All risk module tests pass
+      AgentType: qa-engineer
+      Dependencies:
+      - task-polymarket-bot-feat-risk-controls-1
+      Description: Create unit tests for risk management functions covering edge cases
+        and threshold boundaries. Test drawdown calculations at various equity levels,
+        volatility checks with different price ranges, and trade approval logic with
+        various state combinations including boundary conditions at exactly 30% drawdown
+        and 3% volatility.
       EstimatedEffort: S
       Files:
-      - core/capital_allocator.py
-      - tests/test_capital_allocator.py
+      - polymarket-bot/test_risk.py
+      ID: task-polymarket-bot-feat-risk-controls-2
+      Title: Add risk validation tests
+  - FeatureID: polymarket-bot-feat-capital-allocation
+    FeatureTitle: Win-Streak Capital Allocator
+    Tasks:
+    - AcceptanceCriteria:
+      - calculate_position_size() returns $5 base, scales to $7.50/$11.25/$16.88/$25
+        for streaks 1-4+
+      - Streak increments on winning trades and resets to 0 on losses
+      - Position size caps at $25 regardless of streak length
+      - State persists win_streak counter in BotState model
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Create capital.py module with CapitalAllocator class implementing
+        win-streak position sizing. Base size $5, multiplier 1.5x per consecutive
+        win, capped at $25. Include streak tracking state and reset logic on losses.
+        Integrate with BotState model for persistence.
+      EstimatedEffort: S
+      Files:
+      - polymarket-bot/capital.py
+      - polymarket-bot/models.py
       ID: task-polymarket-bot-feat-capital-allocation-1
-      Title: Implement CapitalAllocator with win-streak position sizing
+      Title: Implement win-streak capital allocation logic
   Sprint: 3
 - Features:
-  - FeatureID: polymarket-bot-feat-risk-management
-    FeatureTitle: Risk Management Controls
+  - FeatureID: polymarket-bot-feat-trade-execution
+    FeatureTitle: Trade Execution and Settlement
     Tasks:
     - AcceptanceCriteria:
-      - RiskManager class correctly calculates drawdown percentage and triggers emergency
-        stop at 30% threshold
-      - Volatility filter blocks trading when current volatility exceeds 2x baseline
-      - Emergency stop flag persists once triggered and is queryable
-      - Critical log messages emitted for emergency stop and warnings for volatility
-        filter
+      - submit_order() function successfully places orders via Polymarket API
+      - Exponential backoff retries failed requests up to 3 attempts
+      - API errors are logged and propagated appropriately
+      - Order confirmation IDs are returned on success
       AgentType: backend-engineer
       Dependencies: []
-      Description: Create core/risk_manager.py with the RiskManager class implementing
-        30% max drawdown monitoring, 2x volatility filtering, and emergency stop mechanism.
-        Include initialization with configurable thresholds, check_drawdown() for
-        equity monitoring, check_volatility() for baseline comparison, and is_emergency_stop()
-        for status queries. Add appropriate logging for critical events.
-      EstimatedEffort: S
+      Description: Create the execution.py module with functions to submit limit orders
+        to the Polymarket API, handle API responses, and implement exponential backoff
+        retry logic for failed submissions. Include error handling for network failures
+        and API rate limits.
+      EstimatedEffort: M
       Files:
-      - core/risk_manager.py
-      ID: task-polymarket-bot-feat-risk-management-1
-      Title: Implement RiskManager with drawdown and volatility controls
-  - FeatureID: polymarket-bot-feat-orchestrator
-    FeatureTitle: Main Execution Orchestrator
-    Tasks:
+      - polymarket-bot/execution.py
+      - polymarket-bot/utils.py
+      ID: task-polymarket-bot-feat-trade-execution-1
+      Title: Implement Polymarket order submission and retry logic
     - AcceptanceCriteria:
-      - Application starts successfully and loads configuration from .env file
-      - Graceful shutdown on SIGTERM/SIGINT releases all resources
-      - Configuration validation fails fast with clear error messages
-      - Application can be invoked via 'python main.py' with optional CLI flags
+      - poll_settlement() checks order status and detects settled positions
+      - Outcomes are correctly classified as WIN or LOSS based on market resolution
+      - Settled trades update bot state with realized PnL
+      - Settlement polling respects API rate limits
       AgentType: backend-engineer
-      Dependencies: []
-      Description: Create the main.py entry point with CLI argument parsing, environment
-        configuration loading via config.py, and application initialization sequence.
-        Implement graceful shutdown handlers for SIGTERM/SIGINT signals and basic
-        error handling for startup failures.
+      Dependencies:
+      - task-polymarket-bot-feat-trade-execution-1
+      Description: Add functions to poll order settlement status from Polymarket API,
+        determine WIN/LOSS outcomes based on market resolution, and update the bot
+        state with settlement results. Track settled positions and calculate realized
+        PnL.
+      EstimatedEffort: M
+      Files:
+      - polymarket-bot/execution.py
+      - polymarket-bot/models.py
+      ID: task-polymarket-bot-feat-trade-execution-2
+      Title: Implement settlement polling and outcome tracking
+    - AcceptanceCriteria:
+      - main.py calls execution functions based on prediction signals
+      - Settlement polling runs on each event loop cycle
+      - Execution failures are logged and don't crash the bot
+      - End-to-end flow from signal to order submission to settlement works
+      AgentType: backend-engineer
+      Dependencies:
+      - task-polymarket-bot-feat-trade-execution-2
+      Description: Wire the execution module into main.py to submit orders when signals
+        are generated, poll settlement status during each cycle, and handle execution
+        failures gracefully. Ensure proper state updates and logging for all execution
+        activities.
       EstimatedEffort: M
       Files:
       - polymarket-bot/main.py
-      - polymarket-bot/config.py
-      ID: task-polymarket-bot-feat-orchestrator-1
-      Title: Implement main.py orchestrator and configuration loading
+      - polymarket-bot/execution.py
+      - polymarket-bot/state.py
+      ID: task-polymarket-bot-feat-trade-execution-3
+      Title: Integrate execution module with main event loop
+  - FeatureID: polymarket-bot-feat-orchestrator
+    FeatureTitle: Main Orchestrator and Event Loop
+    Tasks:
     - AcceptanceCriteria:
-      - Loop executes at precise 18-interval boundaries with drift correction
-      - All components are initialized in correct dependency order
-      - Each cycle coordinates prediction → allocation → risk checks → execution
-      - Loop continues running until shutdown signal received
+      - config.py loads all required environment variables with validation
+      - models.py defines complete data classes with type hints
+      - Configuration handles missing/invalid values gracefully
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Create configuration loader from environment variables and define
+        data classes for BotState, Trade, Position, and MarketData. This establishes
+        the foundational types used throughout the orchestrator and other components.
+      EstimatedEffort: S
+      Files:
+      - polymarket-bot/config.py
+      - polymarket-bot/models.py
+      - polymarket-bot/__init__.py
+      ID: task-polymarket-bot-feat-orchestrator-1
+      Title: Implement configuration and data models
+    - AcceptanceCriteria:
+      - Event loop executes for exactly 18 cycles with 5-minute intervals
+      - Pipeline stages execute sequentially in correct order
+      - Graceful shutdown on SIGTERM/SIGINT is handled
+      - Crash recovery restores state from previous cycle
       AgentType: backend-engineer
       Dependencies:
       - task-polymarket-bot-feat-orchestrator-1
-      Description: Build the core orchestration loop in main.py that executes trading
-        cycles every 18 intervals with drift correction. Implement component initialization
-        sequence, coordinated calls to all trading components (prediction, allocation,
-        risk checks, execution), and timing logic to maintain consistent 18-interval
-        cadence despite execution time variations.
-      EstimatedEffort: L
+      Description: Build the core orchestrator in main.py that manages the 18-cycle
+        event loop with 5-minute intervals. Implement component initialization, sequential
+        pipeline execution (data→predict→risk→allocate→execute→log), graceful shutdown
+        handling, and crash recovery logic.
+      EstimatedEffort: M
       Files:
       - polymarket-bot/main.py
       ID: task-polymarket-bot-feat-orchestrator-2
-      Title: Implement 18-interval execution loop with time-based scheduling
+      Title: Implement main event loop orchestrator
     - AcceptanceCriteria:
-      - Bot successfully loads and validates state on startup from data/bot_state.json
-      - State is persisted after each trade settlement and on graceful shutdown
-      - First run creates initial state with default values
-      - Invalid or corrupted state files are detected and handled with clear errors
+      - Retry logic handles transient failures with exponential backoff
+      - Validation utilities catch malformed data
+      - README documents setup, configuration, and execution
+      - Integration points with all pipeline components are functional
       AgentType: backend-engineer
       Dependencies:
       - task-polymarket-bot-feat-orchestrator-2
-      Description: Add startup state recovery logic that loads previous bot state
-        via StateManager and resumes operation from last known position. Coordinate
-        state persistence after each trade settlement and before shutdown. Handle
-        first-run initialization when no prior state exists.
+      Description: Create helper functions for retries, validation, and error handling
+        in utils.py. Add package initialization and README documentation. Ensure the
+        orchestrator properly integrates with all dependent components (prediction,
+        risk, capital, execution, state).
       EstimatedEffort: M
       Files:
+      - polymarket-bot/utils.py
+      - polymarket-bot/README.md
       - polymarket-bot/main.py
       ID: task-polymarket-bot-feat-orchestrator-3
-      Title: Implement state recovery and persistence coordination
-    - AcceptanceCriteria:
-      - Transient API failures trigger retries without stopping execution loop
-      - Critical component failures log errors and trigger graceful shutdown
-      - Uncaught exceptions are logged with full stack traces
-      - Bot can recover from individual cycle failures and continue operation
-      AgentType: backend-engineer
-      Dependencies:
-      - task-polymarket-bot-feat-orchestrator-2
-      Description: Implement comprehensive error handling for component failures,
-        API errors, and unexpected exceptions during execution loop. Add retry logic
-        for transient failures, circuit breaker for repeated errors, and safe degradation
-        modes. Ensure errors are logged appropriately and don't crash the orchestrator.
-      EstimatedEffort: M
-      Files:
-      - polymarket-bot/main.py
-      ID: task-polymarket-bot-feat-orchestrator-4
-      Title: Add error handling and resilience mechanisms
+      Title: Implement utility functions and integration
   Sprint: 4
