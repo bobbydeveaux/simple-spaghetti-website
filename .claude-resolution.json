@@ -1,6 +1,6 @@
 {
   "method": "ai-assisted",
-  "filesResolved": 1,
-  "summary": "Resolved conflict in docs/concepts/polymarket-bot/README.md by keeping the comprehensive documentation from the feature branch (HEAD) over the simple placeholder from main",
-  "strategyUsed": "chose ours (HEAD) - The feature branch contained a complete, detailed README with project overview, features, structure, dependencies, testing instructions, and security considerations, while the main branch only had a 3-line placeholder stating 'Planning artifacts for concept: polymarket-bot'. Since the feature branch represents actual implementation work with comprehensive documentation, it was clearly the correct version to preserve."
+  "filesResolved": 2,
+  "summary": "Successfully merged complementary features from both branches. Combined configuration management (from main) with utility functions (from feature branch) into comprehensive documentation and package initialization.",
+  "strategyUsed": "Preserved both changes by merging complementary functionality. For README.md: integrated configuration documentation from main with utility functions documentation from feature branch into a unified guide covering all features. For __init__.py: combined the enhanced docstring and config imports from main with the version from feature branch."
 }

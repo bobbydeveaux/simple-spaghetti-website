@@ -9,6 +9,18 @@ Automated trading bot for Polymarket prediction markets with technical analysis 
 - **WebSocket Support**: Real-time market data streaming
 - **Technical Analysis**: Built-in TA-Lib support for technical indicators
 - **Configurable Risk Management**: Customizable position sizing and stop-loss parameters
+- **Utility Functions**: Retry logic, validation, error handling, and helper functions
+
+## Project Structure
+
+```
+polymarket-bot/
+├── __init__.py         # Package initialization
+├── config.py           # Configuration management
+├── utils.py            # Utility functions (retry, validation, error handling)
+├── test_config.py      # Configuration tests
+└── README.md           # This file
+```
 
 ## Installation
 
@@ -72,6 +84,23 @@ The bot uses environment variables for configuration. All required variables mus
 - `LOG_LEVEL`: Logging level - DEBUG, INFO, WARNING, ERROR, or CRITICAL (default: `INFO`)
 - `LOG_FILE`: Log file path (default: `polymarket_bot.log`)
 
+## Modules
+
+### `config.py`
+
+Environment-based configuration management with validation.
+
+### `utils.py`
+
+Provides reusable utility functions including:
+
+- **Retry Logic**: `retry_with_backoff()` decorator with exponential backoff
+- **Validation Functions**: Type checking, range validation, and data validation
+- **Error Handling**: `handle_errors()` decorator and logging configuration
+- **Helper Functions**: Safe division, clamping, currency formatting, etc.
+
+See [utilities documentation](../docs/polymarket-bot/utilities.md) for detailed API reference.
+
 ## Usage
 
 ### Validate Configuration
@@ -98,13 +127,58 @@ print(f"Max Position Size: {config.max_position_size}")
 print(f"Risk Percentage: {config.risk_percentage}")
 ```
 
-### Error Handling
-
-The configuration module raises `ConfigurationError` for missing or invalid configuration:
+### Retry Decorator
 
 ```python
-from config import get_config, ConfigurationError
+from polymarket_bot.utils import retry_with_backoff
 
+@retry_with_backoff(max_attempts=5, base_delay=2.0)
+def fetch_market_data(market_id: str):
+    # API call that might fail
+    response = requests.get(f"https://api.polymarket.com/markets/{market_id}")
+    response.raise_for_status()
+    return response.json()
+```
+
+### Validation
+
+```python
+from polymarket_bot.utils import (
+    validate_type,
+    validate_range,
+    validate_probability,
+    validate_decimal
+)
+
+# Validate types
+validate_type(user_id, int, "user_id")
+
+# Validate ranges
+validate_range(bet_amount, min_value=0, max_value=1000, field_name="bet_amount")
+
+# Validate probabilities (0.0 to 1.0)
+validate_probability(0.75, "win_probability")
+
+# Convert to Decimal for precise calculations
+price = validate_decimal("10.50", "price")
+```
+
+### Error Handling
+
+```python
+from polymarket_bot.utils import handle_errors, configure_logging
+from config import get_config, ConfigurationError
+import logging
+
+# Configure logging
+logger = configure_logging(level=logging.INFO, logger_name="polymarket_bot")
+
+# Handle errors gracefully
+@handle_errors(default_return={}, log_level=logging.WARNING)
+def fetch_optional_data():
+    return risky_api_call()
+
+# Handle configuration errors
 try:
     config = get_config()
 except ConfigurationError as e:
@@ -112,12 +186,27 @@ except ConfigurationError as e:
     exit(1)
 ```
 
+### Helper Functions
+
+```python
+from polymarket_bot.utils import safe_divide, clamp, format_currency
+
+# Safe division
+win_rate = safe_divide(wins, total_trades, default=0.0)
+
+# Clamp values
+bet_size = clamp(calculated_size, min_bet=10, max_bet=1000)
+
+# Format currency
+display_amount = format_currency(123.456, "USDC", 2)  # "123.46 USDC"
+```
+
 ## Testing
 
 Run the test suite:
 
 ```bash
-pytest test_config.py -v
+pytest test_config.py test_polymarket_utils.py -v
 ```
 
 Run with coverage:
@@ -134,6 +223,13 @@ pytest test_config.py -v --cov=config --cov-report=html
 - The `Config.__repr__()` method excludes sensitive values
 
 ## Development
+
+### Adding New Utilities
+
+1. Add the function to `utils.py` with comprehensive docstrings
+2. Add corresponding tests to `test_polymarket_utils.py`
+3. Update documentation in `docs/polymarket-bot/utilities.md`
+4. Ensure utilities are modular and can be imported independently
 
 ### Code Quality
 
@@ -155,6 +251,13 @@ Type check with mypy:
 mypy config.py
 ```
 
+### Code Style
+
+- Follow PEP 8 style guidelines
+- Use type hints for all function parameters and return values
+- Provide detailed docstrings with examples
+- Write comprehensive tests with edge cases
+
 ## Dependencies
 
 ### Core Dependencies
@@ -175,9 +278,13 @@ mypy config.py
 
 See `requirements.txt` for full list with pinned versions.
 
+## Documentation
+
+- [Utilities API Reference](../docs/polymarket-bot/utilities.md)
+
 ## License
 
-[Add your license here]
+See the main project README for license information.
 
 ## Contributing
 
