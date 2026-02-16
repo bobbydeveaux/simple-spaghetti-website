@@ -1,0 +1,27 @@
+GeneratedAt: "2026-02-16T16:27:13Z"
+Issues:
+- IssueNumber: 208
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/208
+  TaskID: task-polymarket-bot-feat-config-models-1
+- IssueNumber: 209
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/209
+  TaskID: task-polymarket-bot-feat-config-models-2
+- IssueNumber: 210
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/210
+  TaskID: task-polymarket-bot-feat-config-models-3
+- IssueNumber: 211
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/211
+  TaskID: task-polymarket-bot-feat-market-data-1
+- IssueNumber: 212
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/212
+  TaskID: task-polymarket-bot-feat-market-data-2
+- IssueNumber: 213
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/213
+  TaskID: task-polymarket-bot-feat-market-data-3
+- IssueNumber: 214
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/214
+  TaskID: task-polymarket-bot-feat-market-data-4
+- IssueNumber: 215
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/215
+  TaskID: task-polymarket-bot-feat-state-persistence-1
+Plan: polymarket-bot-plan
