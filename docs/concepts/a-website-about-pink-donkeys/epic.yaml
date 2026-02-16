@@ -1,6 +1,7 @@
 Epic: a-website-about-pink-donkeys
 Features:
-- dependencies: []
+- Sprint: 1
+  dependencies: []
   description: Create a standalone single-page HTML website about pink donkeys with
     embedded CSS, responsive layout, and pink donkey imagery
   estimatedComplexity: low
