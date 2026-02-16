@@ -1,0 +1,13 @@
+Epic: a-website-about-pink-donkeys
+Features:
+- dependencies: []
+  description: Create a standalone single-page HTML website about pink donkeys with
+    embedded CSS, responsive layout, and pink donkey imagery
+  estimatedComplexity: low
+  files:
+  - pink-donkeys.html
+  id: a-website-about-pink-donkeys-feat-single-page-website
+  name: Single-Page Pink Donkeys Website
+  project: simple-spaghetti-repo
+  type: feature
+Version: v1alpha1
