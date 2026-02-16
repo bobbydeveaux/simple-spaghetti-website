@@ -1,6 +1,6 @@
 {
   "method": "ai-assisted",
   "filesResolved": 1,
-  "summary": "Resolved conflict in index.html by preserving the red background feature from the feature branch while incorporating beneficial styling improvements from main (min-height instead of height, and font-size: 3rem for the h1 element)",
-  "strategyUsed": "Feature preservation with enhancement integration: kept red background (#FF0000) and 'Simple Spaghetti Website' title from feature branch, merged in min-height viewport and 3rem font-size from main branch for improved responsiveness and styling"
+  "summary": "Resolved conflict in docs/concepts/polymarket-bot/README.md by keeping the comprehensive documentation from the feature branch (HEAD) over the simple placeholder from main",
+  "strategyUsed": "chose ours (HEAD) - The feature branch contained a complete, detailed README with project overview, features, structure, dependencies, testing instructions, and security considerations, while the main branch only had a 3-line placeholder stating 'Planning artifacts for concept: polymarket-bot'. Since the feature branch represents actual implementation work with comprehensive documentation, it was clearly the correct version to preserve."
 }
