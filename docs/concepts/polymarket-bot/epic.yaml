@@ -1,0 +1,110 @@
+Epic: polymarket-bot
+Features:
+- Sprint: 1
+  dependencies: []
+  description: Environment configuration loader, core data classes (BotState, Trade,
+    Position, MarketData), and utility functions for validation and retries
+  estimatedComplexity: low
+  files:
+  - polymarket-bot/config.py
+  - polymarket-bot/models.py
+  - polymarket-bot/utils.py
+  - polymarket-bot/.env.example
+  - polymarket-bot/requirements.txt
+  id: polymarket-bot-feat-config-models
+  name: Configuration and Data Models
+  project: polymarket-bot
+  type: enabler
+- Sprint: 2
+  dependencies:
+  - polymarket-bot-feat-config-models
+  description: Binance WebSocket client for BTC price feed, technical indicator calculation
+    (RSI, MACD), order book imbalance, and Polymarket API integration for market discovery
+    and odds retrieval
+  estimatedComplexity: high
+  files:
+  - polymarket-bot/market_data.py
+  id: polymarket-bot-feat-market-data
+  name: Market Data Integration
+  project: polymarket-bot
+  type: enabler
+- Sprint: 3
+  dependencies:
+  - polymarket-bot-feat-market-data
+  description: Deterministic rule-based signal generator using RSI, MACD, and order
+    book imbalance to produce UP/DOWN/SKIP predictions with confidence scores
+  estimatedComplexity: medium
+  files:
+  - polymarket-bot/prediction.py
+  id: polymarket-bot-feat-prediction-engine
+  name: Prediction Engine
+  project: polymarket-bot
+  type: feature
+- Sprint: 3
+  dependencies:
+  - polymarket-bot-feat-config-models
+  description: Pre-trade validation including max drawdown monitoring (30% threshold),
+    volatility circuit breaker (3% 5-min range), and trade approval logic
+  estimatedComplexity: medium
+  files:
+  - polymarket-bot/risk.py
+  id: polymarket-bot-feat-risk-controls
+  name: Risk Management System
+  project: polymarket-bot
+  type: feature
+- Sprint: 3
+  dependencies:
+  - polymarket-bot-feat-config-models
+  description: Position sizing calculator implementing base size $5, win-streak multiplier
+    1.5x, cap at $25, with streak tracking and reset on losses
+  estimatedComplexity: low
+  files:
+  - polymarket-bot/capital.py
+  id: polymarket-bot-feat-capital-allocation
+  name: Win-Streak Capital Allocator
+  project: polymarket-bot
+  type: feature
+- Sprint: 4
+  dependencies:
+  - polymarket-bot-feat-market-data
+  description: Polymarket API order submission, settlement polling, retry logic with
+    exponential backoff, and outcome tracking (WIN/LOSS)
+  estimatedComplexity: high
+  files:
+  - polymarket-bot/execution.py
+  id: polymarket-bot-feat-trade-execution
+  name: Trade Execution and Settlement
+  project: polymarket-bot
+  type: feature
+- Sprint: 2
+  dependencies:
+  - polymarket-bot-feat-config-models
+  description: JSON-based state management (bot_state.json), trade logging (trades.log),
+    metrics tracking, atomic writes for crash recovery, and audit trail maintenance
+  estimatedComplexity: medium
+  files:
+  - polymarket-bot/state.py
+  id: polymarket-bot-feat-state-persistence
+  name: State Persistence and Logging
+  project: polymarket-bot
+  type: enabler
+- Sprint: 4
+  dependencies:
+  - polymarket-bot-feat-prediction-engine
+  - polymarket-bot-feat-risk-controls
+  - polymarket-bot-feat-capital-allocation
+  - polymarket-bot-feat-trade-execution
+  - polymarket-bot-feat-state-persistence
+  description: 18-cycle event loop coordinator managing 5-minute intervals, component
+    initialization, sequential pipeline execution (data→predict→risk→allocate→execute→log),
+    shutdown handling, and crash recovery
+  estimatedComplexity: high
+  files:
+  - polymarket-bot/main.py
+  - polymarket-bot/__init__.py
+  - polymarket-bot/README.md
+  id: polymarket-bot-feat-orchestrator
+  name: Main Orchestrator and Event Loop
+  project: polymarket-bot
+  type: feature
+Version: v1alpha1
