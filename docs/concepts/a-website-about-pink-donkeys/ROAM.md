@@ -1,71 +1,70 @@
 # ROAM Analysis: a-website-about-pink-donkeys
 
 **Feature Count:** 1
-**Created:** 2026-02-16T16:05:01Z
+**Created:** 2026-02-16T16:06:07Z
 
 ## Risks
 
-1. **Image Source Availability** (Medium): Reliance on external CDN-hosted images for pink donkey visuals. If CDN URLs become invalid or images are removed, the site will display broken images, degrading user experience.
+1. **Image Sourcing and Licensing** (Medium): No clear plan for obtaining pink donkey images with appropriate licensing. Using copyrighted images without permission could lead to legal issues or require last-minute replacements.
 
-2. **Content Quality** (Low): No defined source or validation for pink donkey information accuracy. Inaccurate or low-quality content could reduce site credibility and visitor engagement.
+2. **CDN/External Image Availability** (Low): LLD specifies using CDN-hosted images via external URLs. If CDN goes down or images are removed, the site will display broken images with no fallback mechanism.
 
-3. **Browser Compatibility** (Low): While targeting modern browsers, untested CSS flexbox implementation may render inconsistently across older browser versions or specific mobile devices.
+3. **Browser Compatibility Testing Gap** (Low): Test plan relies on manual verification across browsers but no specific test cases or acceptance criteria defined. Could miss edge cases in older browsers or specific mobile devices.
 
-4. **Hosting Configuration** (Low): Lack of specified hosting provider and configuration details. Incorrect MIME types, missing HTTPS, or improper 404 handling could cause deployment issues.
+4. **Content Quality and Accuracy** (Medium): No subject matter expert identified or content source specified. Risk of publishing inaccurate or low-quality information about pink donkeys that undermines credibility.
 
-5. **Accessibility Compliance** (Medium): No mention of accessibility requirements (WCAG, alt text, semantic HTML, keyboard navigation). Site may be unusable for visitors with disabilities.
+5. **Deployment Configuration Unknown** (Medium): HLD mentions "GitHub Pages, Netlify, or standard web server" but no decision made. Different platforms have different configuration requirements and potential gotchas.
 
 ---
 
 ## Obstacles
 
-- No defined image assets or sources identified. Team needs to locate, license, or create pink donkey images before implementation.
-- Missing content specification. No defined text content, facts, or narrative about pink donkeys has been written.
-- No designated hosting platform selected (GitHub Pages, Netlify, or other). Deployment target must be chosen before completion.
-- No cross-browser testing plan beyond manual verification. Limited testing resources may miss edge cases.
+- **No identified image source**: Project requires pink donkey imagery but no specific source, repository, or procurement method has been identified
+- **Hosting platform undecided**: Need to select between GitHub Pages, Netlify, or other static hosting before deployment can be configured
+- **Content writing responsibility unclear**: No owner assigned for writing the actual descriptive text about pink donkeys
 
 ---
 
 ## Assumptions
 
-1. **Image Licensing**: Assumes suitable pink donkey images can be found under permissive licenses (Creative Commons, public domain) or created without copyright issues. *Validation: Research image sources before development begins.*
+1. **Pink donkey images are readily available**: Assuming we can easily find suitable images through stock photo services, Creative Commons, or public domain sources. *Validation: Research image sources before implementation begins.*
 
-2. **Pink Donkey Definition**: Assumes "pink donkeys" refers to either albino donkeys, painted/dyed donkeys, or fictional/artistic representations. *Validation: Clarify intended interpretation with stakeholders.*
+2. **Single HTML file will meet all requirements**: Assuming embedded CSS and external image URLs will keep file size under performance thresholds. *Validation: Estimate total file size including base64-encoded images if CDN strategy fails.*
 
-3. **Traffic Volume**: Assumes basic traffic levels (fewer than 10,000 monthly visitors) suitable for simple static hosting without CDN requirements. *Validation: Confirm expected traffic volume.*
+3. **No accessibility requirements**: PRD doesn't mention WCAG compliance or screen reader support. Assuming basic HTML semantics are sufficient. *Validation: Confirm with stakeholders whether accessibility standards apply.*
 
-4. **Mobile Breakpoints**: Assumes standard mobile breakpoint (max-width: 768px) will suffice for responsive design without testing on specific devices. *Validation: Test on iOS Safari and Android Chrome.*
+4. **Standard web-safe fonts are acceptable**: Assuming no specific branding or typography requirements exist. *Validation: Verify no brand guidelines or design specifications are needed.*
 
-5. **Browser Support**: Assumes modern evergreen browsers (Chrome 90+, Firefox 88+, Safari 14+, Edge 90+) cover 95%+ of target audience. *Validation: Check analytics from similar projects if available.*
+5. **Manual testing is sufficient**: Assuming automated testing infrastructure isn't required for a single static page. *Validation: Confirm QA process expectations with stakeholders.*
 
 ---
 
 ## Mitigations
 
-### Image Source Availability (Medium)
-- **Action 1**: Identify and document 2-3 backup image sources (Unsplash, Pexels, Wikimedia Commons) before development.
-- **Action 2**: Consider embedding base64-encoded images directly in HTML for critical visuals to eliminate external dependencies.
-- **Action 3**: Add fallback CSS background colors for `<img>` tags to gracefully handle broken images.
+### Image Sourcing and Licensing (Medium)
+- **Action 1**: Before implementation, identify 3-5 candidate images from licensed sources (Unsplash, Pexels, Pixabay with Creative Commons licenses)
+- **Action 2**: Add HTML comment crediting image sources and include license information in page footer
+- **Action 3**: Fallback: Use CSS to create pink-colored placeholder if no suitable licensed images found
 
-### Content Quality (Low)
-- **Action 1**: Define 3-5 factual statements or interesting facts about pink donkeys with source citations before writing content.
-- **Action 2**: Include disclaimer if content is fictional/artistic interpretation rather than factual zoological information.
+### CDN/External Image Availability (Low)
+- **Action 1**: Consider base64 encoding images directly in HTML if total size remains under 100KB
+- **Action 2**: If using external CDN, select reliable service (Cloudinary, Imgur) with high uptime SLA
+- **Action 3**: Add CSS fallback background color so broken images don't leave white gaps
 
-### Browser Compatibility (Low)
-- **Action 1**: Use CSS autoprefixer or manual vendor prefixes for flexbox properties (`-webkit-flex`, `-ms-flexbox`).
-- **Action 2**: Test on at least one iOS device and one Android device before deployment.
-- **Action 3**: Include CSS fallback using `display: block` with `margin: 0 auto` for older browsers.
+### Browser Compatibility Testing Gap (Low)
+- **Action 1**: Define specific test matrix: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+, iOS Safari, Chrome Mobile
+- **Action 2**: Use CSS feature detection or add vendor prefixes for flexbox if supporting older browsers
+- **Action 3**: Test with BrowserStack or similar tool if physical devices unavailable
 
-### Hosting Configuration (Low)
-- **Action 1**: Select hosting platform in next planning phase (recommend GitHub Pages for zero cost and simplicity).
-- **Action 2**: Create deployment checklist including HTTPS verification, MIME type validation, and custom 404 page.
-- **Action 3**: Document hosting configuration steps in repository README.
+### Content Quality and Accuracy (Medium)
+- **Action 1**: Source content from reputable references (Wikipedia, educational sites) about donkeys and pink coloration
+- **Action 2**: Keep content factual and educational rather than making unverifiable claims
+- **Action 3**: Include disclaimer if content is creative/fictional interpretation of "pink donkeys"
 
-### Accessibility Compliance (Medium)
-- **Action 1**: Add descriptive alt text for all images describing pink donkey visuals.
-- **Action 2**: Use semantic HTML5 elements (`<header>`, `<main>`, `<article>`, `<footer>`) as specified in LLD.
-- **Action 3**: Ensure color contrast ratio meets WCAG AA standards (4.5:1 for text, 3:1 for large text).
-- **Action 4**: Test keyboard navigation (tab order) and screen reader compatibility (NVDA/VoiceOver).
+### Deployment Configuration Unknown (Medium)
+- **Action 1**: Select GitHub Pages as default (free, integrated with repo, simple setup)
+- **Action 2**: Document deployment steps in README: branch configuration, custom domain setup if needed
+- **Action 3**: Test deployment to staging environment before announcing public URL
 
 ---
 
