@@ -10,7 +10,7 @@ This repository contains multiple integrated services:
 - **Pasta Recipe App**: React-based recipe management system
 - **PTA Voting System**: Democratic voting platform for Parent-Teacher Association
 - **F1 Prediction Analytics**: Machine learning platform for Formula 1 race predictions
-- **Polymarket Bot**: Automated trading bot for Polymarket prediction markets
+- **Polymarket Bot**: Automated trading bot for Polymarket prediction markets with validated data models and utilities
 
 ### Infrastructure
 - **CI/CD Pipelines**: Automated testing, deployment, and monitoring with GitHub Actions
@@ -358,8 +358,11 @@ alembic downgrade -1
 │   └── frontend/               # React dashboard
 ├── polymarket-bot/             # Polymarket trading bot
 │   ├── __init__.py             # Package initialization
+│   ├── config.py               # Configuration management
+│   ├── models.py               # Core data models (BotState, Trade, Position, MarketData)
 │   ├── utils.py                # Retry, validation, error handling
-│   └── README.md               # Bot documentation
+│   ├── tests/                  # Comprehensive test suite
+│   └── README.md               # Module documentation
 ├── .github/workflows/          # CI/CD pipeline definitions
 ├── docs/                       # Documentation
 │   └── polymarket-bot/         # Polymarket bot docs
