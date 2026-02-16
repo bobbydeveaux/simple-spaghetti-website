@@ -1,0 +1,19 @@
+# Project Timeline
+
+metadata:
+  generated: 2026-02-16T16:07:41Z
+  totalSprints: 1
+  totalDuration: 7 days
+
+sprints:
+  - number: 1
+    startDate: 2026-02-16
+    endDate: 2026-02-23
+    duration: 7 days
+    features:
+      - id: a-website-about-pink-donkeys-feat-single-page-website
+        name: Single-Page Pink Donkeys Website
+        type: feature
+
+criticalPath:
+  - a-website-about-pink-donkeys-feat-single-page-website
