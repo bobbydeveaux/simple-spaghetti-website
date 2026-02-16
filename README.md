@@ -10,7 +10,7 @@ This repository contains multiple integrated services:
 - **Pasta Recipe App**: React-based recipe management system
 - **PTA Voting System**: Democratic voting platform for Parent-Teacher Association
 - **F1 Prediction Analytics**: Machine learning platform for Formula 1 race predictions
-- **Polymarket Bot**: Automated trading bot for Polymarket prediction markets with validated data models
+- **Polymarket Bot**: Automated trading bot for Polymarket prediction markets with validated data models and utilities
 
 ### Infrastructure
 - **CI/CD Pipelines**: Automated testing, deployment, and monitoring with GitHub Actions
@@ -105,6 +105,55 @@ locust -f tests/performance/test_load.py
 - **E2E Tests**: Full user workflow validation
 - **Security Tests**: Vulnerability and dependency scanning
 - **Performance Tests**: Load testing and metrics validation
+
+## 🤖 Polymarket Bot
+
+An automated trading bot for Polymarket prediction markets with robust utility functions for API interactions, validation, and error handling.
+
+### Features
+
+#### Core Utilities
+- **Retry Logic**: Exponential backoff decorator for resilient API calls
+- **Validation Functions**: Type checking, range validation, and data validation
+- **Error Handling**: Consistent error logging and handling across the bot
+- **Helper Functions**: Safe division, clamping, currency formatting, and more
+
+#### Technical Capabilities
+- **Modular Design**: Utilities can be imported independently
+- **Type Safety**: Comprehensive type hints for all functions
+- **Decimal Precision**: Financial calculations using Python Decimal
+- **Comprehensive Testing**: Full test coverage with pytest
+
+### Quick Start
+
+```python
+from polymarket_bot.utils import retry_with_backoff, validate_range, configure_logging
+
+# Configure logging
+logger = configure_logging(level=logging.INFO, logger_name="polymarket_bot")
+
+# Use retry decorator for API calls
+@retry_with_backoff(max_attempts=5, base_delay=2.0)
+def fetch_market_data(market_id: str):
+    response = requests.get(f"https://api.polymarket.com/markets/{market_id}")
+    response.raise_for_status()
+    return response.json()
+
+# Validate inputs
+validate_range(bet_amount, min_value=0, max_value=1000, field_name="bet_amount")
+```
+
+### Documentation
+
+- [Utilities API Reference](docs/polymarket-bot/utilities.md)
+- [Module README](polymarket-bot/README.md)
+
+### Testing
+
+```bash
+# Run utility tests
+pytest test_polymarket_utils.py -v
+```
 
 ## 📊 F1 Prediction Analytics
 
@@ -308,11 +357,16 @@ alembic downgrade -1
 │   │   └── tests/              # Test suites
 │   └── frontend/               # React dashboard
 ├── polymarket-bot/             # Polymarket trading bot
+│   ├── __init__.py             # Package initialization
+│   ├── config.py               # Configuration management
 │   ├── models.py               # Core data models (BotState, Trade, Position, MarketData)
+│   ├── utils.py                # Retry, validation, error handling
 │   ├── tests/                  # Comprehensive test suite
 │   └── README.md               # Module documentation
 ├── .github/workflows/          # CI/CD pipeline definitions
 ├── docs/                       # Documentation
+│   └── polymarket-bot/         # Polymarket bot docs
+│       └── utilities.md        # Utilities API reference
 └── docker-compose.yml         # Multi-service container setup
 ```
 

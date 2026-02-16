@@ -1,9 +1,12 @@
 {
-  "prNumber": 184,
+  "prNumber": 221,
   "baseBranch": "main",
-  "headBranch": "feature/179-red-background-claude-sprint-1-issue-179",
+  "headBranch": "feature/209-polymarket-bot-sprint-1-issue-209",
   "conflictedFiles": [
-    "index.html"
+    "README.md",
+    "polymarket-bot/README.md",
+    "polymarket-bot/__init__.py",
+    "polymarket-bot/requirements.txt"
   ],
-  "conflictCount": 1
+  "conflictCount": 4
 }

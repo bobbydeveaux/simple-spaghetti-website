@@ -1,0 +1,43 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: polymarket-bot-feat-config-models
+        name: Configuration and Data Models
+        type: enabler
+        files: [polymarket-bot/config.py polymarket-bot/models.py polymarket-bot/utils.py polymarket-bot/.env.example polymarket-bot/requirements.txt]
+  - number: 2
+    features:
+      - id: polymarket-bot-feat-market-data
+        name: Market Data Integration
+        type: enabler
+        files: [polymarket-bot/market_data.py]
+      - id: polymarket-bot-feat-state-persistence
+        name: State Persistence and Logging
+        type: enabler
+        files: [polymarket-bot/state.py]
+  - number: 3
+    features:
+      - id: polymarket-bot-feat-prediction-engine
+        name: Prediction Engine
+        type: feature
+        files: [polymarket-bot/prediction.py]
+      - id: polymarket-bot-feat-risk-controls
+        name: Risk Management System
+        type: feature
+        files: [polymarket-bot/risk.py]
+      - id: polymarket-bot-feat-capital-allocation
+        name: Win-Streak Capital Allocator
+        type: feature
+        files: [polymarket-bot/capital.py]
+  - number: 4
+    features:
+      - id: polymarket-bot-feat-trade-execution
+        name: Trade Execution and Settlement
+        type: feature
+        files: [polymarket-bot/execution.py]
+      - id: polymarket-bot-feat-orchestrator
+        name: Main Orchestrator and Event Loop
+        type: feature
+        files: [polymarket-bot/main.py polymarket-bot/__init__.py polymarket-bot/README.md]

@@ -1,6 +1,24 @@
 {
   "method": "ai-assisted",
-  "filesResolved": 1,
-  "summary": "Resolved conflict in index.html by preserving the red background feature from the feature branch while incorporating beneficial styling improvements from main (min-height instead of height, and font-size: 3rem for the h1 element)",
-  "strategyUsed": "Feature preservation with enhancement integration: kept red background (#FF0000) and 'Simple Spaghetti Website' title from feature branch, merged in min-height viewport and 3rem font-size from main branch for improved responsiveness and styling"
+  "filesResolved": 4,
+  "summary": "Successfully merged complementary features from both branches. HEAD branch added data models (BotState, Trade, Position, MarketData) while main branch added configuration management and utilities. All functionality from both sides preserved.",
+  "strategyUsed": "Merged both changes - the conflicts arose from two parallel feature developments that are complementary rather than conflicting. Combined imports in __init__.py, merged documentation in READMEs to cover both models and utilities, and unified all dependencies in requirements.txt. All conflict markers removed and files staged.",
+  "conflictedFiles": [
+    {
+      "file": "README.md",
+      "resolution": "Combined descriptions - 'with validated data models and utilities' instead of choosing one variant. Merged project structure to include both models.py, config.py, utils.py, and tests/"
+    },
+    {
+      "file": "polymarket-bot/README.md",
+      "resolution": "Created comprehensive documentation that includes both data models section (from HEAD) and configuration/utilities section (from main). Organized into clear sections covering all features from both branches."
+    },
+    {
+      "file": "polymarket-bot/__init__.py",
+      "resolution": "Merged both import sets - included both config imports and model imports. Updated __all__ to export all symbols from both branches."
+    },
+    {
+      "file": "polymarket-bot/requirements.txt",
+      "resolution": "Combined all dependencies from both branches. Kept pydantic[email]>=2.5.0 from HEAD and all additional dependencies from main (dotenv, requests, websockets, TA-Lib, etc.). Organized by category."
+    }
+  ]
 }

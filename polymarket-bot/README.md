@@ -1,37 +1,110 @@
-# Polymarket Bot - Core Data Models
+# Polymarket Bot
 
-A Python package providing core data models for building automated trading bots on the Polymarket prediction market platform.
+Automated trading bot for Polymarket prediction markets with robust data models, utilities, and configuration management.
 
 ## Overview
 
-This package provides validated, serializable data models using Pydantic v2 for:
-- **Bot State Management**: Track operational status, configuration, and performance metrics
-- **Trade Execution**: Record and manage trading transactions
-- **Position Tracking**: Monitor open and closed positions with P&L calculations
-- **Market Data**: Store and validate market information and pricing data
-
-All models include comprehensive validation, type safety, and serialization support for logging and persistence.
+This package provides:
+- **Validated Data Models**: Type-safe Pydantic models for bot state, trades, positions, and market data
+- **Configuration Management**: Secure API key management and environment-based configuration
+- **Utility Functions**: Retry logic, validation, error handling, and helper functions
+- **Multi-Exchange Support**: Integration with Polymarket, Binance, and CoinGecko APIs
+- **Technical Analysis**: Built-in TA-Lib support for technical indicators
 
 ## Features
 
+### Core Data Models
 - ✅ **Type-Safe Models**: Full type hints and Pydantic validation
 - ✅ **Comprehensive Validation**: Field-level and cross-field validation
 - ✅ **Serialization Support**: Easy conversion to/from dictionaries for logging and storage
-- ✅ **Enumerations**: Type-safe enums for status values and options
 - ✅ **Business Logic Methods**: Built-in helpers for common calculations (P&L, win rate, etc.)
 - ✅ **Test Coverage**: Comprehensive test suite with 100% model coverage
 
-## Installation
+### Technical Capabilities
+- **Environment Configuration**: Secure API key management using `.env` files
+- **WebSocket Support**: Real-time market data streaming
+- **Configurable Risk Management**: Customizable position sizing and stop-loss parameters
+- **Retry Logic**: Exponential backoff for resilient API calls
+- **Validation Functions**: Type checking, range validation, and data validation
+- **Error Handling**: Consistent error logging and handling across the bot
 
-```bash
-# Install dependencies
-pip install -r requirements.txt
+## Project Structure
 
-# Run tests
-pytest tests/test_models.py -v
+```
+polymarket-bot/
+├── __init__.py         # Package initialization
+├── config.py           # Configuration management
+├── models.py           # Core data models (BotState, Trade, Position, MarketData)
+├── utils.py            # Utility functions (retry, validation, error handling)
+├── tests/              # Comprehensive test suite
+│   └── test_models.py  # Model validation tests
+├── test_config.py      # Configuration tests
+└── README.md           # This file
 ```
 
-## Models
+## Installation
+
+1. Install Python dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Note: TA-Lib requires system-level dependencies. On Ubuntu/Debian:
+
+```bash
+sudo apt-get install ta-lib
+```
+
+On macOS with Homebrew:
+
+```bash
+brew install ta-lib
+```
+
+2. Create your environment configuration:
+
+```bash
+cp .env.example .env
+```
+
+3. Edit `.env` and add your API keys:
+
+```bash
+# Required API keys
+POLYMARKET_API_KEY=your_actual_key_here
+POLYMARKET_API_SECRET=your_actual_secret_here
+BINANCE_API_KEY=your_actual_key_here
+BINANCE_API_SECRET=your_actual_secret_here
+COINGECKO_API_KEY=your_actual_key_here
+```
+
+## Configuration
+
+The bot uses environment variables for configuration. All required variables must be set in your `.env` file.
+
+### Required Variables
+
+- `POLYMARKET_API_KEY`: Your Polymarket API key
+- `POLYMARKET_API_SECRET`: Your Polymarket API secret
+- `BINANCE_API_KEY`: Your Binance API key
+- `BINANCE_API_SECRET`: Your Binance API secret
+- `COINGECKO_API_KEY`: Your CoinGecko API key
+
+### Optional Variables (with defaults)
+
+- `POLYMARKET_BASE_URL`: Polymarket API base URL (default: `https://api.polymarket.com`)
+- `BINANCE_BASE_URL`: Binance API base URL (default: `https://api.binance.com`)
+- `COINGECKO_BASE_URL`: CoinGecko API base URL (default: `https://api.coingecko.com/api/v3`)
+- `MAX_POSITION_SIZE`: Maximum position size (default: `1000`)
+- `RISK_PERCENTAGE`: Risk percentage per trade (default: `0.02` = 2%)
+- `STOP_LOSS_PERCENTAGE`: Stop loss percentage (default: `0.05` = 5%)
+- `WS_RECONNECT_DELAY`: WebSocket reconnection delay in seconds (default: `5`)
+- `WS_MAX_RECONNECT_ATTEMPTS`: Maximum WebSocket reconnection attempts (default: `10`)
+- `LOG_LEVEL`: Logging level - DEBUG, INFO, WARNING, ERROR, or CRITICAL (default: `INFO`)
+- `LOG_FILE`: Log file path (default: `polymarket_bot.log`)
+
+## Data Models
 
 ### BotState
 
@@ -246,94 +319,97 @@ market_dict = market.to_dict()
 - `YES`: Yes outcome
 - `NO`: No outcome
 
-## Validation Examples
+## Utility Functions
 
-### Cross-Field Validation
-
-```python
-from models import BotState
-from decimal import Decimal
-
-# This will raise ValidationError: current exposure exceeds max
-bot = BotState(
-    bot_id="bot_001",
-    strategy_name="test",
-    max_position_size=Decimal("1000.00"),
-    max_total_exposure=Decimal("5000.00"),
-    risk_per_trade=Decimal("100.00"),
-    current_exposure=Decimal("6000.00")  # Exceeds max!
-)
-```
-
-### Price Range Validation
+### Configuration Management
 
 ```python
-from models import Trade, OrderSide, OrderType, OutcomeType
-from decimal import Decimal
+from config import get_config
 
-# This will raise ValidationError: price must be between 0 and 1
-trade = Trade(
-    trade_id="trade_001",
-    market_id="market_123",
-    order_id="order_456",
-    side=OrderSide.BUY,
-    order_type=OrderType.LIMIT,
-    outcome=OutcomeType.YES,
-    price=Decimal("1.50"),  # Invalid price!
-    quantity=Decimal("100.00")
-)
+# Get configuration instance
+config = get_config()
+
+# Access configuration values
+print(f"Polymarket API URL: {config.polymarket_base_url}")
+print(f"Max Position Size: {config.max_position_size}")
+print(f"Risk Percentage: {config.risk_percentage}")
 ```
 
-## Serialization
-
-All models implement a `to_dict()` method for easy serialization:
+### Retry Decorator
 
 ```python
-from models import BotState, BotStatus
-from decimal import Decimal
-import json
+from polymarket_bot.utils import retry_with_backoff
 
-bot = BotState(
-    bot_id="bot_001",
-    status=BotStatus.RUNNING,
-    strategy_name="momentum_v1",
-    max_position_size=Decimal("1000.00"),
-    max_total_exposure=Decimal("5000.00"),
-    risk_per_trade=Decimal("100.00")
+@retry_with_backoff(max_attempts=5, base_delay=2.0)
+def fetch_market_data(market_id: str):
+    # API call that might fail
+    response = requests.get(f"https://api.polymarket.com/markets/{market_id}")
+    response.raise_for_status()
+    return response.json()
+```
+
+### Validation
+
+```python
+from polymarket_bot.utils import (
+    validate_type,
+    validate_range,
+    validate_probability,
+    validate_decimal
 )
 
-# Convert to dictionary
-bot_dict = bot.to_dict()
+# Validate types
+validate_type(user_id, int, "user_id")
 
-# Serialize to JSON
-json_str = json.dumps(bot_dict, indent=2)
-print(json_str)
+# Validate ranges
+validate_range(bet_amount, min_value=0, max_value=1000, field_name="bet_amount")
+
+# Validate probabilities (0.0 to 1.0)
+validate_probability(0.75, "win_probability")
+
+# Convert to Decimal for precise calculations
+price = validate_decimal("10.50", "price")
 ```
 
-## Testing
+### Error Handling
 
-The package includes comprehensive tests covering:
-- ✅ Model creation and validation
-- ✅ Cross-field validation
-- ✅ Business logic methods
-- ✅ Serialization
-- ✅ Integration scenarios
+```python
+from polymarket_bot.utils import handle_errors, configure_logging
+from config import get_config, ConfigurationError
+import logging
 
-Run tests:
-```bash
-pytest tests/test_models.py -v
+# Configure logging
+logger = configure_logging(level=logging.INFO, logger_name="polymarket_bot")
 
-# With coverage
-pytest tests/test_models.py --cov=models --cov-report=html
+# Handle errors gracefully
+@handle_errors(default_return={}, log_level=logging.WARNING)
+def fetch_optional_data():
+    return risky_api_call()
+
+# Handle configuration errors
+try:
+    config = get_config()
+except ConfigurationError as e:
+    print(f"Configuration error: {e}")
+    exit(1)
 ```
 
-## Dependencies
+### Helper Functions
 
-- **pydantic[email]>=2.5.0**: Core validation and data models
-- **pytest>=7.4.0**: Testing framework
-- **pytest-cov>=4.1.0**: Test coverage reporting
+```python
+from polymarket_bot.utils import safe_divide, clamp, format_currency
 
-## Usage in a Trading Bot
+# Safe division
+win_rate = safe_divide(wins, total_trades, default=0.0)
+
+# Clamp values
+bet_size = clamp(calculated_size, min_bet=10, max_bet=1000)
+
+# Format currency
+display_amount = format_currency(123.456, "USDC", 2)  # "123.46 USDC"
+```
+
+## Usage Example - Complete Trading Bot
 
 ```python
 from models import (
@@ -342,17 +418,26 @@ from models import (
     Position, PositionStatus,
     MarketData
 )
+from polymarket_bot.utils import retry_with_backoff, validate_range, configure_logging
+from config import get_config
 from decimal import Decimal
 from datetime import datetime
+import logging
+
+# Configure logging
+logger = configure_logging(level=logging.INFO, logger_name="polymarket_bot")
+
+# Load configuration
+config = get_config()
 
 # Initialize bot state
 bot = BotState(
     bot_id="momentum_bot_v1",
     status=BotStatus.INITIALIZING,
     strategy_name="momentum_v1",
-    max_position_size=Decimal("1000.00"),
+    max_position_size=Decimal(str(config.max_position_size)),
     max_total_exposure=Decimal("5000.00"),
-    risk_per_trade=Decimal("100.00")
+    risk_per_trade=Decimal(str(config.max_position_size * config.risk_percentage))
 )
 
 # Update status to running
@@ -413,13 +498,130 @@ print(f"Bot Win Rate: {bot.get_win_rate():.2f}%")
 print(f"Position P&L: ${position.get_total_pnl()}")
 ```
 
+## Testing
+
+### Validate Configuration
+
+Before running the bot, validate your configuration:
+
+```bash
+python config.py
+```
+
+This will check that all required environment variables are set and valid.
+
+### Run Tests
+
+The package includes comprehensive tests covering:
+- ✅ Model creation and validation
+- ✅ Cross-field validation
+- ✅ Business logic methods
+- ✅ Serialization
+- ✅ Configuration management
+- ✅ Utility functions
+- ✅ Integration scenarios
+
+Run tests:
+```bash
+# All tests
+pytest -v
+
+# Specific test files
+pytest tests/test_models.py -v
+pytest test_config.py test_polymarket_utils.py -v
+
+# With coverage
+pytest tests/test_models.py --cov=models --cov-report=html
+pytest test_config.py -v --cov=config --cov-report=html
+```
+
+## Dependencies
+
+### Core Dependencies
+
+- **pydantic[email]>=2.5.0**: Core validation and data models
+- **python-dotenv**: Load environment variables from .env files
+- **requests**: HTTP client for API calls
+- **websocket-client**: WebSocket client for real-time data
+- **TA-Lib**: Technical analysis library
+
+### Development Dependencies
+
+- **pytest>=7.4.0**: Testing framework
+- **pytest-cov>=4.1.0**: Test coverage reporting
+- **pytest-asyncio**: Async test support
+- **black**: Code formatter
+- **flake8**: Linter
+- **mypy**: Type checker
+
+See `requirements.txt` for full list with pinned versions.
+
+## Security
+
+- **Never commit your `.env` file** - it contains sensitive API keys
+- The `.env.example` file is safe to commit and serves as a template
+- API keys are not exposed in logs or error messages
+- The `Config.__repr__()` method excludes sensitive values
+
+## Development
+
+### Adding New Models
+
+When adding new models or modifying existing ones:
+1. Ensure all fields have proper type hints
+2. Add field-level validation where appropriate
+3. Implement `to_dict()` method for serialization
+4. Include comprehensive tests
+5. Update this README with examples
+
+### Adding New Utilities
+
+1. Add the function to `utils.py` with comprehensive docstrings
+2. Add corresponding tests to `test_polymarket_utils.py`
+3. Update documentation in `docs/polymarket-bot/utilities.md`
+4. Ensure utilities are modular and can be imported independently
+
+### Code Quality
+
+Format code with Black:
+
+```bash
+black config.py test_config.py models.py
+```
+
+Lint with flake8:
+
+```bash
+flake8 config.py test_config.py models.py
+```
+
+Type check with mypy:
+
+```bash
+mypy config.py models.py
+```
+
+### Code Style
+
+- Follow PEP 8 style guidelines
+- Use type hints for all function parameters and return values
+- Provide detailed docstrings with examples
+- Write comprehensive tests with edge cases
+
+## Documentation
+
+- [Utilities API Reference](../docs/polymarket-bot/utilities.md)
+- [Main Project README](../README.md)
+
 ## Architecture Alignment
 
-These models are designed to:
+These models and utilities are designed to:
 - Align with Polymarket API response formats
 - Support logging and persistence through serialization
 - Provide type safety and validation for trading operations
 - Enable easy integration with bot strategy logic
+- Provide resilient API interaction with retry mechanisms
+- Ensure secure configuration management
 
 ## Future Enhancements
 
@@ -429,6 +631,8 @@ Potential future additions:
 - Performance analytics models
 - Strategy configuration models
 - Event/notification models
+- Advanced technical analysis indicators
+- Backtesting framework
 
 ## License
 
@@ -436,9 +640,4 @@ This package is part of the Simple Spaghetti Website project and follows the sam
 
 ## Contributing
 
-When adding new models or modifying existing ones:
-1. Ensure all fields have proper type hints
-2. Add field-level validation where appropriate
-3. Implement `to_dict()` method for serialization
-4. Include comprehensive tests
-5. Update this README with examples
+See the main project README for contribution guidelines.
