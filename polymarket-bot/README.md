@@ -57,6 +57,16 @@ This package provides:
 - ✅ **24h Statistics**: Volume, high, low, and price change tracking
 - ✅ **Callback Support**: Custom handlers for price updates
 
+### Prediction Engine
+- ✅ **Signal Generation**: Deterministic UP/DOWN/SKIP signals based on technical indicators
+- ✅ **RSI Analysis**: Oversold/overbought detection for momentum shifts
+- ✅ **MACD Analysis**: Bullish/bearish crossover detection for trend confirmation
+- ✅ **Order Book Analysis**: Market pressure detection via bid/ask imbalance
+- ✅ **Configurable Thresholds**: Customizable RSI, MACD, and order book thresholds
+- ✅ **Confidence Scoring**: Confidence levels for signal reliability
+- ✅ **Signal Reasoning**: Human-readable explanations for each signal
+- ✅ **Comprehensive Tests**: >80% test coverage with edge case handling
+
 ### Risk Management System
 - ✅ **Max Drawdown Monitoring**: Automatic tracking of 30% drawdown threshold from peak equity
 - ✅ **Volatility Circuit Breaker**: 3% 5-minute price range checks to prevent trading in unstable markets
@@ -83,6 +93,7 @@ This package provides:
 - **WebSocket Streaming**: Real-time BTC/USDT price streaming from Binance with automatic reconnection
 - **Technical Indicators**: RSI(14) and MACD calculations using TA-Lib for momentum analysis
 - **Order Book Analysis**: Real-time bid/ask imbalance calculations for market pressure detection
+- **Prediction Engine**: Deterministic signal generation based on RSI, MACD, and order book imbalance
 - **Multi-Source Data**: Aggregates data from Binance, Polymarket, with CoinGecko fallback
 - **Configurable Risk Management**: Customizable position sizing and stop-loss parameters
 - **Retry Logic**: Exponential backoff for resilient API calls and WebSocket reconnection
@@ -95,16 +106,18 @@ This package provides:
 polymarket-bot/
 ├── __init__.py                 # Package initialization
 ├── config.py                   # Configuration management
-├── models.py                   # Core data models (BotState, Trade, Position, MarketData, BTCPriceData)
+├── models.py                   # Core data models (BotState, Trade, Position, MarketData, BTCPriceData, PredictionSignal)
 ├── market_data.py              # Market data service (Binance WebSocket, Polymarket API, technical indicators)
+├── prediction.py               # Prediction engine (RSI/MACD-based signal generation)
 ├── risk.py                     # Risk management system (drawdown, volatility, trade approval)
 ├── capital.py                  # Capital allocation with win-streak position sizing
 ├── state.py                    # State persistence and logging
 ├── utils.py                    # Utility functions (retry, validation, error handling)
 ├── tests/                      # Comprehensive test suite
-│   ├── test_models.py          # Model validation tests (including BTCPriceData)
+│   ├── test_models.py          # Model validation tests (including BTCPriceData, PredictionSignal)
 │   ├── test_market_data.py     # Market data service and Polymarket API tests
 │   ├── test_binance_websocket.py # Binance WebSocket tests
+│   ├── test_prediction.py      # Prediction engine tests
 │   ├── test_risk.py            # Risk management tests
 │   ├── test_capital.py         # Capital allocation tests
 │   └── test_state.py           # State persistence tests
@@ -174,6 +187,18 @@ The bot uses environment variables for configuration. All required variables mus
 - `WS_MAX_RECONNECT_ATTEMPTS`: Maximum WebSocket reconnection attempts (default: `10`)
 - `LOG_LEVEL`: Logging level - DEBUG, INFO, WARNING, ERROR, or CRITICAL (default: `INFO`)
 - `LOG_FILE`: Log file path (default: `polymarket_bot.log`)
+
+### Prediction Engine Configuration
+
+- `RSI_PERIOD`: RSI calculation period (default: `14`)
+- `RSI_OVERSOLD_THRESHOLD`: RSI oversold threshold for UP signals (default: `30.0`)
+- `RSI_OVERBOUGHT_THRESHOLD`: RSI overbought threshold for DOWN signals (default: `70.0`)
+- `MACD_FAST_PERIOD`: MACD fast period (default: `12`)
+- `MACD_SLOW_PERIOD`: MACD slow period (default: `26`)
+- `MACD_SIGNAL_PERIOD`: MACD signal period (default: `9`)
+- `ORDER_BOOK_BULLISH_THRESHOLD`: Order book imbalance threshold for bullish signals (default: `1.1`)
+- `ORDER_BOOK_BEARISH_THRESHOLD`: Order book imbalance threshold for bearish signals (default: `0.9`)
+- `PREDICTION_CONFIDENCE_SCORE`: Confidence score for actionable signals (default: `0.75`)
 
 ## Data Models
 
@@ -1600,6 +1625,267 @@ try:
     markets = client.get_active_markets()
 except PolymarketAPIError as e:
     print(f"API error: {e}")
+```
+
+## Prediction Engine
+
+The `prediction.py` module provides deterministic signal generation based on technical indicators. It analyzes RSI, MACD, and order book imbalance to generate actionable UP/DOWN signals or SKIP when conditions aren't met.
+
+### PredictionEngine
+
+Main prediction engine class that generates trading signals with confidence scores and reasoning.
+
+**Features:**
+- Deterministic signal generation (no probabilistic models)
+- Configurable RSI, MACD, and order book thresholds
+- Confidence scoring for signal reliability
+- Human-readable reasoning for transparency
+- Comprehensive error handling and data validation
+
+**Signal Logic:**
+
+```
+UP Signal (Bullish):
+  RSI < oversold_threshold (default: 30)
+  AND MACD line > MACD signal (bullish crossover)
+  AND order book imbalance > bullish_threshold (default: 1.1)
+
+DOWN Signal (Bearish):
+  RSI > overbought_threshold (default: 70)
+  AND MACD line < MACD signal (bearish crossover)
+  AND order book imbalance < bearish_threshold (default: 0.9)
+
+SKIP Signal:
+  All other conditions (no clear directional signal)
+```
+
+**Example Usage:**
+
+```python
+from prediction import PredictionEngine
+from config import get_config
+
+# Initialize engine
+config = get_config()
+engine = PredictionEngine(config=config)
+
+# Generate signal from price data
+prices = [45000, 45100, 45050, ...]  # Historical prices (oldest to newest)
+signal = engine.generate_signal(prices, btc_price=45678.90)
+
+# Check signal
+print(f"Signal: {signal.signal.value.upper()}")  # UP, DOWN, or SKIP
+print(f"Confidence: {signal.confidence}")  # 0.75 for UP/DOWN, 0.0 for SKIP
+print(f"Reasoning: {signal.reasoning}")
+
+# Access indicator values
+print(f"RSI: {signal.rsi}")
+print(f"MACD: {signal.macd_line} / {signal.macd_signal}")
+print(f"Order Book Imbalance: {signal.order_book_imbalance}")
+
+# Check if actionable
+if signal.is_actionable():
+    direction = signal.get_direction()  # "UP" or "DOWN"
+    print(f"Trade direction: {direction}")
+else:
+    print("Skip trading - no clear signal")
+```
+
+**Convenience Function:**
+
+```python
+from prediction import generate_signal_from_market_data
+
+# Generate signal without maintaining engine instance
+signal = generate_signal_from_market_data(
+    prices=prices,
+    btc_price=45678.90
+)
+
+print(f"{signal.signal.value}: {signal.reasoning}")
+```
+
+### PredictionSignal Model
+
+Represents a generated trading signal with metadata.
+
+**Fields:**
+- `signal`: SignalType (UP, DOWN, or SKIP)
+- `confidence`: Confidence score (0.0-1.0)
+- `rsi`: RSI value at signal generation
+- `macd_line`: MACD line value
+- `macd_signal`: MACD signal line value
+- `order_book_imbalance`: Order book imbalance ratio
+- `btc_price`: BTC price at signal time (optional)
+- `timestamp`: Signal generation timestamp
+- `reasoning`: Human-readable explanation
+
+**Methods:**
+- `is_actionable()`: Returns True for UP/DOWN, False for SKIP
+- `get_direction()`: Returns "UP", "DOWN", or None
+- `to_dict()`: Serialize to dictionary
+
+**Example:**
+
+```python
+from models import PredictionSignal, SignalType
+from decimal import Decimal
+
+signal = PredictionSignal(
+    signal=SignalType.UP,
+    confidence=Decimal('0.75'),
+    rsi=Decimal('28.5'),
+    macd_line=Decimal('150.23'),
+    macd_signal=Decimal('145.10'),
+    order_book_imbalance=Decimal('1.15'),
+    btc_price=Decimal('45678.90'),
+    reasoning="RSI oversold (28.50 < 30.00), MACD bullish crossover, strong buying pressure"
+)
+
+# Check if should trade
+if signal.is_actionable():
+    print(f"Action: {signal.get_direction()}")
+    print(f"Confidence: {signal.confidence}")
+
+    # Serialize for logging
+    signal_dict = signal.to_dict()
+```
+
+### Validation and Testing
+
+**Validate Price Data:**
+
+```python
+from prediction import PredictionEngine
+
+engine = PredictionEngine()
+
+# Check if enough data for signal generation
+prices = [...]  # Your price data
+if engine.validate_price_data(prices):
+    signal = engine.generate_signal(prices)
+else:
+    print("Insufficient price data for prediction")
+```
+
+**Test Signal Conditions:**
+
+```python
+from prediction import validate_signal_conditions
+
+# Test specific indicator values
+signal_type = validate_signal_conditions(
+    rsi=25.0,
+    macd_line=150.0,
+    macd_signal=145.0,
+    order_book_imbalance=1.2
+)
+
+print(f"Would generate: {signal_type.value}")  # "up"
+```
+
+### Integration with Main Loop
+
+**Typical Usage Pattern:**
+
+```python
+from market_data import BinanceWebSocketClient, get_order_book_imbalance
+from prediction import PredictionEngine
+from config import get_config
+
+# Initialize components
+config = get_config()
+ws_client = BinanceWebSocketClient(buffer_size=100)
+ws_client.connect()
+engine = PredictionEngine(config=config)
+
+# Wait for price data to accumulate
+import time
+time.sleep(30)
+
+# Get prices and generate signal
+prices = ws_client.get_price_series(limit=50)
+
+if engine.validate_price_data(prices):
+    signal = engine.generate_signal(
+        prices=[float(p) for p in prices],
+        btc_price=float(ws_client.get_latest_price())
+    )
+
+    if signal.is_actionable():
+        print(f"Signal: {signal.signal.value.upper()}")
+        print(f"Reason: {signal.reasoning}")
+        # Proceed with trading logic
+    else:
+        print("No actionable signal, waiting...")
+else:
+    print("Waiting for more price data...")
+
+# Clean up
+ws_client.disconnect()
+```
+
+### Error Handling
+
+The prediction engine implements comprehensive error handling:
+
+```python
+from prediction import PredictionEngine, PredictionError
+
+engine = PredictionEngine()
+
+try:
+    signal = engine.generate_signal(prices)
+except PredictionError as e:
+    print(f"Prediction error: {e}")
+    # Handle insufficient data, indicator calculation errors, etc.
+except Exception as e:
+    print(f"Unexpected error: {e}")
+```
+
+**Common Errors:**
+- **Insufficient Data**: Need at least 34 prices for MACD calculation
+- **Invalid Prices**: Prices must be positive values
+- **Order Book Unavailable**: Network error fetching order book data
+- **Indicator Calculation**: TA-Lib errors during RSI/MACD calculation
+
+### Configuration
+
+Customize prediction engine behavior via environment variables:
+
+```bash
+# RSI Configuration
+RSI_PERIOD=14                    # RSI calculation period
+RSI_OVERSOLD_THRESHOLD=30.0      # Oversold level for UP signals
+RSI_OVERBOUGHT_THRESHOLD=70.0    # Overbought level for DOWN signals
+
+# MACD Configuration
+MACD_FAST_PERIOD=12              # MACD fast EMA period
+MACD_SLOW_PERIOD=26              # MACD slow EMA period
+MACD_SIGNAL_PERIOD=9             # MACD signal line period
+
+# Order Book Configuration
+ORDER_BOOK_BULLISH_THRESHOLD=1.1 # Imbalance for bullish signals
+ORDER_BOOK_BEARISH_THRESHOLD=0.9 # Imbalance for bearish signals
+
+# Signal Configuration
+PREDICTION_CONFIDENCE_SCORE=0.75 # Confidence for UP/DOWN signals
+```
+
+### Testing
+
+Run prediction engine tests:
+
+```bash
+# All prediction tests
+pytest tests/test_prediction.py -v
+
+# With coverage
+pytest tests/test_prediction.py --cov=prediction --cov-report=html
+
+# Specific test classes
+pytest tests/test_prediction.py::TestSignalGeneration -v
+pytest tests/test_prediction.py::TestConditionEvaluation -v
 ```
 
 ## Usage Example - Complete Trading Bot

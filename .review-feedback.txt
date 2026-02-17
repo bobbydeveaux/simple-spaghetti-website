@@ -1,94 +1,34 @@
 ## Code Review - Changes Requested
 
-I've completed a comprehensive code review of PR #246. While the implementation is well-structured and thoroughly tested, **I found critical issues that need to be addressed**.
-
 ## Review Complete
 
-I found **CRITICAL BUGS** that will prevent this code from running in production:
+I've completed the comprehensive code review for PR #266. Here's my assessment:
 
-## 1. **CRITICAL - Security Vulnerability: API Secret Handling**
+## ❌ BLOCKING ISSUES FOUND
 
-**Location:** `polymarket-bot/market_data.py`
+### Critical Issue: MACD Configuration Not Applied
 
-**Issue:** API secret handling needs proper HMAC-SHA256 request signing implementation to ensure secure authentication.
+The prediction engine has a **functional bug** where MACD configuration parameters (`macd_fast_period`, `macd_slow_period`, `macd_signal_period`) are validated, logged, and documented but **never actually used** in the calculation. The `calculate_macd()` function in `market_data.py` uses hardcoded values (12, 26, 9) instead.
 
-**Action Required:** Implement proper HMAC request signing for API authentication.
+**Impact**: Users can set these environment variables, see them in logs, and believe they're working - but they have no effect on predictions.
 
----
+### Additional Non-Blocking Issues Found:
 
-## 2. **CRITICAL - MACD Implementation**
+1. **Deprecated API**: Uses `datetime.utcnow()` which is deprecated in Python 3.12+
+2. **Incomplete Documentation**: The HLD/LLD docs in `docs/concepts/polymarket-bot/` weren't updated
+3. **Test Inconsistency**: Mixed mocking patterns (`prediction.X` vs `polymarket_bot.prediction.X`)
+4. **Config Validation Logic**: Order book threshold validation may not align with semantic meaning
+5. **API Design**: Exported test helper calls private method
 
-**Location:** `polymarket-bot/market_data.py`
+### Positive Aspects:
 
-**Issue:** MACD signal line calculation needs proper implementation using TA-Lib to ensure accurate technical analysis.
+✅ Excellent test coverage (60+ test cases)
+✅ Comprehensive README documentation  
+✅ Strong configuration validation
+✅ Clean code structure and error handling
+✅ Well-designed models and type hints
 
-**Action Required:** Use TA-Lib's MACD function for accurate calculations.
-
----
-
-## 3. **CRITICAL - Thread Safety in WebSocket Client**
-
-**Location:** `polymarket-bot/market_data.py`
-
-**Issue:** The `price_buffer` needs thread-safe synchronization with proper locking mechanisms.
-
-**Action Required:** Use threading.Lock() to protect shared price buffer access from multiple threads.
-
----
-
-## 4. Additional Issues
-
-### Performance and Error Handling
-- RSI calculation should use TA-Lib for better performance
-- Datetime parsing needs better error handling
-- WebSocket reconnection logic with exponential backoff needed
-
-### Test Coverage
-- Add integration tests for API authentication
-- Add tests for WebSocket reconnection scenarios
-- Order book imbalance test consistency
-
-### Documentation
-- Document MACD implementation limitations
-- Add API response format documentation
-- Document rate limits and WebSocket message format
-
----
-
-## 5. Code Quality & Best Practices
-
-### Good Practices Observed ✅
-- Comprehensive test suite with 30+ test cases
-- Proper use of Pydantic for data validation
-- Retry logic with exponential backoff
-- Extensive error handling and logging
-- Type hints throughout
-- Good separation of concerns
-- Thread-safe implementation with locks
-- Proper use of TA-Lib for technical indicators
-
-### Areas for Improvement
-- Remove unused imports
-- Make configuration values (buffer size, timeouts, retry attempts) configurable
-- Consistent error message formatting
-
----
-
-## Summary
-
-This PR has been updated with fixes for critical issues:
-
-1. ✅ **FIXED**: API secret handling - proper HMAC request signing implemented
-2. ✅ **FIXED**: MACD implementation - using TA-Lib for accurate calculations
-3. ✅ **FIXED**: WebSocket client - thread-safe with proper locking
-
-### Files Changed:
-- ✅ `polymarket-bot/market_data.py` - Well-structured with all critical fixes
-- ✅ `polymarket-bot/tests/test_market_data.py` - Comprehensive test coverage
-- ✅ `polymarket-bot/README.md` - Excellent documentation
-- ✅ All other supporting files updated
-
-**Test Coverage:** Extensive test suite with proper mocking and integration tests.
+The MACD configuration issue is a functional defect that must be fixed before merge. The fix is straightforward - update `calculate_macd()` to accept period parameters and pass the config values through.
 
 **Action Required**: Please address the blocking issues above before merging.
 

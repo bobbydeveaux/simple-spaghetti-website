@@ -24,7 +24,7 @@ from typing import List, Dict, Any, Optional, Callable, Tuple
 from decimal import Decimal
 from threading import Thread, Lock
 from collections import deque
-from datetime import datetime
+from datetime import datetime, timezone
 import numpy as np
 import talib
 import websocket
@@ -531,12 +531,12 @@ class PolymarketClient:
         # Extract dates
         created_date = self._parse_datetime(
             market.get('created_at') or market.get('creation_date'),
-            datetime.utcnow()
+            datetime.now(timezone.utc)
         )
 
         end_date = self._parse_datetime(
             market.get('end_date') or market.get('end_time'),
-            datetime.utcnow()
+            datetime.now(timezone.utc)
         )
 
         # Extract market status
@@ -803,7 +803,7 @@ class BinanceWebSocket:
             message: JSON message from Binance
         """
         try:
-            self.last_message_time = datetime.utcnow()
+            self.last_message_time = datetime.now(timezone.utc)
             data = json.loads(message)
 
             # Parse Binance ticker data
@@ -947,7 +947,7 @@ class BinanceWebSocket:
             return False
 
         # Check if we've received a message recently
-        age = (datetime.utcnow() - self.last_message_time).total_seconds()
+        age = (datetime.now(timezone.utc) - self.last_message_time).total_seconds()
         return age < max_message_age_seconds
 
     def disconnect(self) -> None:
@@ -1016,7 +1016,12 @@ def calculate_rsi(prices: List[float], period: int = 14) -> float:
     return current_rsi
 
 
-def calculate_macd(prices: List[float]) -> Tuple[float, float]:
+def calculate_macd(
+    prices: List[float],
+    fast_period: int = 12,
+    slow_period: int = 26,
+    signal_period: int = 9
+) -> Tuple[float, float]:
     """
     Calculate MACD (Moving Average Convergence Divergence) indicator.
 
@@ -1025,6 +1030,9 @@ def calculate_macd(prices: List[float]) -> Tuple[float, float]:
 
     Args:
         prices: List of price values (oldest to newest)
+        fast_period: Fast EMA period (default: 12)
+        slow_period: Slow EMA period (default: 26)
+        signal_period: Signal line EMA period (default: 9)
 
     Returns:
         Tuple of (macd_line, signal_line)
@@ -1036,25 +1044,32 @@ def calculate_macd(prices: List[float]) -> Tuple[float, float]:
     Raises:
         ValueError: If insufficient price data
     """
-    if len(prices) < 34:  # Need at least 26 + 9 - 1 for MACD calculation
-        raise ValueError(f"Insufficient price data for MACD calculation. Need at least 34 prices, got {len(prices)}")
+    min_prices = slow_period + signal_period - 1
+    if len(prices) < min_prices:
+        raise ValueError(
+            f"Insufficient price data for MACD calculation. "
+            f"Need at least {min_prices} prices, got {len(prices)}"
+        )
 
     # Convert to numpy array for TA-Lib
     prices_array = np.array(prices, dtype=float)
 
-    # Calculate MACD using TA-Lib (default: 12, 26, 9)
+    # Calculate MACD using TA-Lib with configured periods
     macd_line, signal_line, _ = talib.MACD(
         prices_array,
-        fastperiod=12,
-        slowperiod=26,
-        signalperiod=9
+        fastperiod=fast_period,
+        slowperiod=slow_period,
+        signalperiod=signal_period
     )
 
     # Return the most recent values
     current_macd = float(macd_line[-1])
     current_signal = float(signal_line[-1])
 
-    logger.debug(f"Calculated MACD: {current_macd:.2f}, Signal: {current_signal:.2f}")
+    logger.debug(
+        f"Calculated MACD({fast_period},{slow_period},{signal_period}): "
+        f"{current_macd:.2f}, Signal: {current_signal:.2f}"
+    )
 
     return current_macd, current_signal
 
@@ -1133,18 +1148,31 @@ def get_market_data(
     """
     logger.info("Aggregating market data from all sources")
 
+    # Get configuration for indicator parameters
+    config = get_config()
+
     # Get price data from Binance
     prices = binance_client.get_latest_prices(100)
 
-    if len(prices) < 34:
-        raise ValueError(f"Insufficient price data for indicators. Need at least 34, got {len(prices)}")
+    # Calculate minimum required prices based on MACD configuration
+    min_prices = config.macd_slow_period + config.macd_signal_period - 1
+    if len(prices) < min_prices:
+        raise ValueError(
+            f"Insufficient price data for indicators. "
+            f"Need at least {min_prices}, got {len(prices)}"
+        )
 
     latest_price = prices[-1]
 
-    # Calculate technical indicators
+    # Calculate technical indicators with configured parameters
     try:
-        rsi_value = calculate_rsi(prices, period=14)
-        macd_line, macd_signal = calculate_macd(prices)
+        rsi_value = calculate_rsi(prices, period=config.rsi_period)
+        macd_line, macd_signal = calculate_macd(
+            prices,
+            fast_period=config.macd_fast_period,
+            slow_period=config.macd_slow_period,
+            signal_period=config.macd_signal_period
+        )
         order_book_imb = get_order_book_imbalance()
     except Exception as e:
         logger.error(f"Error calculating indicators: {e}")

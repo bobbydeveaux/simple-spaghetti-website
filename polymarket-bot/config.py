@@ -79,6 +79,17 @@ class Config:
         self.log_level = self._get_env('LOG_LEVEL', 'INFO')
         self.log_file = self._get_env('LOG_FILE', 'polymarket_bot.log')
 
+        # Prediction engine configuration with defaults
+        self.rsi_period = self._get_int_env('RSI_PERIOD', 14)
+        self.rsi_oversold_threshold = self._get_float_env('RSI_OVERSOLD_THRESHOLD', 30.0)
+        self.rsi_overbought_threshold = self._get_float_env('RSI_OVERBOUGHT_THRESHOLD', 70.0)
+        self.macd_fast_period = self._get_int_env('MACD_FAST_PERIOD', 12)
+        self.macd_slow_period = self._get_int_env('MACD_SLOW_PERIOD', 26)
+        self.macd_signal_period = self._get_int_env('MACD_SIGNAL_PERIOD', 9)
+        self.order_book_bullish_threshold = self._get_float_env('ORDER_BOOK_BULLISH_THRESHOLD', 1.1)
+        self.order_book_bearish_threshold = self._get_float_env('ORDER_BOOK_BEARISH_THRESHOLD', 0.9)
+        self.prediction_confidence_score = self._get_float_env('PREDICTION_CONFIDENCE_SCORE', 0.75)
+
         # Validate numeric ranges
         self._validate_ranges()
 
@@ -198,6 +209,54 @@ class Config:
         if self.log_level.upper() not in valid_log_levels:
             raise ConfigurationError(
                 f"LOG_LEVEL must be one of {valid_log_levels}, got: {self.log_level}"
+            )
+
+        # Validate prediction engine parameters
+        if self.rsi_period <= 0:
+            raise ConfigurationError(
+                f"RSI_PERIOD must be greater than 0, got: {self.rsi_period}"
+            )
+
+        if not (0 <= self.rsi_oversold_threshold <= 100):
+            raise ConfigurationError(
+                f"RSI_OVERSOLD_THRESHOLD must be between 0 and 100, got: {self.rsi_oversold_threshold}"
+            )
+
+        if not (0 <= self.rsi_overbought_threshold <= 100):
+            raise ConfigurationError(
+                f"RSI_OVERBOUGHT_THRESHOLD must be between 0 and 100, got: {self.rsi_overbought_threshold}"
+            )
+
+        if self.rsi_oversold_threshold >= self.rsi_overbought_threshold:
+            raise ConfigurationError(
+                f"RSI_OVERSOLD_THRESHOLD must be less than RSI_OVERBOUGHT_THRESHOLD"
+            )
+
+        if self.macd_fast_period <= 0 or self.macd_slow_period <= 0 or self.macd_signal_period <= 0:
+            raise ConfigurationError(
+                f"MACD periods must be greater than 0"
+            )
+
+        if self.macd_fast_period >= self.macd_slow_period:
+            raise ConfigurationError(
+                f"MACD_FAST_PERIOD must be less than MACD_SLOW_PERIOD"
+            )
+
+        if self.order_book_bullish_threshold <= 1.0:
+            raise ConfigurationError(
+                f"ORDER_BOOK_BULLISH_THRESHOLD must be greater than 1.0 (representing buying pressure), "
+                f"got: {self.order_book_bullish_threshold}"
+            )
+
+        if self.order_book_bearish_threshold <= 0 or self.order_book_bearish_threshold >= 1.0:
+            raise ConfigurationError(
+                f"ORDER_BOOK_BEARISH_THRESHOLD must be between 0 and 1.0 (representing selling pressure), "
+                f"got: {self.order_book_bearish_threshold}"
+            )
+
+        if not (0 <= self.prediction_confidence_score <= 1):
+            raise ConfigurationError(
+                f"PREDICTION_CONFIDENCE_SCORE must be between 0 and 1, got: {self.prediction_confidence_score}"
             )
 
     def __repr__(self) -> str:
