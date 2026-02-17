@@ -57,6 +57,14 @@ This package provides:
 - ✅ **24h Statistics**: Volume, high, low, and price change tracking
 - ✅ **Callback Support**: Custom handlers for price updates
 
+### Risk Management
+- ✅ **Drawdown Monitoring**: Automatic trading halt when drawdown exceeds 30% threshold
+- ✅ **Volatility Circuit Breaker**: Trade blocking when 5-minute price range exceeds 3%
+- ✅ **Trade Approval Logic**: Multi-layered validation with clear rejection reasons
+- ✅ **Position Sizing**: Dynamic calculation based on risk parameters and exposure limits
+- ✅ **Market Validation**: Active market, liquidity, and closure checks
+- ✅ **Risk Metrics**: Real-time monitoring of drawdown, volatility, and exposure utilization
+
 ### Technical Capabilities
 - **Environment Configuration**: Secure API key management using `.env` files
 - **WebSocket Streaming**: Real-time BTC/USDT price streaming from Binance with automatic reconnection
@@ -76,12 +84,14 @@ polymarket-bot/
 ├── config.py                   # Configuration management
 ├── models.py                   # Core data models (BotState, Trade, Position, MarketData, BTCPriceData)
 ├── market_data.py              # Market data service (Binance WebSocket, Polymarket API, technical indicators)
+├── risk.py                     # Risk management validation logic
 ├── state.py                    # State persistence and logging
 ├── utils.py                    # Utility functions (retry, validation, error handling)
 ├── tests/                      # Comprehensive test suite
 │   ├── test_models.py          # Model validation tests (including BTCPriceData)
 │   ├── test_market_data.py     # Market data service and Polymarket API tests
 │   ├── test_binance_websocket.py # Binance WebSocket tests
+│   ├── test_risk.py            # Risk management tests
 │   └── test_state.py           # State persistence tests
 ├── test_config.py              # Configuration tests
 └── README.md                   # This file
@@ -1388,6 +1398,213 @@ The package includes comprehensive tests covering:
 - ✅ Error handling and retry logic
 - ✅ Integration scenarios
 
+## Risk Management
+
+The `risk.py` module implements pre-trade validation with multiple risk controls to protect capital and ensure safe trading operations.
+
+### Risk Controls
+
+#### Drawdown Monitoring
+
+Automatically blocks trades when account drawdown exceeds the maximum threshold:
+- **Threshold**: 30% maximum drawdown
+- **Calculation**: `(starting_capital - current_capital) / starting_capital * 100`
+- **Action**: Trade rejected with detailed reason when threshold exceeded
+
+```python
+from risk import check_drawdown
+from decimal import Decimal
+
+# Example: 25% drawdown - approved
+approved, reason = check_drawdown(
+    current_capital=Decimal("75.0"),
+    starting_capital=Decimal("100.0")
+)
+# Returns: (True, None)
+
+# Example: 35% drawdown - rejected
+approved, reason = check_drawdown(
+    current_capital=Decimal("65.0"),
+    starting_capital=Decimal("100.0")
+)
+# Returns: (False, "Drawdown of 35.00% exceeds maximum threshold of 30.00%")
+```
+
+#### Volatility Circuit Breaker
+
+Blocks trades during periods of excessive price volatility:
+- **Threshold**: 3% maximum 5-minute price range
+- **Window**: Last 5 price updates
+- **Calculation**: `(max_price - min_price) / min_price * 100`
+- **Action**: Trade rejected during high volatility periods
+
+```python
+from risk import check_volatility
+from decimal import Decimal
+
+# Example: Low volatility (2%) - approved
+prices = [
+    Decimal("45000.0"),
+    Decimal("45100.0"),
+    Decimal("45200.0"),
+    Decimal("45150.0"),
+    Decimal("45100.0")
+]
+approved, reason = check_volatility(prices)
+# Returns: (True, None)
+
+# Example: High volatility (5%) - rejected
+volatile_prices = [
+    Decimal("45000.0"),
+    Decimal("43000.0"),
+    Decimal("47000.0")
+]
+approved, reason = check_volatility(volatile_prices)
+# Returns: (False, "Volatility of 9.30% exceeds maximum threshold of 3.00%")
+```
+
+#### Trade Approval Logic
+
+Combines all risk checks with market validation for final trade decision:
+- Drawdown validation
+- Volatility check
+- Market active status
+- Market closure check
+- Liquidity verification
+- Exposure limit validation
+
+```python
+from risk import approve_trade
+from models import BotState, MarketData
+from decimal import Decimal
+from datetime import datetime
+
+# Create bot state
+bot_state = BotState(
+    bot_id="bot_001",
+    strategy_name="momentum_v1",
+    max_position_size=Decimal("1000.0"),
+    max_total_exposure=Decimal("5000.0"),
+    risk_per_trade=Decimal("500.0"),
+    total_pnl=Decimal("250.0"),
+    current_exposure=Decimal("1500.0")
+)
+
+# Create market data
+market_data = MarketData(
+    market_id="market_123",
+    question="Will BTC reach $100k?",
+    end_date=datetime(2024, 12, 31),
+    yes_price=Decimal("0.65"),
+    no_price=Decimal("0.35"),
+    total_liquidity=Decimal("10000.0"),
+    is_active=True,
+    is_closed=False
+)
+
+# Price history
+price_history = [
+    Decimal("45000.0"),
+    Decimal("45100.0"),
+    Decimal("45200.0"),
+    Decimal("45150.0"),
+    Decimal("45100.0")
+]
+
+# Approve trade with all checks
+approved, reason = approve_trade(
+    signal="UP",
+    market_data=market_data,
+    bot_state=bot_state,
+    price_history=price_history
+)
+# Returns: (True, None) if all checks pass
+# Returns: (False, "rejection reason") if any check fails
+```
+
+#### Position Sizing
+
+Calculate maximum allowable trade size based on risk parameters:
+
+```python
+from risk import calculate_max_trade_size
+
+max_size = calculate_max_trade_size(bot_state, market_data)
+# Returns minimum of:
+# - max_position_size
+# - remaining_exposure (max_total_exposure - current_exposure)
+# - risk_per_trade
+```
+
+#### Risk Metrics
+
+Get comprehensive risk metrics for monitoring:
+
+```python
+from risk import get_risk_metrics
+
+metrics = get_risk_metrics(bot_state, price_history)
+# Returns dictionary with:
+# - current_capital
+# - starting_capital
+# - drawdown_percent
+# - volatility_percent
+# - exposure_utilization_percent
+# - win_rate_percent
+# - total_pnl
+```
+
+### Risk Validation Workflow
+
+```python
+from risk import approve_trade, calculate_max_trade_size, get_risk_metrics
+from models import BotState, MarketData
+
+# 1. Get risk metrics for monitoring
+metrics = get_risk_metrics(bot_state, price_history)
+print(f"Drawdown: {metrics['drawdown_percent']:.2f}%")
+print(f"Volatility: {metrics['volatility_percent']:.2f}%")
+
+# 2. Approve trade with all risk checks
+approved, reason = approve_trade(
+    signal="UP",
+    market_data=market_data,
+    bot_state=bot_state,
+    price_history=price_history
+)
+
+if not approved:
+    print(f"Trade rejected: {reason}")
+    return
+
+# 3. Calculate safe position size
+max_size = calculate_max_trade_size(bot_state, market_data)
+print(f"Max trade size: ${max_size}")
+
+# 4. Execute trade (if approved)
+# ... execute trade with max_size
+```
+
+### Error Handling
+
+All risk functions return tuples of `(approved: bool, reason: Optional[str])`:
+- **Success**: `(True, None)` - validation passed
+- **Failure**: `(False, "detailed reason")` - validation failed with explanation
+
+Invalid inputs are caught and returned as rejections:
+```python
+# Invalid starting capital
+approved, reason = check_drawdown(
+    current_capital=Decimal("50.0"),
+    starting_capital=Decimal("0.0")
+)
+# Returns: (False, "Invalid starting capital: 0. Must be greater than 0.")
+
+# Empty price history
+approved, reason = check_volatility([])
+# Returns: (False, "Price history is empty. Cannot calculate volatility.")
+```
+
 Run tests:
 ```bash
 # All tests
@@ -1396,12 +1613,14 @@ pytest -v
 # Specific test files
 pytest tests/test_models.py -v
 pytest tests/test_market_data.py -v
+pytest tests/test_risk.py -v
 pytest tests/test_state.py -v
 pytest test_config.py test_polymarket_utils.py -v
 
 # With coverage
 pytest tests/test_models.py --cov=models --cov-report=html
 pytest tests/test_market_data.py --cov=market_data --cov-report=html
+pytest tests/test_risk.py --cov=risk --cov-report=html
 pytest tests/test_state.py --cov=state --cov-report=html
 pytest test_config.py -v --cov=config --cov-report=html
 ```
