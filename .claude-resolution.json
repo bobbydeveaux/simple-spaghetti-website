@@ -1,6 +1,6 @@
 {
   "method": "ai-assisted",
-  "filesResolved": 3,
-  "summary": "Resolved merge conflicts in README.md, capital.py, and test_capital.py by preserving the more comprehensive class-based implementation from HEAD while merging documentation enhancements from both branches",
-  "strategyUsed": "For README.md: merged both feature lists to preserve all documentation. For capital.py and test_capital.py: kept the HEAD version's class-based CapitalAllocator implementation as it is more flexible and feature-complete than origin/main's Protocol-based approach, while ensuring all functionality from both versions is preserved. The HEAD implementation includes validation, configurable parameters, and comprehensive testing that aligns better with the project's architecture."
+  "filesResolved": 1,
+  "summary": "Successfully resolved merge conflict in polymarket-bot/README.md by preserving both Risk Management and Capital Allocation features from their respective branches",
+  "strategyUsed": "preserved both changes - kept Risk Management section from HEAD and Capital Allocation section from origin/main, as both are complementary features that should coexist in the documentation. Also merged the project structure and test file listings to include both risk.py/test_risk.py and capital.py/test_capital.py"
 }
