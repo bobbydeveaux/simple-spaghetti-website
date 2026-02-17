@@ -57,6 +57,14 @@ This package provides:
 - ✅ **24h Statistics**: Volume, high, low, and price change tracking
 - ✅ **Callback Support**: Custom handlers for price updates
 
+### Risk Management
+- ✅ **Drawdown Monitoring**: Automatic tracking of drawdown with configurable thresholds (default: 30%)
+- ✅ **Volatility Circuit Breaker**: Price volatility checks to prevent trading in unstable markets (default: 3% over 5 periods)
+- ✅ **Pre-Trade Validation**: Combined risk checks before trade execution
+- ✅ **Rejection Reasons**: Detailed explanations for rejected trades
+- ✅ **Configurable Thresholds**: Customizable risk parameters for different strategies
+- ✅ **Comprehensive Testing**: 50+ test cases covering boundary conditions and edge cases
+
 ### Technical Capabilities
 - **Environment Configuration**: Secure API key management using `.env` files
 - **WebSocket Streaming**: Real-time BTC/USDT price streaming from Binance with automatic reconnection
@@ -76,12 +84,14 @@ polymarket-bot/
 ├── config.py                   # Configuration management
 ├── models.py                   # Core data models (BotState, Trade, Position, MarketData, BTCPriceData)
 ├── market_data.py              # Market data service (Binance WebSocket, Polymarket API, technical indicators)
+├── risk.py                     # Risk management module (drawdown, volatility, trade approval)
 ├── state.py                    # State persistence and logging
 ├── utils.py                    # Utility functions (retry, validation, error handling)
 ├── tests/                      # Comprehensive test suite
 │   ├── test_models.py          # Model validation tests (including BTCPriceData)
 │   ├── test_market_data.py     # Market data service and Polymarket API tests
 │   ├── test_binance_websocket.py # Binance WebSocket tests
+│   ├── test_risk.py            # Risk management tests
 │   └── test_state.py           # State persistence tests
 ├── test_config.py              # Configuration tests
 └── README.md                   # This file
@@ -905,6 +915,128 @@ data/
 ├── bot_state.json   # Current bot state (atomic writes)
 ├── metrics.json     # Performance metrics (atomic writes)
 └── trades.log       # Trade history log (append-only)
+```
+
+## Risk Management
+
+The risk management module provides pre-trade validation to ensure trades comply with risk limits before execution.
+
+### Features
+
+- **Drawdown Monitoring**: Tracks drawdown from starting capital with configurable threshold (default: 30%)
+- **Volatility Circuit Breaker**: Prevents trading during high volatility periods (default: 3% over 5 periods)
+- **Trade Approval**: Combines all risk checks to approve/reject trades with detailed reasons
+
+### Usage
+
+#### Basic Usage with Convenience Functions
+
+```python
+from risk import check_drawdown, check_volatility, approve_trade
+
+# Check if drawdown is within limits
+current_capital = 75.0
+starting_capital = 100.0
+if check_drawdown(current_capital, starting_capital, max_drawdown_percent=30.0):
+    print("Drawdown is acceptable")
+else:
+    print("Drawdown exceeds threshold")
+
+# Check if volatility is within limits
+price_history = [100.0, 101.0, 102.0, 101.5, 102.5]
+if check_volatility(price_history, max_volatility_percent=3.0, lookback_periods=5):
+    print("Volatility is acceptable")
+else:
+    print("Volatility too high")
+
+# Approve trade (combines all checks)
+signal = "UP"  # or "DOWN" or "SKIP"
+if approve_trade(signal, current_capital, price_history, starting_capital):
+    print("Trade approved - safe to execute")
+else:
+    print("Trade rejected - risk limits exceeded")
+```
+
+#### Advanced Usage with RiskController
+
+```python
+from risk import RiskController
+
+# Create risk controller with custom settings
+risk_controller = RiskController(
+    max_drawdown_percent=25.0,  # Custom 25% drawdown limit
+    max_volatility_percent=5.0,  # Custom 5% volatility limit
+    starting_capital=1000.0      # Custom starting capital
+)
+
+# Check drawdown with detailed feedback
+passed, reason = risk_controller.check_drawdown(current_capital=800.0)
+if not passed:
+    print(f"Drawdown check failed: {reason}")
+
+# Check volatility with detailed feedback
+price_history = [100.0, 101.0, 105.0, 102.0, 103.0]
+passed, reason = risk_controller.check_volatility(price_history)
+if not passed:
+    print(f"Volatility check failed: {reason}")
+
+# Approve trade with detailed feedback
+approved, reason = risk_controller.approve_trade(
+    signal="UP",
+    current_capital=800.0,
+    price_history=price_history
+)
+
+if approved:
+    print("Trade approved - executing order")
+else:
+    print(f"Trade rejected: {reason}")
+```
+
+### Risk Check Details
+
+#### Drawdown Calculation
+
+```
+drawdown_percent = ((starting_capital - current_capital) / starting_capital) * 100
+```
+
+- **Passes if**: `drawdown_percent <= max_drawdown_percent`
+- **Default threshold**: 30%
+- **Example**: With $100 starting capital and $69 current capital, drawdown is 31% and fails
+
+#### Volatility Calculation
+
+```
+price_range = max(recent_prices) - min(recent_prices)
+volatility_percent = (price_range / min(recent_prices)) * 100
+```
+
+- **Passes if**: `volatility_percent <= max_volatility_percent`
+- **Default threshold**: 3% over last 5 periods
+- **Example**: Prices [100, 101, 103.1, 102, 101.5] have 3.1% volatility and fail
+
+#### Trade Approval Logic
+
+1. **SKIP signals**: Always approved (no trade executed)
+2. **UP/DOWN signals**: Must pass both drawdown AND volatility checks
+3. **Invalid signals**: Rejected with error message
+
+### Testing
+
+The risk module includes comprehensive tests covering:
+
+- Boundary conditions (29%, 30%, 31% drawdown)
+- Boundary conditions (2.9%, 3%, 3.1% volatility)
+- Edge cases (zero capital, negative values, empty history)
+- All combinations of signal types and risk states
+
+```bash
+# Run risk management tests
+pytest tests/test_risk.py -v
+
+# Run with coverage
+pytest tests/test_risk.py --cov=risk --cov-report=html
 ```
 
 ## Utility Functions
