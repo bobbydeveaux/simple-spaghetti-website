@@ -1,0 +1,13 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: a-simple-go-protobuf-api-feat-protobuf-service
+        name: Protobuf Service Definition and Code Generation
+        type: enabler
+        files: [proto/greeter/v1/greeter.proto buf.yaml buf.gen.yaml go.mod]
+      - id: a-simple-go-protobuf-api-feat-http-server
+        name: HTTP Server with Greeter Handler
+        type: feature
+        files: [main.go]
