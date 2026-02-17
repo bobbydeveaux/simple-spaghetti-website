@@ -1,6 +1,6 @@
 {
   "method": "ai-assisted",
-  "filesResolved": 2,
-  "summary": "Successfully resolved merge conflicts by preserving functionality from both branches. Combined Prediction Engine features from HEAD with Risk Management and Capital Allocation features from main. Merged import statements in state.py to include all necessary modules (json, datetime, timezone).",
-  "strategyUsed": "Preserved both changes - merged feature sections in README.md by keeping all three feature sections (Prediction Engine, Risk Management System, and Capital Allocation). Updated project structure to include all new modules (prediction.py, risk.py, capital.py). In state.py, combined imports from both branches to ensure all required modules are available. This approach maintains all functionality from both development streams without losing any features."
+  "filesResolved": 5,
+  "summary": "Resolved conflicts by choosing class-based PredictionEngine API from origin/main and merging documentation sections. Preserved both prediction engine and capital allocation features from both branches.",
+  "strategyUsed": "Preserved origin/main's class-based PredictionEngine architecture (with PredictionEngine class) over HEAD's function-based API, as it aligns with the newer codebase design including risk management and capital allocation. Merged README documentation to include both prediction engine and capital allocation sections. Combined review feedback from both branches addressing ValidationError bug (resolved) and MACD configuration issue (pending). Updated __init__.py exports to match the class-based API and bumped version to 0.3.0."
 }

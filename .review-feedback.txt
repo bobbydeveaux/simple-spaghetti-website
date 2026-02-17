@@ -2,15 +2,19 @@
 
 ## Review Complete
 
-I've completed the comprehensive code review for PR #266. Here's my assessment:
+I've completed comprehensive code reviews for the prediction engine implementation. Here's my assessment:
 
 ## ❌ BLOCKING ISSUES FOUND
 
-### Critical Issue: MACD Configuration Not Applied
+### Critical Issue 1: MACD Configuration Not Applied
 
 The prediction engine has a **functional bug** where MACD configuration parameters (`macd_fast_period`, `macd_slow_period`, `macd_signal_period`) are validated, logged, and documented but **never actually used** in the calculation. The `calculate_macd()` function in `market_data.py` uses hardcoded values (12, 26, 9) instead.
 
 **Impact**: Users can set these environment variables, see them in logs, and believe they're working - but they have no effect on predictions.
+
+### Critical Issue 2: ValidationError Called with Incorrect Arguments (RESOLVED)
+
+**Note:** This issue was identified in an earlier version where `ValidationError` was called with two arguments (field name, message) but the class only accepts one argument. This has been resolved in the current implementation.
 
 ### Additional Non-Blocking Issues Found:
 
@@ -23,14 +27,16 @@ The prediction engine has a **functional bug** where MACD configuration paramete
 ### Positive Aspects:
 
 ✅ Excellent test coverage (60+ test cases)
-✅ Comprehensive README documentation  
+✅ Comprehensive README documentation
 ✅ Strong configuration validation
 ✅ Clean code structure and error handling
 ✅ Well-designed models and type hints
 
+## Summary
+
 The MACD configuration issue is a functional defect that must be fixed before merge. The fix is straightforward - update `calculate_macd()` to accept period parameters and pass the config values through.
 
-**Action Required**: Please address the blocking issues above before merging.
+**Action Required**: Please address the blocking issue above before merging.
 
 ---
 *Reviewed by code-reviewer agent*

@@ -24,6 +24,14 @@ This package provides:
 - ✅ **Business Logic Methods**: Built-in helpers for common calculations (P&L, win rate, etc.)
 - ✅ **Test Coverage**: Comprehensive test suite with 100% model coverage
 
+### Prediction Engine
+- ✅ **Rule-Based Signals**: Deterministic UP/DOWN/SKIP signal generation
+- ✅ **Technical Indicators**: RSI (overbought/oversold) and MACD (momentum) analysis
+- ✅ **Order Book Analysis**: Bid/ask imbalance for market pressure assessment
+- ✅ **Confidence Scoring**: 0-100 confidence based on indicator agreement
+- ✅ **Edge Case Handling**: Graceful handling of insufficient data and invalid inputs
+- ✅ **Comprehensive Tests**: 40+ test cases covering all scenarios
+
 ### Market Data Integration
 - ✅ **Binance WebSocket**: Real-time BTC/USDT price streaming with automatic reconnection
 - ✅ **Technical Indicators**: RSI and MACD calculations for price analysis
@@ -841,6 +849,31 @@ The WebSocket receives 24hr ticker data from Binance:
 
 This is automatically parsed into `BTCPriceData` model instances.
 
+## Prediction Engine
+
+The `prediction.py` module implements a deterministic rule-based signal generator that produces trading signals based on technical indicators and market analysis.
+
+### Features
+
+- **Technical Indicator Analysis**: RSI (Relative Strength Index) and MACD (Moving Average Convergence Divergence)
+- **Order Book Analysis**: Bid/Ask imbalance for market pressure assessment
+- **Confidence Scoring**: 0-100 confidence scores based on indicator agreement
+- **Class-Based API**: `PredictionEngine` class for stateful prediction generation
+- **Edge Case Handling**: Graceful handling of insufficient data, invalid inputs, and conflicting signals
+- **Deterministic**: Same inputs always produce same outputs (no randomness)
+
+### Signal Types
+
+The prediction engine generates three types of signals:
+
+- **UP**: Bullish signal indicating price expected to rise
+- **DOWN**: Bearish signal indicating price expected to fall
+- **SKIP**: No clear signal or conflicting indicators
+
+### Confidence Levels
+
+Confidence scores are calculated based on indicator conditions and configuration thresholds.
+
 ## Capital Allocation
 
 The `capital.py` module implements win-streak capital allocation logic for position sizing. Position sizes scale with consecutive winning trades using a multiplier system, with a maximum cap to manage risk.
@@ -973,7 +1006,64 @@ print(new_streak)  # Output: 0
 3. **Parameter Validation**: Invalid parameters raise `ValueError` on initialization
 4. **Negative Streak Protection**: Negative win streaks are rejected
 
-### Usage Example
+### Prediction Engine Usage Example
+
+```python
+from prediction import PredictionEngine, generate_signal_from_market_data
+from models import SignalType
+
+# Initialize prediction engine
+engine = PredictionEngine()
+
+# Generate signal from price history
+prices = [50000.0, 50100.0, 50200.0, ...]  # Historical prices
+prediction = engine.generate_signal(prices=prices, btc_price=50250.0)
+
+print(f"Signal: {prediction.signal.value}")  # "up", "down", or "skip"
+print(f"Confidence: {prediction.confidence}")
+print(f"Reasoning: {prediction.reasoning}")
+
+# Act on the signal
+if prediction.signal == SignalType.UP and prediction.confidence >= 60:
+    print("Strong bullish signal - consider buying")
+elif prediction.signal == SignalType.DOWN and prediction.confidence >= 60:
+    print("Strong bearish signal - consider selling")
+else:
+    print("No clear signal - skip this opportunity")
+```
+
+### Indicator Thresholds
+
+The prediction engine uses configurable thresholds for signal generation:
+
+**RSI (Relative Strength Index)**
+- **Oversold**: RSI < configured threshold (default 30) - contributes to UP signal
+- **Overbought**: RSI > configured threshold (default 70) - contributes to DOWN signal
+
+**MACD (Moving Average Convergence Divergence)**
+- **Bullish**: MACD line > signal line - contributes to UP signal
+- **Bearish**: MACD line < signal line - contributes to DOWN signal
+
+**Order Book Imbalance**
+- **Buying Pressure**: bid/ask > configured threshold (default 1.1) - contributes to UP signal
+- **Selling Pressure**: bid/ask < configured threshold (default 0.9) - contributes to DOWN signal
+
+### Testing
+
+The prediction engine includes comprehensive test cases covering:
+
+- Signal generation based on indicator conditions
+- Confidence score calculation
+- Edge cases (invalid inputs, insufficient data)
+- Realistic trading scenarios
+- Integration with configuration
+
+Run tests:
+```bash
+pytest tests/test_prediction.py -v
+```
+
+## Capital Allocation - Full Usage Example
 
 ```python
 from capital import CapitalAllocator, calculate_position_size
@@ -1009,7 +1099,7 @@ for trade_number in range(10):
     )
 ```
 
-### Testing
+### Capital Allocation Testing
 
 The capital allocation module includes comprehensive tests in `tests/test_capital.py`:
 
@@ -1026,7 +1116,6 @@ pytest tests/test_capital.py -v
 - Edge cases and boundary conditions
 - Integration with BotState
 - Acceptance criteria verification
-
 ## State Persistence and Logging
 
 The `state.py` module provides robust state management, trade logging, and metrics tracking with atomic writes and crash recovery.
