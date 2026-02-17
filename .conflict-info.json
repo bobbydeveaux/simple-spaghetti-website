@@ -1,9 +1,12 @@
 {
-  "prNumber": 244,
+  "prNumber": 242,
   "baseBranch": "main",
-  "headBranch": "feature/213-polymarket-bot-sprint-2-issue-213",
+  "headBranch": "feature/237-polymarket-bot-sprint-2-issue-237",
   "conflictedFiles": [
-    "polymarket-bot/README.md"
+    ".claude-output.json",
+    "polymarket-bot/README.md",
+    "polymarket-bot/market_data.py",
+    "polymarket-bot/tests/test_market_data.py"
   ],
-  "conflictCount": 1
+  "conflictCount": 4
 }
