@@ -73,9 +73,9 @@ data/                            # Created at runtime
 - `PolymarketClient`: REST API wrapper for market discovery and odds fetching
 
 **Key Functions:**
-- `get_market_data() -> MarketData`: Aggregates BTC price, RSI, MACD, order book imbalance, Polymarket odds using configured indicator parameters
+- `get_market_data() -> MarketData`: Aggregates BTC price, RSI, MACD, order book imbalance, Polymarket odds using configured indicator parameters (RSI_PERIOD, MACD_FAST_PERIOD, MACD_SLOW_PERIOD, MACD_SIGNAL_PERIOD from config)
 - `calculate_rsi(prices: List[float], period: int = 14) -> float`: RSI calculation using ta-lib with configurable period
-- `calculate_macd(prices: List[float], fast_period: int = 12, slow_period: int = 26, signal_period: int = 9) -> Tuple[float, float]`: MACD line and signal line with configurable periods
+- `calculate_macd(prices: List[float], fast_period: int = 12, slow_period: int = 26, signal_period: int = 9) -> Tuple[float, float]`: MACD line and signal line with configurable periods (note: these parameters are now used in calculations)
 - `get_order_book_imbalance() -> float`: Binance order book bid/ask ratio
 - `find_active_market() -> Optional[str]`: Queries Polymarket for next settling BTC 5-min market
 
@@ -276,9 +276,9 @@ class Position:
 @dataclass
 class MarketData:
     btc_price: float
-    rsi: float  # Calculated with configurable period
-    macd_line: float  # Calculated with configurable periods
-    macd_signal: float
+    rsi: float  # Calculated with RSI_PERIOD (default 14)
+    macd_line: float  # Calculated with MACD_FAST_PERIOD (default 12) and MACD_SLOW_PERIOD (default 26)
+    macd_signal: float  # Calculated with MACD_SIGNAL_PERIOD (default 9)
     order_book_imbalance: float
     polymarket_odds_up: float
     polymarket_odds_down: float

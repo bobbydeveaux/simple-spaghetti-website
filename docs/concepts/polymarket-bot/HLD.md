@@ -55,9 +55,9 @@ Single-process monolithic application with event-driven loop architecture. The b
 
 **MarketData** (in-memory):
 - btc_price: float
-- rsi: float (calculated with configurable period)
-- macd_line: float (calculated with configurable fast/slow periods)
-- macd_signal: float (calculated with configurable signal period)
+- rsi: float (calculated with configurable RSI_PERIOD, default 14)
+- macd_line: float (calculated with configurable MACD_FAST_PERIOD, default 12, and MACD_SLOW_PERIOD, default 26)
+- macd_signal: float (calculated with configurable MACD_SIGNAL_PERIOD, default 9)
 - order_book_imbalance: float
 - polymarket_odds_up: float
 - polymarket_odds_down: float
