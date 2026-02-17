@@ -12,7 +12,7 @@ All risk checks integrate with BotState and MarketData models from models.py.
 
 from decimal import Decimal
 from typing import List, Tuple, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 from .models import BotState, MarketData
