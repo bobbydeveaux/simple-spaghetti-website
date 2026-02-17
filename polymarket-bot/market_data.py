@@ -1,617 +1,1228 @@
 """
 Market Data Service for Polymarket Bot.
 
-This module provides unified market data integration combining:
-- Binance WebSocket for real-time BTC/USDT price data
+This module provides real-time market data integration including:
+- Polymarket API client for market discovery and odds retrieval
+- BTC-related market filtering
+- Real-time market data fetching with retry logic
+- Market metadata and pricing data management
+- Binance WebSocket client for real-time BTC/USDT price feed with BTCPriceData model
 - Technical indicator calculations (RSI, MACD)
-- Order book imbalance analysis
-- Polymarket API for market discovery and odds retrieval
+- Order book imbalance metrics
 
-The MarketDataService class orchestrates all data sources and provides
-a unified interface for accessing market data throughout the bot.
+The service manages WebSocket connections with automatic reconnection logic,
+provides fallback mechanisms for data retrieval, and handles API interactions
+with retry logic and error handling.
 """
 
 import json
-import logging
-import threading
 import time
-from collections import deque
-from decimal import Decimal
-from typing import Dict, List, Optional, Tuple, Any, Deque
-from datetime import datetime, timezone
-import websocket
+import logging
 import requests
+import threading
+from typing import List, Dict, Any, Optional, Callable, Tuple
+from decimal import Decimal
+from threading import Thread, Lock
+from collections import deque
+from datetime import datetime
+import numpy as np
+import talib
+import websocket
+from websocket import WebSocketApp, WebSocketConnectionClosedException
 
-from .utils import retry_with_backoff, ValidationError
-from .models import MarketData
+from .config import Config, get_config
+from .models import MarketData, OutcomeType, BTCPriceData
+from .utils import (
+    retry_with_backoff,
+    validate_non_empty,
+    validate_probability,
+    ValidationError,
+    RetryError
+)
 
-# Configure module logger
+
+# Setup logging
 logger = logging.getLogger(__name__)
+
+
+class PolymarketAPIError(Exception):
+    """Exception raised for Polymarket API errors."""
+    pass
 
 
 class BinanceWebSocketClient:
     """
-    WebSocket client for real-time BTC/USDT price data from Binance.
+    WebSocket client for streaming real-time BTC/USDT prices from Binance.
 
-    Manages connection, message parsing, reconnection logic, and maintains
-    a price buffer for technical indicator calculations.
+    Manages WebSocket connection, maintains a rolling buffer of prices for
+    technical indicator calculation, and provides automatic reconnection
+    on network failures.
     """
 
-    def __init__(
-        self,
-        symbol: str = "btcusdt",
-        interval: str = "1m",
-        buffer_size: int = 100,
-        max_reconnect_attempts: int = 5,
-        reconnect_delay: float = 5.0
-    ):
+    def __init__(self, buffer_size: int = 100):
         """
-        Initialize Binance WebSocket client.
+        Initialize the Binance WebSocket client.
 
         Args:
-            symbol: Trading pair symbol (default: btcusdt)
-            interval: Kline interval (default: 1m)
-            buffer_size: Maximum price history buffer size
-            max_reconnect_attempts: Maximum reconnection attempts
-            reconnect_delay: Delay between reconnection attempts in seconds
+            buffer_size: Maximum number of price points to keep in memory
         """
-        self.symbol = symbol.lower()
-        self.interval = interval
+        self.config = get_config()
+        self.ws_url = "wss://stream.binance.com:9443/ws/btcusdt@kline_1m"
         self.buffer_size = buffer_size
-        self.max_reconnect_attempts = max_reconnect_attempts
-        self.reconnect_delay = reconnect_delay
-
-        # Price buffer using deque for efficient append/pop
-        self.price_buffer: Deque[float] = deque(maxlen=buffer_size)
-
-        # WebSocket connection state
-        self.ws: Optional[websocket.WebSocketApp] = None
-        self.ws_thread: Optional[threading.Thread] = None
+        self.price_buffer: deque = deque(maxlen=buffer_size)
+        self.ws: Optional[WebSocketApp] = None
+        self.ws_thread: Optional[Thread] = None
         self.is_connected = False
-        self.should_reconnect = True
-        self.reconnect_count = 0
+        self.reconnect_attempts = 0
+        self.lock = Lock()
 
-        # Latest price data
-        self.latest_price: Optional[float] = None
-        self.last_update_time: Optional[datetime] = None
-
-        # Lock for thread-safe operations
-        self._lock = threading.Lock()
-
-        logger.info(f"Initialized BinanceWebSocketClient for {symbol} {interval}")
+        logger.info(f"Initialized BinanceWebSocketClient with buffer_size={buffer_size}")
 
     def connect(self) -> None:
         """
-        Connect to Binance WebSocket stream.
+        Establish WebSocket connection to Binance.
 
-        Starts WebSocket connection in a background thread.
+        Starts a background thread to handle WebSocket messages.
+        Implements automatic reconnection logic on failures.
         """
         if self.is_connected:
             logger.warning("WebSocket already connected")
             return
 
-        # Construct WebSocket URL
-        ws_url = f"wss://stream.binance.com:9443/ws/{self.symbol}@kline_{self.interval}"
+        logger.info(f"Connecting to Binance WebSocket: {self.ws_url}")
 
-        logger.info(f"Connecting to Binance WebSocket: {ws_url}")
-
-        self.ws = websocket.WebSocketApp(
-            ws_url,
+        self.ws = WebSocketApp(
+            self.ws_url,
+            on_open=self._on_open,
             on_message=self._on_message,
             on_error=self._on_error,
-            on_close=self._on_close,
-            on_open=self._on_open
+            on_close=self._on_close
         )
 
-        # Run WebSocket in background thread
-        self.ws_thread = threading.Thread(target=self.ws.run_forever, daemon=True)
+        # Run WebSocket in a separate thread
+        self.ws_thread = Thread(target=self.ws.run_forever, daemon=True)
         self.ws_thread.start()
+
+        # Wait for connection to establish with proper synchronization
+        timeout = 10
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            with self.lock:
+                if self.is_connected:
+                    return
+            time.sleep(0.1)
+
+        # Check one final time after timeout
+        with self.lock:
+            if not self.is_connected:
+                raise ConnectionError("Failed to connect to Binance WebSocket within timeout")
 
     def _on_open(self, ws) -> None:
         """Handle WebSocket connection opened."""
-        with self._lock:
+        with self.lock:
             self.is_connected = True
-            self.reconnect_count = 0
+            self.reconnect_attempts = 0
         logger.info("Binance WebSocket connection established")
 
     def _on_message(self, ws, message: str) -> None:
         """
-        Handle incoming WebSocket message.
+        Handle incoming WebSocket messages.
+
+        Args:
+            ws: WebSocket instance
+            message: JSON message string from Binance
+        """
+        try:
+            data = json.loads(message)
+
+            # Extract close price from kline data
+            if 'k' in data:
+                close_price = float(data['k']['c'])
+
+                with self.lock:
+                    self.price_buffer.append(close_price)
+
+                logger.debug(f"Received BTC price: {close_price:.2f} (buffer size: {len(self.price_buffer)})")
+
+        except (json.JSONDecodeError, KeyError, ValueError) as e:
+            logger.error(f"Error parsing WebSocket message: {e}")
+
+    def _on_error(self, ws, error) -> None:
+        """Handle WebSocket errors."""
+        logger.error(f"Binance WebSocket error: {error}")
+
+    def _on_close(self, ws, close_status_code, close_msg) -> None:
+        """
+        Handle WebSocket connection closed.
+
+        Implements automatic reconnection logic with exponential backoff.
+        """
+        with self.lock:
+            self.is_connected = False
+            current_attempts = self.reconnect_attempts
+
+        logger.warning(f"Binance WebSocket closed: {close_status_code} - {close_msg}")
+
+        # Attempt reconnection if within retry limit
+        if current_attempts < self.config.ws_max_reconnect_attempts:
+            with self.lock:
+                self.reconnect_attempts += 1
+                next_attempt = self.reconnect_attempts
+            delay = min(self.config.ws_reconnect_delay * (2 ** (next_attempt - 1)), 60)
+
+            logger.info(f"Attempting reconnection {next_attempt}/{self.config.ws_max_reconnect_attempts} in {delay}s")
+
+            # Schedule reconnection in a separate thread to avoid blocking
+            def delayed_reconnect():
+                time.sleep(delay)
+                try:
+                    self.connect()
+                except Exception as e:
+                    logger.error(f"Reconnection failed: {e}")
+
+            reconnect_thread = Thread(target=delayed_reconnect, daemon=True)
+            reconnect_thread.start()
+        else:
+            logger.error(f"Max reconnection attempts ({self.config.ws_max_reconnect_attempts}) reached")
+
+    def get_latest_prices(self, count: int = 100) -> List[float]:
+        """
+        Get the most recent prices from the buffer.
+
+        Args:
+            count: Number of recent prices to retrieve
+
+        Returns:
+            List of prices (oldest to newest)
+        """
+        with self.lock:
+            prices = list(self.price_buffer)
+
+        # Return up to 'count' most recent prices
+        return prices[-count:] if len(prices) >= count else prices
+
+    def get_latest_price(self) -> Optional[float]:
+        """
+        Get the most recent price.
+
+        Returns:
+            Latest BTC price or None if buffer is empty
+        """
+        with self.lock:
+            if len(self.price_buffer) > 0:
+                return self.price_buffer[-1]
+        return None
+
+    def close(self) -> None:
+        """Close the WebSocket connection gracefully."""
+        logger.info("Closing Binance WebSocket connection")
+        self.is_connected = False
+
+        if self.ws:
+            self.ws.close()
+
+        if self.ws_thread and self.ws_thread.is_alive():
+            self.ws_thread.join(timeout=2)
+
+
+class PolymarketClient:
+    """
+    Client for interacting with the Polymarket API.
+
+    Provides methods for discovering active markets, fetching market odds,
+    and filtering BTC-related prediction markets.
+    """
+
+    def __init__(self, config: Config):
+        """
+        Initialize the Polymarket API client.
+
+        Args:
+            config: Configuration object containing API credentials and base URL
+        """
+        self.config = config
+        self.base_url = config.polymarket_base_url
+        self.api_key = config.polymarket_api_key
+        self.session = requests.Session()
+
+        # Set default headers
+        self.session.headers.update({
+            'Authorization': f'Bearer {self.api_key}',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        })
+
+        logger.info(f"Initialized PolymarketClient with base URL: {self.base_url}")
+
+    @retry_with_backoff(max_attempts=3, base_delay=1.0, exceptions=(requests.RequestException,))
+    def _make_request(
+        self,
+        method: str,
+        endpoint: str,
+        params: Optional[Dict[str, Any]] = None,
+        data: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Make an HTTP request to the Polymarket API with retry logic.
+
+        Args:
+            method: HTTP method (GET, POST, etc.)
+            endpoint: API endpoint path
+            params: Query parameters
+            data: Request body data
+
+        Returns:
+            JSON response from the API
+
+        Raises:
+            PolymarketAPIError: If the API request fails
+        """
+        url = f"{self.base_url}{endpoint}"
+
+        try:
+            response = self.session.request(
+                method=method,
+                url=url,
+                params=params,
+                json=data,
+                timeout=30
+            )
+
+            # Log rate limit information if available
+            if 'X-RateLimit-Remaining' in response.headers:
+                remaining = response.headers['X-RateLimit-Remaining']
+                logger.debug(f"API rate limit remaining: {remaining}")
+
+            response.raise_for_status()
+
+            return response.json()
+
+        except requests.HTTPError as e:
+            error_msg = f"HTTP error {e.response.status_code}: {e.response.text}"
+            logger.error(error_msg)
+            raise PolymarketAPIError(error_msg) from e
+
+        except requests.RequestException as e:
+            error_msg = f"Request failed: {str(e)}"
+            logger.error(error_msg)
+            raise PolymarketAPIError(error_msg) from e
+
+        except ValueError as e:
+            error_msg = f"Invalid JSON response: {str(e)}"
+            logger.error(error_msg)
+            raise PolymarketAPIError(error_msg) from e
+
+    def get_active_markets(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        closed: bool = False
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetch active markets from Polymarket.
+
+        Args:
+            limit: Maximum number of markets to retrieve (default: 100)
+            offset: Number of markets to skip (default: 0)
+            closed: Whether to include closed markets (default: False)
+
+        Returns:
+            List of market data dictionaries
+
+        Raises:
+            PolymarketAPIError: If the API request fails
+        """
+        endpoint = "/markets"
+        params = {
+            "limit": limit,
+            "offset": offset,
+            "closed": "true" if closed else "false"
+        }
+
+        logger.info(f"Fetching active markets (limit={limit}, offset={offset})")
+
+        response = self._make_request("GET", endpoint, params=params)
+
+        # Handle different response formats
+        markets = response if isinstance(response, list) else response.get('markets', [])
+
+        logger.info(f"Retrieved {len(markets)} markets from Polymarket")
+
+        return markets
+
+    def get_market_by_id(self, market_id: str) -> Dict[str, Any]:
+        """
+        Fetch a specific market by ID.
+
+        Args:
+            market_id: Unique market identifier
+
+        Returns:
+            Market data dictionary
+
+        Raises:
+            PolymarketAPIError: If the API request fails
+            ValidationError: If market_id is invalid
+        """
+        validate_non_empty(market_id, "market_id")
+
+        endpoint = f"/markets/{market_id}"
+
+        logger.info(f"Fetching market {market_id}")
+
+        return self._make_request("GET", endpoint)
+
+    def search_markets(self, query: str, limit: int = 50) -> List[Dict[str, Any]]:
+        """
+        Search for markets matching a query string.
+
+        Args:
+            query: Search query string
+            limit: Maximum number of results (default: 50)
+
+        Returns:
+            List of matching market data dictionaries
+
+        Raises:
+            PolymarketAPIError: If the API request fails
+            ValidationError: If query is empty
+        """
+        validate_non_empty(query, "query")
+
+        endpoint = "/markets"
+        params = {
+            "query": query,
+            "limit": limit
+        }
+
+        logger.info(f"Searching markets with query: '{query}'")
+
+        response = self._make_request("GET", endpoint, params=params)
+
+        markets = response if isinstance(response, list) else response.get('markets', [])
+
+        logger.info(f"Found {len(markets)} markets matching '{query}'")
+
+        return markets
+
+    def get_btc_markets(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """
+        Fetch BTC-related prediction markets.
+
+        Searches for markets containing Bitcoin-related keywords and filters
+        for active markets with sufficient liquidity.
+
+        Args:
+            limit: Maximum number of markets to retrieve (default: 50)
+
+        Returns:
+            List of BTC-related market data dictionaries
+
+        Raises:
+            PolymarketAPIError: If the API request fails
+        """
+        # Search terms for BTC-related markets
+        btc_keywords = ["BTC", "Bitcoin", "bitcoin"]
+
+        all_markets = []
+        seen_ids = set()
+
+        for keyword in btc_keywords:
+            try:
+                markets = self.search_markets(keyword, limit=limit)
+
+                # Add unique markets
+                for market in markets:
+                    market_id = market.get('id') or market.get('market_id')
+                    if market_id and market_id not in seen_ids:
+                        all_markets.append(market)
+                        seen_ids.add(market_id)
+
+            except PolymarketAPIError as e:
+                logger.warning(f"Failed to search for '{keyword}': {e}")
+                continue
+
+        # Filter for active markets
+        active_btc_markets = [
+            market for market in all_markets
+            if self._is_market_active(market)
+        ]
+
+        logger.info(f"Found {len(active_btc_markets)} active BTC-related markets")
+
+        return active_btc_markets[:limit]
+
+    def _is_market_active(self, market: Dict[str, Any]) -> bool:
+        """
+        Check if a market is active for trading.
+
+        Args:
+            market: Market data dictionary
+
+        Returns:
+            True if market is active, False otherwise
+        """
+        # Check if market is explicitly closed
+        if market.get('closed') or market.get('is_closed'):
+            return False
+
+        # Check if market is active
+        if not market.get('active', True) and not market.get('is_active', True):
+            return False
+
+        # Check if market has ended
+        end_date_str = market.get('end_date') or market.get('end_time')
+        if end_date_str:
+            try:
+                end_date = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
+                if end_date < datetime.now(end_date.tzinfo):
+                    return False
+            except (ValueError, AttributeError):
+                # If we can't parse the date, assume it's active
+                pass
+
+        return True
+
+    def parse_market_data(self, market: Dict[str, Any]) -> MarketData:
+        """
+        Parse raw market data from API into MarketData model.
+
+        Args:
+            market: Raw market data dictionary from API
+
+        Returns:
+            MarketData model instance
+
+        Raises:
+            ValidationError: If required fields are missing or invalid
+        """
+        # Extract market ID
+        market_id = market.get('id') or market.get('market_id') or market.get('marketId')
+        if not market_id:
+            raise ValidationError("Market data missing 'id' field")
+
+        # Extract question/title
+        question = (
+            market.get('question') or
+            market.get('title') or
+            market.get('description', 'Unknown Market')
+        )
+
+        # Extract prices (probabilities)
+        yes_price = self._extract_price(market, 'yes')
+        no_price = self._extract_price(market, 'no')
+
+        # Ensure prices sum to approximately 1.0
+        if yes_price and no_price:
+            total = yes_price + no_price
+            if abs(total - Decimal("1.0")) > Decimal("0.05"):
+                logger.warning(
+                    f"Market {market_id} prices don't sum to 1.0: "
+                    f"yes={yes_price}, no={no_price}, total={total}"
+                )
+
+        # Extract volumes
+        yes_volume = self._extract_volume(market, 'yes')
+        no_volume = self._extract_volume(market, 'no')
+
+        # Extract liquidity
+        liquidity = Decimal(str(market.get('liquidity', 0)))
+
+        # Extract dates
+        created_date = self._parse_datetime(
+            market.get('created_at') or market.get('creation_date'),
+            datetime.utcnow()
+        )
+
+        end_date = self._parse_datetime(
+            market.get('end_date') or market.get('end_time'),
+            datetime.utcnow()
+        )
+
+        # Extract market status
+        is_active = self._is_market_active(market)
+        is_closed = market.get('closed', False) or market.get('is_closed', False)
+
+        # Extract resolution if available
+        resolution = None
+        if market.get('resolved'):
+            resolution_str = market.get('resolution') or market.get('winning_outcome')
+            if resolution_str:
+                resolution = (
+                    OutcomeType.YES if resolution_str.lower() == 'yes'
+                    else OutcomeType.NO if resolution_str.lower() == 'no'
+                    else None
+                )
+
+        # Extract metadata
+        category = market.get('category')
+        tags = market.get('tags', [])
+        if isinstance(tags, str):
+            tags = [tags]
+
+        description = market.get('description')
+
+        return MarketData(
+            market_id=str(market_id),
+            question=question,
+            description=description,
+            created_date=created_date,
+            end_date=end_date,
+            yes_price=yes_price,
+            no_price=no_price,
+            yes_volume=yes_volume,
+            no_volume=no_volume,
+            total_liquidity=liquidity,
+            is_active=is_active,
+            is_closed=is_closed,
+            resolution=resolution,
+            category=category,
+            tags=tags,
+            metadata=market
+        )
+
+    def _extract_price(self, market: Dict[str, Any], outcome: str) -> Decimal:
+        """Extract price for a specific outcome from market data."""
+        price_key = f"{outcome}_price"
+        price = market.get(price_key) or market.get(f"{outcome}Price")
+
+        # Try nested structure
+        if price is None and 'prices' in market:
+            price = market['prices'].get(outcome)
+
+        # Try outcomes array
+        if price is None and 'outcomes' in market:
+            for outcome_data in market['outcomes']:
+                if outcome_data.get('name', '').lower() == outcome.lower():
+                    price = outcome_data.get('price')
+                    break
+
+        if price is None:
+            # Default to 0.5 if not found
+            logger.warning(f"Could not find {outcome} price in market data, defaulting to 0.5")
+            price = 0.5
+
+        return Decimal(str(price))
+
+    def _extract_volume(self, market: Dict[str, Any], outcome: str) -> Decimal:
+        """Extract volume for a specific outcome from market data."""
+        volume_key = f"{outcome}_volume"
+        volume = market.get(volume_key) or market.get(f"{outcome}Volume")
+
+        # Try nested structure
+        if volume is None and 'volumes' in market:
+            volume = market['volumes'].get(outcome)
+
+        # Try outcomes array
+        if volume is None and 'outcomes' in market:
+            for outcome_data in market['outcomes']:
+                if outcome_data.get('name', '').lower() == outcome.lower():
+                    volume = outcome_data.get('volume')
+                    break
+
+        if volume is None:
+            volume = 0
+
+        return Decimal(str(volume))
+
+    def _parse_datetime(self, date_str: Optional[str], default: datetime) -> datetime:
+        """Parse datetime string from API response."""
+        if not date_str:
+            return default
+
+        try:
+            # Try ISO format
+            return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+        except (ValueError, AttributeError):
+            try:
+                # Try timestamp
+                return datetime.fromtimestamp(float(date_str))
+            except (ValueError, TypeError):
+                logger.warning(f"Could not parse datetime: {date_str}")
+                return default
+
+    def get_market_odds(self, market_id: str) -> tuple[Decimal, Decimal]:
+        """
+        Get current YES/NO odds for a specific market.
+
+        Args:
+            market_id: Unique market identifier
+
+        Returns:
+            Tuple of (yes_price, no_price) as Decimal values
+
+        Raises:
+            PolymarketAPIError: If the API request fails
+            ValidationError: If market_id is invalid
+        """
+        market = self.get_market_by_id(market_id)
+        market_data = self.parse_market_data(market)
+
+        return (market_data.yes_price, market_data.no_price)
+
+    def close(self):
+        """Close the HTTP session."""
+        self.session.close()
+        logger.info("Closed PolymarketClient session")
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit."""
+        self.close()
+
+
+class BinanceWebSocketError(Exception):
+    """Exception raised for Binance WebSocket errors."""
+    pass
+
+
+class BinanceWebSocket:
+    """
+    WebSocket client for Binance BTC/USDT price feed.
+
+    Connects to Binance WebSocket API to receive real-time BTC/USDT price updates.
+    Implements automatic reconnection logic and maintains a history of recent prices
+    for technical indicator calculations.
+    """
+
+    # Binance WebSocket endpoints
+    STREAM_URL = "wss://stream.binance.com:9443/ws"
+    TICKER_STREAM = "btcusdt@ticker"
+
+    def __init__(
+        self,
+        on_price_update: Optional[Callable[[BTCPriceData], None]] = None,
+        history_size: int = 200
+    ):
+        """
+        Initialize Binance WebSocket client.
+
+        Args:
+            on_price_update: Optional callback function to call on each price update
+            history_size: Number of recent price updates to keep in history (default: 200)
+        """
+        self.on_price_update = on_price_update
+        self.history_size = history_size
+
+        # Price data storage
+        self.latest_price: Optional[BTCPriceData] = None
+        self.price_history: deque = deque(maxlen=history_size)
+
+        # WebSocket connection
+        self.ws: Optional[websocket.WebSocketApp] = None
+        self.ws_thread: Optional[threading.Thread] = None
+        self.is_connected: bool = False
+        self.should_reconnect: bool = True
+        self.reconnect_delay: int = 5  # seconds
+
+        # Connection tracking
+        self.connection_errors: int = 0
+        self.last_message_time: Optional[datetime] = None
+
+        logger.info(f"Initialized BinanceWebSocket with history size {history_size}")
+
+    def connect(self) -> None:
+        """
+        Connect to Binance WebSocket and start receiving price updates.
+
+        Starts the WebSocket connection in a background thread. Will automatically
+        reconnect on disconnection unless explicitly stopped.
+        """
+        if self.is_connected:
+            logger.warning("WebSocket is already connected")
+            return
+
+        self.should_reconnect = True
+        self._start_websocket()
+
+        logger.info("Started Binance WebSocket connection")
+
+    def _start_websocket(self) -> None:
+        """Start the WebSocket connection in a background thread."""
+        url = f"{self.STREAM_URL}/{self.TICKER_STREAM}"
+
+        self.ws = websocket.WebSocketApp(
+            url,
+            on_open=self._on_open,
+            on_message=self._on_message,
+            on_error=self._on_error,
+            on_close=self._on_close
+        )
+
+        # Run WebSocket in background thread
+        self.ws_thread = threading.Thread(
+            target=self._run_websocket,
+            daemon=True,
+            name="BinanceWebSocketThread"
+        )
+        self.ws_thread.start()
+
+    def _run_websocket(self) -> None:
+        """Run the WebSocket connection with automatic reconnection."""
+        while self.should_reconnect:
+            try:
+                logger.info("Connecting to Binance WebSocket...")
+                self.ws.run_forever()
+
+                # If we get here, connection was closed
+                if self.should_reconnect:
+                    logger.warning(
+                        f"WebSocket disconnected. Reconnecting in {self.reconnect_delay}s..."
+                    )
+                    time.sleep(self.reconnect_delay)
+                    self._start_websocket()
+                    break
+
+            except Exception as e:
+                self.connection_errors += 1
+                logger.error(f"WebSocket error: {e}")
+
+                if self.should_reconnect:
+                    # Exponential backoff for reconnection
+                    delay = min(self.reconnect_delay * (2 ** min(self.connection_errors - 1, 5)), 300)
+                    logger.warning(f"Reconnecting in {delay}s (attempt {self.connection_errors})...")
+                    time.sleep(delay)
+                else:
+                    break
+
+    def _on_open(self, ws) -> None:
+        """WebSocket connection opened callback."""
+        self.is_connected = True
+        self.connection_errors = 0
+        logger.info("WebSocket connection established")
+
+    def _on_message(self, ws, message: str) -> None:
+        """
+        WebSocket message received callback.
 
         Args:
             ws: WebSocket instance
             message: JSON message from Binance
         """
         try:
+            self.last_message_time = datetime.utcnow()
             data = json.loads(message)
 
-            # Extract kline data
-            if 'k' in data:
-                kline = data['k']
-                close_price = float(kline['c'])
-                is_closed = kline['x']  # Kline closed
+            # Parse Binance ticker data
+            price_data = self._parse_ticker_data(data)
 
-                with self._lock:
-                    self.latest_price = close_price
-                    self.last_update_time = datetime.now(timezone.utc)
+            # Update latest price and history
+            self.latest_price = price_data
+            self.price_history.append(price_data)
 
-                    # Only add to buffer when kline is closed
-                    if is_closed:
-                        self.price_buffer.append(close_price)
-                        logger.debug(f"BTC price updated: ${close_price:,.2f}")
+            # Call user callback if provided
+            if self.on_price_update:
+                try:
+                    self.on_price_update(price_data)
+                except Exception as e:
+                    logger.error(f"Error in price update callback: {e}")
 
-        except (json.JSONDecodeError, KeyError, ValueError) as e:
-            logger.error(f"Error parsing WebSocket message: {e}")
+            logger.debug(f"BTC price update: {price_data.price} USDT")
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse WebSocket message: {e}")
+        except Exception as e:
+            logger.error(f"Error processing WebSocket message: {e}")
 
     def _on_error(self, ws, error) -> None:
-        """Handle WebSocket error."""
-        logger.error(f"Binance WebSocket error: {error}")
-
-    def _on_close(self, ws, close_status_code, close_msg) -> None:
-        """Handle WebSocket connection closed."""
-        with self._lock:
-            self.is_connected = False
-
-        logger.warning(
-            f"Binance WebSocket closed (code: {close_status_code}, msg: {close_msg})"
-        )
-
-        # Attempt reconnection
-        if self.should_reconnect and self.reconnect_count < self.max_reconnect_attempts:
-            self.reconnect_count += 1
-            logger.info(
-                f"Attempting reconnection {self.reconnect_count}/{self.max_reconnect_attempts}"
-            )
-            time.sleep(self.reconnect_delay)
-            self.connect()
-        else:
-            logger.error("Max reconnection attempts reached or reconnect disabled")
-
-    def get_latest_price(self) -> Optional[float]:
         """
-        Get the most recent BTC price.
-
-        Returns:
-            Latest price or None if no data available
-        """
-        with self._lock:
-            return self.latest_price
-
-    def get_price_history(self, count: Optional[int] = None) -> List[float]:
-        """
-        Get historical price data from buffer.
+        WebSocket error callback.
 
         Args:
-            count: Number of recent prices to return (default: all)
+            ws: WebSocket instance
+            error: Error that occurred
+        """
+        logger.error(f"WebSocket error: {error}")
+        self.is_connected = False
+
+    def _on_close(self, ws, close_status_code, close_msg) -> None:
+        """
+        WebSocket connection closed callback.
+
+        Args:
+            ws: WebSocket instance
+            close_status_code: Close status code
+            close_msg: Close message
+        """
+        self.is_connected = False
+        logger.info(f"WebSocket connection closed (code: {close_status_code}, msg: {close_msg})")
+
+    def _parse_ticker_data(self, data: Dict[str, Any]) -> BTCPriceData:
+        """
+        Parse Binance ticker data into BTCPriceData model.
+
+        Args:
+            data: Raw ticker data from Binance WebSocket
 
         Returns:
-            List of prices (oldest to newest)
-        """
-        with self._lock:
-            prices = list(self.price_buffer)
-            if count is not None:
-                prices = prices[-count:]
-            return prices
+            BTCPriceData model instance
 
-    def close(self) -> None:
-        """Close WebSocket connection and cleanup."""
-        logger.info("Closing Binance WebSocket connection")
+        Raises:
+            ValidationError: If required fields are missing or invalid
+        """
+        try:
+            # Extract price data from Binance 24hr ticker format
+            # Reference: https://binance-docs.github.io/apidocs/spot/en/#individual-symbol-ticker-streams
+            price = Decimal(str(data.get('c', data.get('lastPrice', 0))))
+            timestamp = datetime.fromtimestamp(int(data.get('E', 0)) / 1000)
+
+            # 24-hour statistics
+            volume_24h = data.get('q', data.get('quoteVolume'))
+            high_24h = data.get('h', data.get('highPrice'))
+            low_24h = data.get('l', data.get('lowPrice'))
+            price_change_24h = data.get('p', data.get('priceChange'))
+            price_change_percent_24h = data.get('P', data.get('priceChangePercent'))
+
+            return BTCPriceData(
+                symbol=data.get('s', 'BTCUSDT'),
+                price=price,
+                timestamp=timestamp if timestamp.year > 1970 else datetime.utcnow(),
+                volume_24h=Decimal(str(volume_24h)) if volume_24h else None,
+                high_24h=Decimal(str(high_24h)) if high_24h else None,
+                low_24h=Decimal(str(low_24h)) if low_24h else None,
+                price_change_24h=Decimal(str(price_change_24h)) if price_change_24h else None,
+                price_change_percent_24h=Decimal(str(price_change_percent_24h)) if price_change_percent_24h else None,
+                metadata=data
+            )
+
+        except (KeyError, ValueError, TypeError) as e:
+            raise ValidationError(f"Failed to parse Binance ticker data: {e}")
+
+    def get_latest_price(self) -> Optional[BTCPriceData]:
+        """
+        Get the most recent BTC price update.
+
+        Returns:
+            Latest BTCPriceData or None if no data received yet
+        """
+        return self.latest_price
+
+    def get_price_history(self, limit: Optional[int] = None) -> List[BTCPriceData]:
+        """
+        Get historical price data.
+
+        Args:
+            limit: Maximum number of price updates to return (default: all)
+
+        Returns:
+            List of BTCPriceData in chronological order
+        """
+        history = list(self.price_history)
+
+        if limit and limit < len(history):
+            return history[-limit:]
+
+        return history
+
+    def get_price_series(self, limit: Optional[int] = None) -> List[Decimal]:
+        """
+        Get price series as list of Decimal values.
+
+        Args:
+            limit: Maximum number of prices to return (default: all)
+
+        Returns:
+            List of price values in chronological order
+        """
+        history = self.get_price_history(limit)
+        return [price_data.price for price_data in history]
+
+    def is_healthy(self, max_message_age_seconds: int = 60) -> bool:
+        """
+        Check if WebSocket connection is healthy.
+
+        Args:
+            max_message_age_seconds: Maximum age of last message in seconds (default: 60)
+
+        Returns:
+            True if connection is healthy, False otherwise
+        """
+        if not self.is_connected:
+            return False
+
+        if not self.last_message_time:
+            return False
+
+        # Check if we've received a message recently
+        age = (datetime.utcnow() - self.last_message_time).total_seconds()
+        return age < max_message_age_seconds
+
+    def disconnect(self) -> None:
+        """
+        Disconnect from WebSocket and stop reconnection attempts.
+
+        Gracefully closes the WebSocket connection and stops the background thread.
+        """
+        logger.info("Disconnecting from Binance WebSocket...")
+
         self.should_reconnect = False
+        self.is_connected = False
 
         if self.ws:
             self.ws.close()
 
+        # Wait for thread to finish (with timeout)
         if self.ws_thread and self.ws_thread.is_alive():
             self.ws_thread.join(timeout=5)
 
+        logger.info("Disconnected from Binance WebSocket")
 
-class PolymarketClient:
-    """
-    REST API client for Polymarket market discovery and odds retrieval.
+    def __enter__(self):
+        """Context manager entry."""
+        self.connect()
+        return self
 
-    Handles authentication, market queries, and odds fetching with
-    retry logic and error handling.
-    """
-
-    def __init__(
-        self,
-        api_key: str,
-        api_secret: str,
-        base_url: str = "https://api.polymarket.com"
-    ):
-        """
-        Initialize Polymarket API client.
-
-        Args:
-            api_key: Polymarket API key
-            api_secret: Polymarket API secret
-            base_url: API base URL
-        """
-        self.api_key = api_key
-        self.api_secret = api_secret
-        self.base_url = base_url.rstrip('/')
-
-        # Request headers
-        self.headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
-
-        logger.info("Initialized PolymarketClient")
-
-    @retry_with_backoff(max_attempts=3, base_delay=2.0)
-    def find_active_btc_market(
-        self,
-        category: str = "crypto",
-        interval: Optional[str] = None
-    ) -> Optional[Dict[str, Any]]:
-        """
-        Find an active BTC-related prediction market.
-
-        Args:
-            category: Market category filter (default: crypto)
-            interval: Optional interval filter (e.g., "5m")
-
-        Returns:
-            Market data dictionary or None if no market found
-        """
-        # Build query parameters
-        params = {
-            "category": category,
-            "status": "active",
-            "asset": "BTC"
-        }
-
-        if interval:
-            params["interval"] = interval
-
-        try:
-            response = requests.get(
-                f"{self.base_url}/markets",
-                headers=self.headers,
-                params=params,
-                timeout=10
-            )
-            response.raise_for_status()
-
-            markets = response.json()
-
-            if not markets or len(markets) == 0:
-                logger.warning("No active BTC markets found")
-                return None
-
-            # Return the first active market
-            market = markets[0]
-            logger.info(f"Found active market: {market.get('market_id', 'unknown')}")
-            return market
-
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error fetching Polymarket markets: {e}")
-            raise
-
-    @retry_with_backoff(max_attempts=3, base_delay=2.0)
-    def get_market_odds(self, market_id: str) -> Tuple[Decimal, Decimal]:
-        """
-        Get current odds for a specific market.
-
-        Args:
-            market_id: Polymarket market identifier
-
-        Returns:
-            Tuple of (yes_odds, no_odds) as Decimal
-
-        Raises:
-            ValidationError: If odds are invalid
-        """
-        try:
-            response = requests.get(
-                f"{self.base_url}/markets/{market_id}/odds",
-                headers=self.headers,
-                timeout=10
-            )
-            response.raise_for_status()
-
-            data = response.json()
-
-            yes_odds = Decimal(str(data.get('yes_price', 0.5)))
-            no_odds = Decimal(str(data.get('no_price', 0.5)))
-
-            # Validate odds are in valid range
-            if not (0 < yes_odds < 1 and 0 < no_odds < 1):
-                raise ValidationError(f"Invalid odds: yes={yes_odds}, no={no_odds}")
-
-            logger.debug(f"Market {market_id} odds: YES={yes_odds}, NO={no_odds}")
-
-            return yes_odds, no_odds
-
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error fetching market odds: {e}")
-            raise
-        except (KeyError, ValueError) as e:
-            logger.error(f"Error parsing market odds: {e}")
-            raise ValidationError(f"Invalid odds response: {e}")
-
-
-class MarketDataService:
-    """
-    Unified market data service integrating all data sources.
-
-    Orchestrates Binance WebSocket, technical indicators, and Polymarket API
-    to provide comprehensive market data for trading decisions.
-    """
-
-    def __init__(
-        self,
-        binance_ws_client: BinanceWebSocketClient,
-        polymarket_client: PolymarketClient
-    ):
-        """
-        Initialize market data service.
-
-        Args:
-            binance_ws_client: Binance WebSocket client instance
-            polymarket_client: Polymarket API client instance
-        """
-        self.binance_ws = binance_ws_client
-        self.polymarket = polymarket_client
-        self.active_market_id: Optional[str] = None
-
-        logger.info("Initialized MarketDataService")
-
-    def start(self) -> None:
-        """Start all data sources."""
-        logger.info("Starting market data service")
-        self.binance_ws.connect()
-
-        # Wait for initial price data
-        max_wait = 10
-        wait_time = 0
-        while self.binance_ws.get_latest_price() is None and wait_time < max_wait:
-            time.sleep(1)
-            wait_time += 1
-
-        if self.binance_ws.get_latest_price() is None:
-            logger.warning("No initial price data received from Binance")
-
-    def stop(self) -> None:
-        """Stop all data sources and cleanup."""
-        logger.info("Stopping market data service")
-        self.binance_ws.close()
-
-    def get_market_data(self) -> MarketData:
-        """
-        Get comprehensive market data from all sources.
-
-        Returns:
-            MarketData model with current prices, indicators, and odds
-
-        Raises:
-            ValidationError: If required data is unavailable
-        """
-        # Get BTC price
-        latest_price = self.binance_ws.get_latest_price()
-        if latest_price is None:
-            raise ValidationError("No BTC price data available")
-
-        # Get price history for indicators
-        price_history = self.binance_ws.get_price_history()
-
-        if len(price_history) < 26:  # Need at least 26 for MACD
-            logger.warning(
-                f"Insufficient price history ({len(price_history)} prices). "
-                "Using default indicator values."
-            )
-            rsi = 50.0
-            macd_line = 0.0
-            macd_signal = 0.0
-        else:
-            # Calculate technical indicators
-            rsi = calculate_rsi(price_history, period=14)
-            macd_line, macd_signal = calculate_macd(price_history)
-
-        # Get Polymarket market and odds
-        if self.active_market_id is None:
-            market = self.polymarket.find_active_btc_market()
-            if market:
-                self.active_market_id = market.get('market_id')
-
-        if self.active_market_id:
-            try:
-                yes_odds, no_odds = self.polymarket.get_market_odds(self.active_market_id)
-            except Exception as e:
-                logger.warning(f"Failed to get market odds: {e}. Using defaults.")
-                yes_odds = Decimal("0.5")
-                no_odds = Decimal("0.5")
-        else:
-            logger.warning("No active market found. Using default odds.")
-            yes_odds = Decimal("0.5")
-            no_odds = Decimal("0.5")
-
-        # Create and return MarketData
-        return MarketData(
-            market_id=self.active_market_id or "unknown",
-            question=f"BTC Market Data",
-            end_date=datetime.now(timezone.utc),
-            yes_price=yes_odds,
-            no_price=no_odds,
-            metadata={
-                "btc_price": latest_price,
-                "rsi_14": rsi,
-                "macd_line": macd_line,
-                "macd_signal": macd_signal,
-                "price_history_length": len(price_history)
-            }
-        )
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit."""
+        self.disconnect()
 
 
 def calculate_rsi(prices: List[float], period: int = 14) -> float:
     """
-    Calculate Relative Strength Index (RSI).
+    Calculate Relative Strength Index (RSI) technical indicator.
+
+    RSI is a momentum oscillator that measures the speed and magnitude
+    of price changes. Values range from 0 to 100.
+    - RSI > 70: Overbought condition
+    - RSI < 30: Oversold condition
 
     Args:
-        prices: List of closing prices (oldest to newest)
-        period: RSI period (default: 14)
+        prices: List of price values (oldest to newest)
+        period: RSI calculation period (default: 14)
 
     Returns:
-        RSI value between 0 and 100
+        RSI value (0-100)
 
     Raises:
-        ValidationError: If insufficient data
+        ValueError: If insufficient price data
     """
     if len(prices) < period + 1:
-        raise ValidationError(
-            f"Insufficient data for RSI calculation. "
-            f"Need at least {period + 1} prices, got {len(prices)}"
-        )
+        raise ValueError(f"Insufficient price data for RSI calculation. Need at least {period + 1} prices, got {len(prices)}")
 
-    # Calculate price changes
-    deltas = [prices[i] - prices[i-1] for i in range(1, len(prices))]
+    # Convert to numpy array for TA-Lib
+    prices_array = np.array(prices, dtype=float)
 
-    # Separate gains and losses
-    gains = [delta if delta > 0 else 0 for delta in deltas]
-    losses = [-delta if delta < 0 else 0 for delta in deltas]
+    # Calculate RSI using TA-Lib
+    rsi_values = talib.RSI(prices_array, timeperiod=period)
 
-    # Calculate initial averages
-    avg_gain = sum(gains[:period]) / period
-    avg_loss = sum(losses[:period]) / period
+    # Return the most recent RSI value
+    current_rsi = float(rsi_values[-1])
 
-    # Calculate smoothed averages for remaining periods
-    for i in range(period, len(gains)):
-        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
-        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
+    logger.debug(f"Calculated RSI({period}): {current_rsi:.2f}")
 
-    # Calculate RSI
-    if avg_loss == 0:
-        return 100.0
-
-    rs = avg_gain / avg_loss
-    rsi = 100 - (100 / (1 + rs))
-
-    return rsi
+    return current_rsi
 
 
-def calculate_macd(
-    prices: List[float],
-    fast_period: int = 12,
-    slow_period: int = 26,
-    signal_period: int = 9
-) -> Tuple[float, float]:
+def calculate_macd(prices: List[float]) -> Tuple[float, float]:
     """
-    Calculate MACD (Moving Average Convergence Divergence).
+    Calculate MACD (Moving Average Convergence Divergence) indicator.
+
+    MACD is a trend-following momentum indicator showing the relationship
+    between two moving averages of prices.
 
     Args:
-        prices: List of closing prices (oldest to newest)
-        fast_period: Fast EMA period (default: 12)
-        slow_period: Slow EMA period (default: 26)
-        signal_period: Signal line EMA period (default: 9)
+        prices: List of price values (oldest to newest)
 
     Returns:
         Tuple of (macd_line, signal_line)
+        - macd_line: MACD line value
+        - signal_line: Signal line value
+        - Crossover (MACD > signal) suggests bullish momentum
+        - Crossover (MACD < signal) suggests bearish momentum
 
     Raises:
-        ValidationError: If insufficient data
+        ValueError: If insufficient price data
     """
-    if len(prices) < slow_period + signal_period:
-        raise ValidationError(
-            f"Insufficient data for MACD calculation. "
-            f"Need at least {slow_period + signal_period} prices, got {len(prices)}"
-        )
+    if len(prices) < 34:  # Need at least 26 + 9 - 1 for MACD calculation
+        raise ValueError(f"Insufficient price data for MACD calculation. Need at least 34 prices, got {len(prices)}")
 
-    # Calculate EMAs
-    fast_ema = _calculate_ema(prices, fast_period)
-    slow_ema = _calculate_ema(prices, slow_period)
+    # Convert to numpy array for TA-Lib
+    prices_array = np.array(prices, dtype=float)
 
-    # Calculate MACD line
-    macd_values = [fast_ema[i] - slow_ema[i] for i in range(len(slow_ema))]
+    # Calculate MACD using TA-Lib (default: 12, 26, 9)
+    macd_line, signal_line, _ = talib.MACD(
+        prices_array,
+        fastperiod=12,
+        slowperiod=26,
+        signalperiod=9
+    )
 
-    # Calculate signal line (EMA of MACD)
-    signal_line_values = _calculate_ema(macd_values, signal_period)
+    # Return the most recent values
+    current_macd = float(macd_line[-1])
+    current_signal = float(signal_line[-1])
 
-    # Return latest values
-    macd_line = macd_values[-1]
-    signal_line = signal_line_values[-1]
+    logger.debug(f"Calculated MACD: {current_macd:.2f}, Signal: {current_signal:.2f}")
 
-    return macd_line, signal_line
+    return current_macd, current_signal
 
 
-def _calculate_ema(prices: List[float], period: int) -> List[float]:
+def get_order_book_imbalance() -> float:
     """
-    Calculate Exponential Moving Average.
+    Calculate order book imbalance from Binance order book.
 
-    Args:
-        prices: List of prices
-        period: EMA period
+    Order book imbalance measures the ratio of bid volume to ask volume,
+    indicating buying vs selling pressure.
+    - Imbalance > 1.0: More buying pressure
+    - Imbalance < 1.0: More selling pressure
 
     Returns:
-        List of EMA values
-    """
-    if len(prices) < period:
-        return []
-
-    # Smoothing multiplier
-    multiplier = 2 / (period + 1)
-
-    # Initial SMA
-    ema_values = [sum(prices[:period]) / period]
-
-    # Calculate EMA for remaining prices
-    for i in range(period, len(prices)):
-        ema = (prices[i] - ema_values[-1]) * multiplier + ema_values[-1]
-        ema_values.append(ema)
-
-    return ema_values
-
-
-def get_order_book_imbalance(
-    binance_api_key: str,
-    binance_api_secret: str,
-    symbol: str = "BTCUSDT",
-    limit: int = 100
-) -> float:
-    """
-    Calculate order book imbalance from Binance.
-
-    Order book imbalance = total_bid_volume / total_ask_volume
-    Values > 1 indicate buying pressure, < 1 indicate selling pressure.
-
-    Args:
-        binance_api_key: Binance API key
-        binance_api_secret: Binance API secret
-        symbol: Trading pair symbol (default: BTCUSDT)
-        limit: Order book depth limit (default: 100)
-
-    Returns:
-        Imbalance ratio (bid_volume / ask_volume)
+        Order book imbalance ratio (bid_volume / ask_volume)
 
     Raises:
-        ValidationError: If order book data is invalid
+        ConnectionError: If unable to fetch order book data
     """
+    config = get_config()
+
     try:
+        # Fetch order book from Binance REST API
         response = requests.get(
-            "https://api.binance.com/api/v3/depth",
-            params={"symbol": symbol, "limit": limit},
-            timeout=10
+            f"{config.binance_base_url}/api/v3/depth",
+            params={'symbol': 'BTCUSDT', 'limit': 10},
+            timeout=5
         )
         response.raise_for_status()
 
         data = response.json()
 
-        # Calculate bid and ask volumes
-        bid_volume = sum(float(bid[1]) for bid in data['bids'])
-        ask_volume = sum(float(ask[1]) for ask in data['asks'])
+        # Calculate total bid and ask volumes
+        bids = data.get('bids', [])
+        asks = data.get('asks', [])
+
+        bid_volume = sum(float(bid[1]) for bid in bids)
+        ask_volume = sum(float(ask[1]) for ask in asks)
 
         if ask_volume == 0:
-            raise ValidationError("Ask volume is zero")
+            logger.warning("Ask volume is zero, returning neutral imbalance")
+            return 1.0
 
         imbalance = bid_volume / ask_volume
 
-        logger.debug(f"Order book imbalance: {imbalance:.4f}")
+        logger.debug(f"Order book imbalance: {imbalance:.4f} (bid: {bid_volume:.2f}, ask: {ask_volume:.2f})")
 
         return imbalance
 
     except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching order book: {e}")
-        raise ValidationError(f"Failed to fetch order book: {e}")
-    except (KeyError, ValueError, ZeroDivisionError) as e:
-        logger.error(f"Error calculating order book imbalance: {e}")
-        raise ValidationError(f"Invalid order book data: {e}")
+        raise ConnectionError(f"Failed to fetch order book data: {e}")
+
+
+def get_market_data(
+    binance_client: BinanceWebSocketClient,
+    polymarket_client: PolymarketClient,
+    market_id: Optional[str] = None
+) -> MarketData:
+    """
+    Aggregate market data from multiple sources.
+
+    Combines real-time BTC prices, technical indicators, and Polymarket
+    odds into a single MarketData object for strategy evaluation.
+
+    Args:
+        binance_client: Connected Binance WebSocket client
+        polymarket_client: Initialized Polymarket API client
+        market_id: Optional specific market ID (will search if not provided)
+
+    Returns:
+        MarketData object with all aggregated data
+
+    Raises:
+        ValueError: If insufficient data or market not available
+    """
+    logger.info("Aggregating market data from all sources")
+
+    # Get price data from Binance
+    prices = binance_client.get_latest_prices(100)
+
+    if len(prices) < 34:
+        raise ValueError(f"Insufficient price data for indicators. Need at least 34, got {len(prices)}")
+
+    latest_price = prices[-1]
+
+    # Calculate technical indicators
+    try:
+        rsi_value = calculate_rsi(prices, period=14)
+        macd_line, macd_signal = calculate_macd(prices)
+        order_book_imb = get_order_book_imbalance()
+    except Exception as e:
+        logger.error(f"Error calculating indicators: {e}")
+        raise ValueError(f"Failed to calculate technical indicators: {e}")
+
+    # Get Polymarket market and odds
+    if market_id is None:
+        # Search for active BTC markets
+        btc_markets = polymarket_client.get_btc_markets(limit=10)
+        if not btc_markets:
+            raise ValueError("No active Polymarket markets found")
+        # Use the first active market
+        market_raw = btc_markets[0]
+        market_data = polymarket_client.parse_market_data(market_raw)
+        market_id = market_data.market_id
+    else:
+        # Get specific market
+        try:
+            yes_price, no_price = polymarket_client.get_market_odds(market_id)
+            # Get full market data for additional fields
+            market_raw = polymarket_client.get_market_by_id(market_id)
+            market_data = polymarket_client.parse_market_data(market_raw)
+        except Exception as e:
+            logger.error(f"Error fetching Polymarket odds: {e}")
+            raise ValueError(f"Failed to fetch market odds: {e}")
+
+    # Add metadata with technical analysis
+    market_data.metadata = market_data.metadata or {}
+    market_data.metadata.update({
+        'btc_price': latest_price,
+        'rsi_14': rsi_value,
+        'macd_line': macd_line,
+        'macd_signal': macd_signal,
+        'order_book_imbalance': order_book_imb,
+        'price_buffer_size': len(prices)
+    })
+
+    logger.info(
+        f"Market data aggregated - BTC: ${latest_price:.2f}, "
+        f"RSI: {rsi_value:.2f}, MACD: {macd_line:.2f}/{macd_signal:.2f}, "
+        f"OB Imbalance: {order_book_imb:.4f}"
+    )
+
+    return market_data
+
+
+def get_fallback_btc_price() -> float:
+    """
+    Fallback method to get BTC price from CoinGecko API.
+
+    Used when Binance WebSocket is unavailable or disconnected.
+
+    Returns:
+        Current BTC price in USD
+
+    Raises:
+        ConnectionError: If unable to fetch price
+    """
+    config = get_config()
+
+    try:
+        logger.info("Fetching BTC price from CoinGecko fallback")
+
+        response = requests.get(
+            f"{config.coingecko_base_url}/simple/price",
+            params={'ids': 'bitcoin', 'vs_currencies': 'usd'},
+            headers={'x-cg-demo-api-key': config.coingecko_api_key},
+            timeout=10
+        )
+        response.raise_for_status()
+
+        data = response.json()
+        price = float(data['bitcoin']['usd'])
+
+        logger.info(f"CoinGecko BTC price: ${price:.2f}")
+
+        return price
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"CoinGecko fallback failed: {e}")
+        raise ConnectionError(f"Failed to fetch BTC price from CoinGecko: {e}")
