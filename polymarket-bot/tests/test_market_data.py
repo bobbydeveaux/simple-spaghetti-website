@@ -226,15 +226,19 @@ class TestPolymarketClient:
         mock_response.json.return_value = {
             'market_id': 'market_123',
             'odds_yes': 0.65,
-            'odds_no': 0.35
+            'odds_no': 0.35,
+            'end_date': '2024-01-01T12:00:00Z',
+            'question': 'Will BTC go up?'
         }
         mock_response.raise_for_status.return_value = None
         mock_get.return_value = mock_response
 
-        yes_odds, no_odds = client.get_market_odds('market_123')
+        yes_odds, no_odds, market_info = client.get_market_odds('market_123')
 
         assert yes_odds == 0.65
         assert no_odds == 0.35
+        assert market_info['end_date'] == '2024-01-01T12:00:00Z'
+        assert market_info['question'] == 'Will BTC go up?'
 
     @patch('market_data.requests.Session.get')
     def test_get_market_odds_api_error(self, mock_get):
@@ -370,7 +374,10 @@ class TestGetMarketData:
 
         # Mock Polymarket client
         polymarket_client = MagicMock()
-        polymarket_client.get_market_odds.return_value = (0.65, 0.35)
+        polymarket_client.get_market_odds.return_value = (0.65, 0.35, {
+            'end_date': '2024-01-01T12:00:00Z',
+            'question': 'Will BTC go up?'
+        })
 
         # Mock order book imbalance
         with patch('market_data.get_order_book_imbalance', return_value=1.2):
@@ -414,7 +421,10 @@ class TestGetMarketData:
         # Mock Polymarket client
         polymarket_client = MagicMock()
         polymarket_client.find_active_market.return_value = 'market_456'
-        polymarket_client.get_market_odds.return_value = (0.55, 0.45)
+        polymarket_client.get_market_odds.return_value = (0.55, 0.45, {
+            'end_date': '2024-01-01T12:00:00Z',
+            'question': 'BTC prediction market'
+        })
 
         with patch('market_data.get_order_book_imbalance', return_value=1.1):
             market_data = get_market_data(binance_client, polymarket_client)
