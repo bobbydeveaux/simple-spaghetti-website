@@ -1,6 +1,6 @@
 {
   "method": "ai-assisted",
-  "filesResolved": 1,
-  "summary": "Merged both versions of polymarket-bot/main.py by preserving the best features from both branches: kept TradingBot class name, dry-run mode, signal handlers (SIGINT/SIGTERM), comprehensive bot state tracking, and combined initialization/shutdown logic from both implementations.",
-  "strategyUsed": "Combined both implementations - preserved feature branch's class name (TradingBot), dry-run mode, RiskManager, and TradeExecutor while incorporating main branch's signal handlers, BotState tracking, responsive shutdown mechanism, and enhanced error handling. Used relative imports from feature branch. Merged logging and metrics reporting from both versions for comprehensive monitoring."
+  "filesResolved": 2,
+  "summary": "Successfully resolved merge conflicts in config.py and execution.py by preserving functionality from both branches. Combined execution and orchestrator configurations in config.py. Kept comprehensive ExecutionEngine implementation from HEAD in execution.py.",
+  "strategyUsed": "For config.py: merged both configuration sets (execution config from HEAD + orchestrator config from origin/main) along with their respective validations, as both serve different purposes and are complementary. For execution.py: kept the more comprehensive HEAD implementation (ExecutionEngine with full Trade objects, comprehensive error handling, settlement tracking, retry logic) as it was more mature and production-ready than the simpler SignalType-based implementation from origin/main."
 }
