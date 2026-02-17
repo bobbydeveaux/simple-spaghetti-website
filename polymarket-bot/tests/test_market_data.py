@@ -1,578 +1,608 @@
 """
-Tests for Market Data Service
+Tests for Market Data Module (Polymarket API Integration)
 
-This module contains comprehensive tests for the Polymarket API integration,
-including market discovery, odds fetching, filtering, and error handling.
+This module tests the Polymarket API client including:
+- Market discovery and search
+- BTC market filtering
+- Odds retrieval and parsing
+- Error handling and retry logic
 """
 
 import pytest
-import sys
-from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime, timedelta
 from decimal import Decimal
+from datetime import datetime, timedelta
 import requests
 
-# Add parent directory to path to allow imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from market_data import (
-    MarketDataService,
-    PolymarketAPIError,
-    get_active_btc_markets,
-    get_market_odds_by_id
-)
+from market_data import PolymarketClient, PolymarketAPIError
 from models import MarketData, OutcomeType
+from config import Config
+from utils import ValidationError
 
 
-class TestMarketDataService:
-    """Tests for MarketDataService class."""
+# Test fixtures
 
-    @pytest.fixture
-    def mock_config(self):
-        """Mock configuration for testing."""
-        with patch('market_data.get_config') as mock:
-            config = Mock()
-            config.polymarket_api_key = 'test_api_key'
-            config.polymarket_api_secret = 'test_api_secret'
-            config.polymarket_base_url = 'https://api.polymarket.com'
-            mock.return_value = config
-            yield config
+@pytest.fixture
+def mock_config():
+    """Create a mock configuration object."""
+    config = Mock(spec=Config)
+    config.polymarket_base_url = "https://api.polymarket.com"
+    config.polymarket_api_key = "test_api_key"
+    config.polymarket_api_secret = "test_api_secret"
+    return config
 
-    @pytest.fixture
-    def service(self, mock_config):
-        """Create a MarketDataService instance for testing."""
-        return MarketDataService()
 
-    @pytest.fixture
-    def sample_market_response(self):
-        """Sample market data response from API."""
-        return {
-            'id': 'market_123',
-            'question': 'Will Bitcoin reach $100k in 2024?',
-            'description': 'Bitcoin price prediction market',
-            'yes_price': 0.65,
-            'no_price': 0.35,
-            'yes_volume': 150000.0,
-            'no_volume': 85000.0,
-            'liquidity': 50000.0,
-            'active': True,
-            'closed': False,
-            'end_date': '2024-12-31T23:59:59Z',
-            'created_date': '2024-01-01T00:00:00Z',
-            'category': 'crypto',
-            'tags': ['bitcoin', 'crypto', 'price']
+@pytest.fixture
+def polymarket_client(mock_config):
+    """Create a PolymarketClient instance with mock config."""
+    return PolymarketClient(mock_config)
+
+
+@pytest.fixture
+def sample_market_data():
+    """Sample market data from Polymarket API."""
+    return {
+        "id": "market_123",
+        "question": "Will Bitcoin reach $100k in 2024?",
+        "description": "Resolves YES if BTC hits $100k USD",
+        "created_at": "2024-01-01T00:00:00Z",
+        "end_date": "2024-12-31T23:59:59Z",
+        "yes_price": 0.65,
+        "no_price": 0.35,
+        "yes_volume": 150000.00,
+        "no_volume": 85000.00,
+        "liquidity": 50000.00,
+        "active": True,
+        "closed": False,
+        "category": "Cryptocurrency",
+        "tags": ["BTC", "Bitcoin", "Price"]
+    }
+
+
+@pytest.fixture
+def sample_btc_markets():
+    """Sample list of BTC-related markets."""
+    return [
+        {
+            "id": "btc_market_1",
+            "question": "Will Bitcoin reach $100k in 2024?",
+            "yes_price": 0.65,
+            "no_price": 0.35,
+            "active": True,
+            "closed": False
+        },
+        {
+            "id": "btc_market_2",
+            "question": "Will Bitcoin dominance exceed 50% this year?",
+            "yes_price": 0.55,
+            "no_price": 0.45,
+            "active": True,
+            "closed": False
+        },
+        {
+            "id": "btc_market_3",
+            "question": "Bitcoin ETF approval in 2024?",
+            "yes_price": 0.80,
+            "no_price": 0.20,
+            "active": True,
+            "closed": False
         }
+    ]
 
-    def test_service_initialization(self, mock_config):
-        """Test that service initializes correctly with config."""
-        service = MarketDataService()
 
-        assert service.api_key == 'test_api_key'
-        assert service.api_secret == 'test_api_secret'
-        assert service.base_url == 'https://api.polymarket.com'
+# Test PolymarketClient initialization
 
-    def test_service_initialization_with_custom_params(self):
-        """Test service initialization with custom parameters."""
-        service = MarketDataService(
-            api_key='custom_key',
-            api_secret='custom_secret',
-            base_url='https://custom.api.com'
-        )
+class TestPolymarketClientInitialization:
+    """Tests for PolymarketClient initialization."""
 
-        assert service.api_key == 'custom_key'
-        assert service.api_secret == 'custom_secret'
-        assert service.base_url == 'https://custom.api.com'
+    def test_client_initialization(self, mock_config):
+        """Test client initializes with correct configuration."""
+        client = PolymarketClient(mock_config)
 
-    def test_get_headers(self, service):
-        """Test that headers are correctly formatted."""
-        headers = service._get_headers()
+        assert client.config == mock_config
+        assert client.base_url == "https://api.polymarket.com"
+        assert client.api_key == "test_api_key"
+        assert client.session is not None
+        assert "Authorization" in client.session.headers
+        assert client.session.headers["Authorization"] == "Bearer test_api_key"
 
-        assert headers['Accept'] == 'application/json'
-        assert headers['Content-Type'] == 'application/json'
-        assert headers['X-API-Key'] == 'test_api_key'
+    def test_client_headers(self, polymarket_client):
+        """Test client sets correct headers."""
+        headers = polymarket_client.session.headers
 
-    @patch('market_data.requests.get')
-    def test_make_request_success(self, mock_get, service, sample_market_response):
+        assert headers["Content-Type"] == "application/json"
+        assert headers["Accept"] == "application/json"
+        assert "Bearer" in headers["Authorization"]
+
+
+# Test API request methods
+
+class TestAPIRequests:
+    """Tests for API request methods."""
+
+    @patch('market_data.requests.Session.request')
+    def test_make_request_success(self, mock_request, polymarket_client, sample_market_data):
         """Test successful API request."""
         mock_response = Mock()
-        mock_response.json.return_value = sample_market_response
         mock_response.status_code = 200
-        mock_get.return_value = mock_response
+        mock_response.json.return_value = sample_market_data
+        mock_response.headers = {}
+        mock_request.return_value = mock_response
 
-        result = service._make_request('/markets/market_123')
+        result = polymarket_client._make_request("GET", "/markets/123")
 
-        assert result == sample_market_response
-        mock_get.assert_called_once()
-        assert '/markets/market_123' in mock_get.call_args[0][0]
+        assert result == sample_market_data
+        mock_request.assert_called_once()
 
-    @patch('market_data.requests.get')
-    def test_make_request_with_params(self, mock_get, service):
-        """Test API request with query parameters."""
+    @patch('market_data.requests.Session.request')
+    def test_make_request_with_rate_limit_headers(self, mock_request, polymarket_client):
+        """Test API request logs rate limit information."""
         mock_response = Mock()
-        mock_response.json.return_value = []
         mock_response.status_code = 200
-        mock_get.return_value = mock_response
+        mock_response.json.return_value = {"status": "ok"}
+        mock_response.headers = {"X-RateLimit-Remaining": "95"}
+        mock_request.return_value = mock_response
 
-        service._make_request('/markets', params={'limit': 10, 'query': 'BTC'})
+        result = polymarket_client._make_request("GET", "/test")
 
-        assert mock_get.call_args[1]['params'] == {'limit': 10, 'query': 'BTC'}
+        assert result == {"status": "ok"}
 
-    @patch('market_data.requests.get')
-    def test_make_request_http_error(self, mock_get, service):
-        """Test API request with HTTP error."""
+    @patch('market_data.requests.Session.request')
+    def test_make_request_http_error(self, mock_request, polymarket_client):
+        """Test API request handles HTTP errors."""
         mock_response = Mock()
         mock_response.status_code = 404
-        mock_response.json.return_value = {'error': 'Not found'}
+        mock_response.text = "Not found"
         mock_response.raise_for_status.side_effect = requests.HTTPError(response=mock_response)
-        mock_get.return_value = mock_response
+        mock_request.return_value = mock_response
 
         with pytest.raises(PolymarketAPIError) as exc_info:
-            service._make_request('/markets/invalid')
+            polymarket_client._make_request("GET", "/markets/invalid")
 
-        assert 'HTTP error' in str(exc_info.value)
+        assert "404" in str(exc_info.value)
 
-    @patch('market_data.requests.get')
-    def test_make_request_network_error(self, mock_get, service):
-        """Test API request with network error."""
-        mock_get.side_effect = requests.ConnectionError('Network error')
+    @patch('market_data.requests.Session.request')
+    def test_make_request_connection_error(self, mock_request, polymarket_client):
+        """Test API request handles connection errors."""
+        mock_request.side_effect = requests.ConnectionError("Connection refused")
 
-        with pytest.raises(requests.RequestException):
-            service._make_request('/markets')
+        with pytest.raises(PolymarketAPIError) as exc_info:
+            polymarket_client._make_request("GET", "/markets")
 
-    @patch.object(MarketDataService, '_make_request')
-    def test_discover_markets_success(self, mock_request, service, sample_market_response):
-        """Test successful market discovery."""
-        mock_request.return_value = [sample_market_response]
+        assert "Connection refused" in str(exc_info.value)
 
-        markets = service.discover_markets(search_query='BTC', active_only=True, limit=50)
+    @patch('market_data.requests.Session.request')
+    def test_make_request_invalid_json(self, mock_request, polymarket_client):
+        """Test API request handles invalid JSON responses."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.side_effect = ValueError("Invalid JSON")
+        mock_response.headers = {}
+        mock_request.return_value = mock_response
 
-        assert len(markets) == 1
-        assert isinstance(markets[0], MarketData)
-        assert markets[0].market_id == 'market_123'
-        assert markets[0].question == 'Will Bitcoin reach $100k in 2024?'
-        assert float(markets[0].yes_price) == 0.65
+        with pytest.raises(PolymarketAPIError) as exc_info:
+            polymarket_client._make_request("GET", "/markets")
 
-    @patch.object(MarketDataService, '_make_request')
-    def test_discover_markets_with_dict_response(self, mock_request, service, sample_market_response):
-        """Test market discovery with dict response containing markets key."""
-        mock_request.return_value = {'markets': [sample_market_response]}
+        assert "Invalid JSON" in str(exc_info.value)
 
-        markets = service.discover_markets()
 
-        assert len(markets) == 1
-        assert markets[0].market_id == 'market_123'
+# Test market discovery methods
 
-    @patch.object(MarketDataService, '_make_request')
-    def test_discover_markets_empty_response(self, mock_request, service):
-        """Test market discovery with empty response."""
+class TestMarketDiscovery:
+    """Tests for market discovery methods."""
+
+    @patch.object(PolymarketClient, '_make_request')
+    def test_get_active_markets(self, mock_request, polymarket_client, sample_btc_markets):
+        """Test fetching active markets."""
+        mock_request.return_value = sample_btc_markets
+
+        markets = polymarket_client.get_active_markets(limit=10)
+
+        assert len(markets) == 3
+        assert markets == sample_btc_markets
+        mock_request.assert_called_once_with(
+            "GET",
+            "/markets",
+            params={"limit": 10, "offset": 0, "closed": "false"}
+        )
+
+    @patch.object(PolymarketClient, '_make_request')
+    def test_get_active_markets_with_offset(self, mock_request, polymarket_client):
+        """Test fetching markets with offset."""
         mock_request.return_value = []
 
-        markets = service.discover_markets()
+        markets = polymarket_client.get_active_markets(limit=50, offset=100)
 
-        assert len(markets) == 0
+        mock_request.assert_called_once_with(
+            "GET",
+            "/markets",
+            params={"limit": 50, "offset": 100, "closed": "false"}
+        )
 
-    @patch.object(MarketDataService, '_make_request')
-    def test_discover_markets_filters_invalid_data(self, mock_request, service, sample_market_response):
-        """Test that invalid market data is filtered out."""
-        invalid_market = {'id': 'bad_market'}  # Missing required fields
-        mock_request.return_value = [sample_market_response, invalid_market]
+    @patch.object(PolymarketClient, '_make_request')
+    def test_get_active_markets_nested_response(self, mock_request, polymarket_client):
+        """Test fetching markets with nested response format."""
+        mock_request.return_value = {"markets": [{"id": "1"}, {"id": "2"}]}
 
-        markets = service.discover_markets()
+        markets = polymarket_client.get_active_markets()
 
+        assert len(markets) == 2
+        assert markets[0]["id"] == "1"
+
+    @patch.object(PolymarketClient, '_make_request')
+    def test_get_market_by_id(self, mock_request, polymarket_client, sample_market_data):
+        """Test fetching a specific market by ID."""
+        mock_request.return_value = sample_market_data
+
+        market = polymarket_client.get_market_by_id("market_123")
+
+        assert market == sample_market_data
+        mock_request.assert_called_once_with("GET", "/markets/market_123")
+
+    def test_get_market_by_id_empty_id(self, polymarket_client):
+        """Test get_market_by_id raises error for empty ID."""
+        with pytest.raises(ValidationError) as exc_info:
+            polymarket_client.get_market_by_id("")
+
+        assert "market_id" in str(exc_info.value).lower()
+
+    @patch.object(PolymarketClient, '_make_request')
+    def test_search_markets(self, mock_request, polymarket_client, sample_btc_markets):
+        """Test searching for markets."""
+        mock_request.return_value = sample_btc_markets
+
+        markets = polymarket_client.search_markets("Bitcoin", limit=25)
+
+        assert len(markets) == 3
+        mock_request.assert_called_once_with(
+            "GET",
+            "/markets",
+            params={"query": "Bitcoin", "limit": 25}
+        )
+
+    def test_search_markets_empty_query(self, polymarket_client):
+        """Test search_markets raises error for empty query."""
+        with pytest.raises(ValidationError) as exc_info:
+            polymarket_client.search_markets("")
+
+        assert "query" in str(exc_info.value).lower()
+
+
+# Test BTC market filtering
+
+class TestBTCMarketFiltering:
+    """Tests for BTC-related market filtering."""
+
+    @patch.object(PolymarketClient, 'search_markets')
+    def test_get_btc_markets(self, mock_search, polymarket_client, sample_btc_markets):
+        """Test fetching BTC-related markets."""
+        mock_search.return_value = sample_btc_markets
+
+        markets = polymarket_client.get_btc_markets(limit=50)
+
+        # Should search for multiple keywords
+        assert mock_search.call_count >= 1
+        assert len(markets) <= 50
+
+    @patch.object(PolymarketClient, 'search_markets')
+    def test_get_btc_markets_deduplication(self, mock_search, polymarket_client):
+        """Test BTC markets are deduplicated."""
+        # Return same market for different keywords
+        duplicate_market = {"id": "same_market", "question": "BTC price", "active": True}
+        mock_search.return_value = [duplicate_market]
+
+        markets = polymarket_client.get_btc_markets()
+
+        # Should only include each market once
+        market_ids = [m.get('id') for m in markets]
+        assert len(market_ids) == len(set(market_ids))
+
+    @patch.object(PolymarketClient, 'search_markets')
+    def test_get_btc_markets_filters_inactive(self, mock_search, polymarket_client):
+        """Test BTC markets filters out inactive markets."""
+        markets_with_inactive = [
+            {"id": "1", "question": "BTC", "active": True, "closed": False},
+            {"id": "2", "question": "BTC", "active": False, "closed": False},
+            {"id": "3", "question": "BTC", "active": True, "closed": True}
+        ]
+        mock_search.return_value = markets_with_inactive
+
+        markets = polymarket_client.get_btc_markets()
+
+        # Should only include active markets
         assert len(markets) == 1
-        assert markets[0].market_id == 'market_123'
+        assert markets[0]["id"] == "1"
 
-    @patch.object(MarketDataService, '_make_request')
-    def test_get_market_odds_success(self, mock_request, service, sample_market_response):
-        """Test successful odds fetching."""
-        mock_request.return_value = sample_market_response
+    @patch.object(PolymarketClient, 'search_markets')
+    def test_get_btc_markets_handles_search_errors(self, mock_search, polymarket_client):
+        """Test BTC markets handles search errors gracefully."""
+        # First call succeeds, second fails
+        mock_search.side_effect = [
+            [{"id": "1", "question": "BTC", "active": True}],
+            PolymarketAPIError("API error")
+        ]
 
-        market = service.get_market_odds('market_123')
+        markets = polymarket_client.get_btc_markets()
 
-        assert isinstance(market, MarketData)
-        assert market.market_id == 'market_123'
-        assert float(market.yes_price) == 0.65
-        assert float(market.no_price) == 0.35
+        # Should still return markets from successful searches
+        assert len(markets) >= 1
 
-    def test_get_market_odds_invalid_id(self, service):
-        """Test odds fetching with invalid market ID."""
-        with pytest.raises(Exception):  # ValidationError from utils
-            service.get_market_odds('')
 
-    @patch.object(MarketDataService, '_make_request')
-    def test_get_market_odds_api_error(self, mock_request, service):
-        """Test odds fetching with API error."""
-        mock_request.side_effect = PolymarketAPIError('API error')
+# Test market status checks
+
+class TestMarketStatusChecks:
+    """Tests for market status validation."""
+
+    def test_is_market_active_true(self, polymarket_client):
+        """Test active market detection."""
+        market = {
+            "closed": False,
+            "active": True,
+            "end_date": (datetime.utcnow() + timedelta(days=30)).isoformat() + "Z"
+        }
+
+        assert polymarket_client._is_market_active(market) is True
+
+    def test_is_market_active_closed(self, polymarket_client):
+        """Test closed market detection."""
+        market = {"closed": True, "active": False}
+
+        assert polymarket_client._is_market_active(market) is False
+
+    def test_is_market_active_is_closed_key(self, polymarket_client):
+        """Test closed market with is_closed key."""
+        market = {"is_closed": True}
+
+        assert polymarket_client._is_market_active(market) is False
+
+    def test_is_market_active_inactive(self, polymarket_client):
+        """Test inactive market detection."""
+        market = {"active": False, "closed": False}
+
+        assert polymarket_client._is_market_active(market) is False
+
+    def test_is_market_active_past_end_date(self, polymarket_client):
+        """Test market past end date is inactive."""
+        past_date = (datetime.utcnow() - timedelta(days=1)).isoformat() + "Z"
+        market = {
+            "active": True,
+            "closed": False,
+            "end_date": past_date
+        }
+
+        assert polymarket_client._is_market_active(market) is False
+
+    def test_is_market_active_invalid_end_date(self, polymarket_client):
+        """Test market with invalid end date is considered active."""
+        market = {
+            "active": True,
+            "closed": False,
+            "end_date": "invalid_date"
+        }
+
+        # Should assume active if date can't be parsed
+        assert polymarket_client._is_market_active(market) is True
+
+
+# Test market data parsing
+
+class TestMarketDataParsing:
+    """Tests for parsing market data into MarketData models."""
+
+    def test_parse_market_data_complete(self, polymarket_client, sample_market_data):
+        """Test parsing complete market data."""
+        market_data = polymarket_client.parse_market_data(sample_market_data)
+
+        assert isinstance(market_data, MarketData)
+        assert market_data.market_id == "market_123"
+        assert market_data.question == "Will Bitcoin reach $100k in 2024?"
+        assert market_data.yes_price == Decimal("0.65")
+        assert market_data.no_price == Decimal("0.35")
+        assert market_data.yes_volume == Decimal("150000.00")
+        assert market_data.no_volume == Decimal("85000.00")
+        assert market_data.total_liquidity == Decimal("50000.00")
+        assert market_data.is_active is True
+        assert market_data.is_closed is False
+        assert market_data.category == "Cryptocurrency"
+        assert "BTC" in market_data.tags
+
+    def test_parse_market_data_missing_id(self, polymarket_client):
+        """Test parsing fails for market without ID."""
+        market = {"question": "Test market"}
+
+        with pytest.raises(ValidationError) as exc_info:
+            polymarket_client.parse_market_data(market)
+
+        assert "id" in str(exc_info.value).lower()
+
+    def test_parse_market_data_alternate_field_names(self, polymarket_client):
+        """Test parsing with alternate field names."""
+        market = {
+            "market_id": "alt_123",
+            "title": "Alternative title field",
+            "yesPrice": 0.7,
+            "noPrice": 0.3,
+            "end_time": "2024-12-31T23:59:59Z"
+        }
+
+        market_data = polymarket_client.parse_market_data(market)
+
+        assert market_data.market_id == "alt_123"
+        assert market_data.question == "Alternative title field"
+        assert market_data.yes_price == Decimal("0.7")
+        assert market_data.no_price == Decimal("0.3")
+
+    def test_parse_market_data_nested_prices(self, polymarket_client):
+        """Test parsing with nested price structure."""
+        market = {
+            "id": "nested_123",
+            "question": "Test",
+            "prices": {"yes": 0.6, "no": 0.4},
+            "end_date": "2024-12-31T23:59:59Z"
+        }
+
+        market_data = polymarket_client.parse_market_data(market)
+
+        assert market_data.yes_price == Decimal("0.6")
+        assert market_data.no_price == Decimal("0.4")
+
+    def test_parse_market_data_outcomes_array(self, polymarket_client):
+        """Test parsing with outcomes array structure."""
+        market = {
+            "id": "outcomes_123",
+            "question": "Test",
+            "outcomes": [
+                {"name": "yes", "price": 0.55, "volume": 10000},
+                {"name": "no", "price": 0.45, "volume": 8000}
+            ],
+            "end_date": "2024-12-31T23:59:59Z"
+        }
+
+        market_data = polymarket_client.parse_market_data(market)
+
+        assert market_data.yes_price == Decimal("0.55")
+        assert market_data.no_price == Decimal("0.45")
+        assert market_data.yes_volume == Decimal("10000")
+        assert market_data.no_volume == Decimal("8000")
+
+    def test_parse_market_data_with_resolution(self, polymarket_client):
+        """Test parsing resolved market."""
+        market = {
+            "id": "resolved_123",
+            "question": "Test",
+            "yes_price": 1.0,
+            "no_price": 0.0,
+            "end_date": "2024-01-01T00:00:00Z",
+            "resolved": True,
+            "resolution": "yes"
+        }
+
+        market_data = polymarket_client.parse_market_data(market)
+
+        assert market_data.resolution == OutcomeType.YES
+
+    def test_parse_market_data_default_values(self, polymarket_client):
+        """Test parsing with minimal data uses defaults."""
+        market = {
+            "id": "minimal_123",
+            "question": "Minimal market",
+            "end_date": "2024-12-31T23:59:59Z"
+        }
+
+        market_data = polymarket_client.parse_market_data(market)
+
+        # Should use default values
+        assert market_data.yes_price == Decimal("0.5")
+        assert market_data.no_price == Decimal("0.5")
+        assert market_data.yes_volume == Decimal("0")
+        assert market_data.no_volume == Decimal("0")
+
+
+# Test odds retrieval
+
+class TestOddsRetrieval:
+    """Tests for odds retrieval methods."""
+
+    @patch.object(PolymarketClient, 'get_market_by_id')
+    def test_get_market_odds(self, mock_get_market, polymarket_client, sample_market_data):
+        """Test getting market odds."""
+        mock_get_market.return_value = sample_market_data
+
+        yes_price, no_price = polymarket_client.get_market_odds("market_123")
+
+        assert yes_price == Decimal("0.65")
+        assert no_price == Decimal("0.35")
+        mock_get_market.assert_called_once_with("market_123")
+
+    @patch.object(PolymarketClient, 'get_market_by_id')
+    def test_get_market_odds_error(self, mock_get_market, polymarket_client):
+        """Test get_market_odds handles errors."""
+        mock_get_market.side_effect = PolymarketAPIError("Market not found")
 
         with pytest.raises(PolymarketAPIError):
-            service.get_market_odds('market_123')
-
-    @patch.object(MarketDataService, 'get_market_odds')
-    def test_get_market_by_id_success(self, mock_get_odds, service, sample_market_response):
-        """Test get_market_by_id with valid market."""
-        mock_market = MarketData(
-            market_id='market_123',
-            question='Test market',
-            end_date=datetime.now() + timedelta(days=30),
-            yes_price=Decimal('0.6'),
-            no_price=Decimal('0.4')
-        )
-        mock_get_odds.return_value = mock_market
-
-        market = service.get_market_by_id('market_123')
-
-        assert market is not None
-        assert market.market_id == 'market_123'
-
-    @patch.object(MarketDataService, 'get_market_odds')
-    def test_get_market_by_id_not_found(self, mock_get_odds, service):
-        """Test get_market_by_id with non-existent market."""
-        mock_get_odds.side_effect = PolymarketAPIError('Not found')
-
-        market = service.get_market_by_id('invalid_id')
-
-        assert market is None
-
-    def test_filter_btc_markets_no_criteria(self, service):
-        """Test filtering with no criteria filters only active markets."""
-        markets = [
-            MarketData(
-                market_id='m1',
-                question='BTC market 1',
-                end_date=datetime.now() + timedelta(days=30),
-                yes_price=Decimal('0.6'),
-                no_price=Decimal('0.4'),
-                is_active=True,
-                is_closed=False
-            ),
-            MarketData(
-                market_id='m2',
-                question='BTC market 2',
-                end_date=datetime.now() + timedelta(days=30),
-                yes_price=Decimal('0.5'),
-                no_price=Decimal('0.5'),
-                is_active=False,  # Inactive market
-                is_closed=False
-            ),
-        ]
-
-        filtered = service.filter_btc_markets(markets)
-
-        assert len(filtered) == 1
-        assert filtered[0].market_id == 'm1'
-
-    def test_filter_btc_markets_by_liquidity(self, service):
-        """Test filtering markets by liquidity threshold."""
-        markets = [
-            MarketData(
-                market_id='m1',
-                question='High liquidity',
-                end_date=datetime.now() + timedelta(days=30),
-                yes_price=Decimal('0.6'),
-                no_price=Decimal('0.4'),
-                total_liquidity=Decimal('10000.0'),
-                is_active=True
-            ),
-            MarketData(
-                market_id='m2',
-                question='Low liquidity',
-                end_date=datetime.now() + timedelta(days=30),
-                yes_price=Decimal('0.5'),
-                no_price=Decimal('0.5'),
-                total_liquidity=Decimal('500.0'),
-                is_active=True
-            ),
-        ]
-
-        filtered = service.filter_btc_markets(markets, min_liquidity=Decimal('1000'))
-
-        assert len(filtered) == 1
-        assert filtered[0].market_id == 'm1'
-
-    def test_filter_btc_markets_by_volume(self, service):
-        """Test filtering markets by volume threshold."""
-        markets = [
-            MarketData(
-                market_id='m1',
-                question='High volume',
-                end_date=datetime.now() + timedelta(days=30),
-                yes_price=Decimal('0.6'),
-                no_price=Decimal('0.4'),
-                yes_volume=Decimal('8000.0'),
-                no_volume=Decimal('3000.0'),
-                is_active=True
-            ),
-            MarketData(
-                market_id='m2',
-                question='Low volume',
-                end_date=datetime.now() + timedelta(days=30),
-                yes_price=Decimal('0.5'),
-                no_price=Decimal('0.5'),
-                yes_volume=Decimal('100.0'),
-                no_volume=Decimal('50.0'),
-                is_active=True
-            ),
-        ]
-
-        filtered = service.filter_btc_markets(markets, min_volume=Decimal('1000'))
-
-        assert len(filtered) == 1
-        assert filtered[0].market_id == 'm1'
-
-    def test_parse_market_data_complete(self, service, sample_market_response):
-        """Test parsing complete market data."""
-        market = service._parse_market_data(sample_market_response)
-
-        assert market.market_id == 'market_123'
-        assert market.question == 'Will Bitcoin reach $100k in 2024?'
-        assert market.description == 'Bitcoin price prediction market'
-        assert float(market.yes_price) == 0.65
-        assert float(market.no_price) == 0.35
-        assert market.is_active == True
-        assert market.is_closed == False
-        assert market.category == 'crypto'
-        assert 'bitcoin' in market.tags
-
-    def test_parse_market_data_missing_required_field(self, service):
-        """Test parsing with missing required field."""
-        incomplete_data = {'id': 'market_123'}  # Missing question
-
-        with pytest.raises(ValueError):
-            service._parse_market_data(incomplete_data)
-
-    def test_parse_market_data_alternative_field_names(self, service):
-        """Test parsing with alternative API field names."""
-        alt_data = {
-            'marketId': 'alt_123',  # Alternative ID field
-            'title': 'Alternative market',  # Alternative question field
-            'yesPrice': 0.7,  # Alternative price field
-            'noPrice': 0.3,
-            'endDate': '2024-12-31T23:59:59Z',
-            'active': True
-        }
-
-        market = service._parse_market_data(alt_data)
-
-        assert market.market_id == 'alt_123'
-        assert market.question == 'Alternative market'
-        assert float(market.yes_price) == 0.7
-
-    def test_parse_market_data_with_resolution(self, service):
-        """Test parsing market with resolution outcome."""
-        resolved_data = {
-            'id': 'resolved_123',
-            'question': 'Resolved market',
-            'yes_price': 1.0,
-            'no_price': 0.0,
-            'resolution': 'yes',
-            'active': False,
-            'closed': True,
-            'end_date': '2024-01-01T00:00:00Z'
-        }
-
-        market = service._parse_market_data(resolved_data)
-
-        assert market.resolution == OutcomeType.YES
-        assert market.is_closed == True
-
-    def test_extract_price_standard_format(self, service):
-        """Test price extraction from standard format."""
-        data = {'yes_price': 0.65}
-        price = service._extract_price(data, 'yes')
-        assert price == 0.65
-
-    def test_extract_price_percentage_format(self, service):
-        """Test price extraction with percentage (>1) format."""
-        data = {'yes_price': 65.0}  # 65%
-        price = service._extract_price(data, 'yes')
-        assert price == 0.65
-
-    def test_extract_price_from_outcomes_array(self, service):
-        """Test price extraction from outcomes array."""
-        data = {'outcomes': [0.7, 0.3]}
-        yes_price = service._extract_price(data, 'yes')
-        no_price = service._extract_price(data, 'no')
-        assert yes_price == 0.7
-        assert no_price == 0.3
-
-    def test_extract_price_default_fallback(self, service):
-        """Test price extraction falls back to 0.5 when not found."""
-        data = {}
-        price = service._extract_price(data, 'yes')
-        assert price == 0.5
-
-    def test_parse_date_iso_format(self, service):
-        """Test date parsing from ISO format."""
-        date_str = '2024-12-31T23:59:59Z'
-        parsed = service._parse_date(date_str)
-        assert parsed is not None
-        assert parsed.year == 2024
-        assert parsed.month == 12
-
-    def test_parse_date_unix_timestamp(self, service):
-        """Test date parsing from Unix timestamp."""
-        timestamp = 1704067199  # 2024-01-01 00:00:00
-        parsed = service._parse_date(timestamp)
-        assert parsed is not None
-        assert parsed.year == 2024
-
-    def test_parse_date_datetime_object(self, service):
-        """Test date parsing from datetime object."""
-        dt = datetime(2024, 6, 15)
-        parsed = service._parse_date(dt)
-        assert parsed == dt
-
-    def test_parse_date_invalid(self, service):
-        """Test date parsing with invalid input."""
-        parsed = service._parse_date('invalid')
-        assert parsed is None
-
-    def test_parse_date_none(self, service):
-        """Test date parsing with None."""
-        parsed = service._parse_date(None)
-        assert parsed is None
+            polymarket_client.get_market_odds("invalid_id")
 
 
-class TestConvenienceFunctions:
-    """Tests for convenience functions."""
+# Test utility methods
 
-    @patch('market_data.MarketDataService')
-    def test_get_active_btc_markets_success(self, mock_service_class):
-        """Test get_active_btc_markets convenience function."""
-        mock_service = Mock()
-        mock_markets = [
-            MarketData(
-                market_id='m1',
-                question='BTC market',
-                end_date=datetime.now() + timedelta(days=30),
-                yes_price=Decimal('0.6'),
-                no_price=Decimal('0.4'),
-                is_active=True
-            )
-        ]
-        mock_service.discover_markets.return_value = mock_markets
-        mock_service.filter_btc_markets.return_value = mock_markets
-        mock_service_class.return_value = mock_service
+class TestUtilityMethods:
+    """Tests for utility methods."""
 
-        markets = get_active_btc_markets(min_liquidity=Decimal('1000'))
+    def test_extract_price_direct(self, polymarket_client):
+        """Test extracting price from direct field."""
+        market = {"yes_price": 0.75}
+        price = polymarket_client._extract_price(market, "yes")
+        assert price == Decimal("0.75")
 
-        assert markets is not None
-        assert len(markets) == 1
-        mock_service.discover_markets.assert_called_once_with(
-            search_query='BTC',
-            active_only=True,
-            limit=50
-        )
+    def test_extract_price_camel_case(self, polymarket_client):
+        """Test extracting price from camelCase field."""
+        market = {"yesPrice": 0.65}
+        price = polymarket_client._extract_price(market, "yes")
+        assert price == Decimal("0.65")
 
-    @patch('market_data.MarketDataService')
-    def test_get_active_btc_markets_error_handling(self, mock_service_class):
-        """Test get_active_btc_markets error handling."""
-        mock_service = Mock()
-        mock_service.discover_markets.side_effect = Exception('API error')
-        mock_service_class.return_value = mock_service
+    def test_extract_price_default(self, polymarket_client):
+        """Test extracting price defaults to 0.5."""
+        market = {}
+        price = polymarket_client._extract_price(market, "yes")
+        assert price == Decimal("0.5")
 
-        markets = get_active_btc_markets()
+    def test_extract_volume_direct(self, polymarket_client):
+        """Test extracting volume from direct field."""
+        market = {"yes_volume": 50000}
+        volume = polymarket_client._extract_volume(market, "yes")
+        assert volume == Decimal("50000")
 
-        # Should return None due to error handling
-        assert markets is None
+    def test_extract_volume_default(self, polymarket_client):
+        """Test extracting volume defaults to 0."""
+        market = {}
+        volume = polymarket_client._extract_volume(market, "yes")
+        assert volume == Decimal("0")
 
-    @patch('market_data.MarketDataService')
-    def test_get_market_odds_by_id_success(self, mock_service_class):
-        """Test get_market_odds_by_id convenience function."""
-        mock_service = Mock()
-        mock_market = MarketData(
-            market_id='market_123',
-            question='Test market',
-            end_date=datetime.now() + timedelta(days=30),
-            yes_price=Decimal('0.65'),
-            no_price=Decimal('0.35')
-        )
-        mock_service.get_market_odds.return_value = mock_market
-        mock_service_class.return_value = mock_service
+    def test_parse_datetime_iso_format(self, polymarket_client):
+        """Test parsing ISO format datetime."""
+        date_str = "2024-12-31T23:59:59Z"
+        result = polymarket_client._parse_datetime(date_str, datetime.utcnow())
+        assert result.year == 2024
+        assert result.month == 12
+        assert result.day == 31
 
-        market = get_market_odds_by_id('market_123')
+    def test_parse_datetime_invalid(self, polymarket_client):
+        """Test parsing invalid datetime returns default."""
+        default = datetime(2024, 1, 1)
+        result = polymarket_client._parse_datetime("invalid", default)
+        assert result == default
 
-        assert market is not None
-        assert market.market_id == 'market_123'
-        mock_service.get_market_odds.assert_called_once_with('market_123')
-
-    @patch('market_data.MarketDataService')
-    def test_get_market_odds_by_id_error_handling(self, mock_service_class):
-        """Test get_market_odds_by_id error handling."""
-        mock_service = Mock()
-        mock_service.get_market_odds.side_effect = Exception('API error')
-        mock_service_class.return_value = mock_service
-
-        market = get_market_odds_by_id('market_123')
-
-        # Should return None due to error handling
-        assert market is None
+    def test_parse_datetime_none(self, polymarket_client):
+        """Test parsing None datetime returns default."""
+        default = datetime(2024, 1, 1)
+        result = polymarket_client._parse_datetime(None, default)
+        assert result == default
 
 
-class TestIntegrationScenarios:
-    """Integration-style tests for real-world scenarios."""
+# Test context manager
 
-    @pytest.fixture
-    def service_with_mock_api(self):
-        """Service with mocked API responses."""
-        with patch('market_data.get_config') as mock_config:
-            config = Mock()
-            config.polymarket_api_key = 'test_key'
-            config.polymarket_api_secret = 'test_secret'
-            config.polymarket_base_url = 'https://api.test.com'
-            mock_config.return_value = config
+class TestContextManager:
+    """Tests for context manager functionality."""
 
-            service = MarketDataService()
-            return service
+    def test_context_manager(self, mock_config):
+        """Test client works as context manager."""
+        with PolymarketClient(mock_config) as client:
+            assert client is not None
+            assert client.session is not None
 
-    @patch.object(MarketDataService, '_make_request')
-    def test_discover_and_filter_workflow(self, mock_request, service_with_mock_api):
-        """Test complete workflow: discover markets and filter them."""
-        # Mock API response with multiple markets
-        mock_request.return_value = [
-            {
-                'id': 'm1',
-                'question': 'BTC $100k?',
-                'yes_price': 0.6,
-                'no_price': 0.4,
-                'liquidity': 50000,
-                'yes_volume': 80000,
-                'no_volume': 40000,
-                'active': True,
-                'closed': False,
-                'end_date': '2024-12-31T23:59:59Z'
-            },
-            {
-                'id': 'm2',
-                'question': 'BTC $50k?',
-                'yes_price': 0.8,
-                'no_price': 0.2,
-                'liquidity': 500,
-                'yes_volume': 1000,
-                'no_volume': 500,
-                'active': True,
-                'closed': False,
-                'end_date': '2024-12-31T23:59:59Z'
-            }
-        ]
+    @patch.object(PolymarketClient, 'close')
+    def test_context_manager_closes(self, mock_close, mock_config):
+        """Test context manager closes session."""
+        with PolymarketClient(mock_config) as client:
+            pass
 
-        # Discover markets
-        markets = service_with_mock_api.discover_markets('BTC')
-        assert len(markets) == 2
+        mock_close.assert_called_once()
 
-        # Filter by liquidity
-        filtered = service_with_mock_api.filter_btc_markets(
-            markets,
-            min_liquidity=Decimal('10000')
-        )
-        assert len(filtered) == 1
-        assert filtered[0].market_id == 'm1'
-
-        # Filter by volume
-        filtered_by_volume = service_with_mock_api.filter_btc_markets(
-            markets,
-            min_volume=Decimal('10000')
-        )
-        assert len(filtered_by_volume) == 1
-        assert filtered_by_volume[0].market_id == 'm1'
+    def test_close_method(self, polymarket_client):
+        """Test close method."""
+        polymarket_client.close()
+        # Session should be closed (no easy way to verify, just ensure no exception)
