@@ -11,7 +11,7 @@ Key Features:
 - Crash recovery using temporary files and renames
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Dict, Any, Optional, List
@@ -131,7 +131,7 @@ class StateManager:
             IOError: If trade cannot be logged
         """
         try:
-            timestamp = datetime.utcnow().isoformat()
+            timestamp = datetime.now(timezone.utc).isoformat()
             log_entry = {
                 "timestamp": timestamp,
                 "trade": trade.to_dict()

@@ -10,7 +10,7 @@ This module defines all the core data models for the Polymarket trading bot incl
 All models use Pydantic for validation and serialization.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
 from typing import Optional, Dict, Any, List
@@ -241,8 +241,8 @@ class BotState(BaseModel):
 
     def update_heartbeat(self) -> None:
         """Update the last heartbeat timestamp."""
-        self.last_heartbeat = datetime.utcnow()
-        self.updated_at = datetime.utcnow()
+        self.last_heartbeat = datetime.now(timezone.utc)
+        self.updated_at = datetime.now(timezone.utc)
 
 
 class Trade(BaseModel):
@@ -565,7 +565,7 @@ class Position(BaseModel):
             self.realized_pnl = price_diff * self.quantity
             self.unrealized_pnl = Decimal("0.00")
 
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
 
     def get_total_pnl(self) -> Decimal:
         """Calculate total profit/loss (realized + unrealized)."""

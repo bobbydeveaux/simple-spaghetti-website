@@ -15,7 +15,7 @@ All signals include confidence scores and reasoning for transparency.
 import logging
 from typing import List, Tuple, Optional
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .config import Config, get_config
 from .models import PredictionSignal, SignalType
@@ -101,7 +101,7 @@ class PredictionEngine:
                 macd_signal=Decimal(str(macd_signal)),
                 order_book_imbalance=Decimal(str(order_book_imbalance)),
                 btc_price=Decimal(str(btc_price)) if btc_price else None,
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
                 reasoning=reasoning
             )
 
@@ -145,7 +145,12 @@ class PredictionEngine:
         Raises:
             ValueError: If insufficient price data
         """
-        return calculate_macd(prices)
+        return calculate_macd(
+            prices,
+            fast_period=self.config.macd_fast_period,
+            slow_period=self.config.macd_slow_period,
+            signal_period=self.config.macd_signal_period
+        )
 
     def _get_order_book_imbalance(self) -> float:
         """
