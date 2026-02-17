@@ -1,6 +1,6 @@
 {
   "method": "ai-assisted",
-  "filesResolved": 1,
-  "summary": "Successfully resolved merge conflict in polymarket-bot/README.md by preserving both Risk Management and Capital Allocation features from their respective branches",
-  "strategyUsed": "preserved both changes - kept Risk Management section from HEAD and Capital Allocation section from origin/main, as both are complementary features that should coexist in the documentation. Also merged the project structure and test file listings to include both risk.py/test_risk.py and capital.py/test_capital.py"
+  "filesResolved": 2,
+  "summary": "Successfully merged risk management and capital allocation features. Resolved conflicts in README.md by combining feature descriptions from both branches. Resolved conflicts in risk.py by using the comprehensive RiskManager class from HEAD and adding the calculate_max_trade_size and get_risk_metrics helper functions from origin/main for backward compatibility.",
+  "strategyUsed": "Preserved advanced OOP design (RiskManager class with RiskApprovalResult) from HEAD while adding standalone utility functions (calculate_max_trade_size, get_risk_metrics) from origin/main. Combined documentation sections to include both risk management system details and capital allocation features. Maintained backward compatibility by keeping both class-based and function-based interfaces."
 }
