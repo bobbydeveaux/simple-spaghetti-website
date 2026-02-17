@@ -9,7 +9,8 @@ This package provides:
 - **Configuration Management**: Secure API key management and environment-based configuration
 - **Utility Functions**: Retry logic, validation, error handling, and helper functions
 - **Multi-Exchange Support**: Integration with Polymarket, Binance, and CoinGecko APIs
-- **Technical Analysis**: Built-in TA-Lib support for technical indicators
+- **Real-Time Market Data**: Binance WebSocket client for BTC/USDT price streaming
+- **Technical Analysis**: RSI, MACD, and order book imbalance indicators using TA-Lib
 
 ## Features
 
@@ -22,7 +23,10 @@ This package provides:
 
 ### Technical Capabilities
 - **Environment Configuration**: Secure API key management using `.env` files
-- **WebSocket Support**: Real-time market data streaming
+- **WebSocket Support**: Real-time BTC/USDT price streaming from Binance
+- **Technical Indicators**: RSI (14-period) and MACD (12/26/9) calculations
+- **Order Book Analysis**: Bid/ask imbalance metrics for market pressure
+- **Automatic Reconnection**: Resilient WebSocket connection with retry logic
 - **Configurable Risk Management**: Customizable position sizing and stop-loss parameters
 - **Retry Logic**: Exponential backoff for resilient API calls
 - **Validation Functions**: Type checking, range validation, and data validation
@@ -32,14 +36,16 @@ This package provides:
 
 ```
 polymarket-bot/
-├── __init__.py         # Package initialization
-├── config.py           # Configuration management
-├── models.py           # Core data models (BotState, Trade, Position, MarketData)
-├── utils.py            # Utility functions (retry, validation, error handling)
-├── tests/              # Comprehensive test suite
-│   └── test_models.py  # Model validation tests
-├── test_config.py      # Configuration tests
-└── README.md           # This file
+├── __init__.py             # Package initialization
+├── config.py               # Configuration management
+├── models.py               # Core data models (BotState, Trade, Position, MarketData, TechnicalIndicatorData)
+├── market_data.py          # Market data service (Binance WebSocket, technical indicators)
+├── utils.py                # Utility functions (retry, validation, error handling)
+├── tests/                  # Comprehensive test suite
+│   ├── test_models.py      # Model validation tests
+│   └── test_market_data.py # Market data and technical indicator tests
+├── test_config.py          # Configuration tests
+└── README.md               # This file
 ```
 
 ## Installation
@@ -287,6 +293,235 @@ market_dict = market.to_dict()
 - Prices must be between 0 and 1
 - Helper method to validate prices sum to ~1.0
 
+### TechnicalIndicatorData
+
+Represents BTC price analysis with technical indicators.
+
+**Key Features:**
+- Real-time BTC/USDT price tracking
+- RSI (Relative Strength Index) calculation
+- MACD (Moving Average Convergence Divergence) indicators
+- Order book imbalance metrics
+- Signal generation helpers
+
+**Example:**
+```python
+from models import TechnicalIndicatorData
+from decimal import Decimal
+
+indicators = TechnicalIndicatorData(
+    btc_price=Decimal("45250.50"),
+    rsi=Decimal("65.5"),
+    macd_line=Decimal("125.75"),
+    macd_signal=Decimal("110.25"),
+    macd_histogram=Decimal("15.50"),
+    order_book_imbalance=Decimal("1.15"),
+    price_history_size=50
+)
+
+# Check if all indicators are available
+if indicators.has_valid_indicators():
+    print("All indicators calculated")
+
+# Get RSI signal
+rsi_signal = indicators.get_rsi_signal()  # "neutral", "overbought", or "oversold"
+
+# Get MACD signal
+macd_signal = indicators.get_macd_signal()  # "bullish" or "bearish"
+
+# Serialize
+indicators_dict = indicators.to_dict()
+```
+
+**Validations:**
+- RSI must be between 0 and 100
+- BTC price must be positive
+- Order book imbalance must be positive
+
+## Market Data Service
+
+### Overview
+
+The market data service provides real-time BTC price data and technical indicators through integration with Binance WebSocket API.
+
+**Components:**
+- **BinanceWebSocketClient**: Real-time BTC/USDT price feed with automatic reconnection
+- **TechnicalIndicators**: RSI and MACD calculation using TA-Lib
+- **OrderBookAnalyzer**: Order book imbalance analysis
+- **MarketDataService**: Unified interface for all market data
+
+### BinanceWebSocketClient
+
+Connects to Binance WebSocket API for real-time BTC/USDT price updates.
+
+**Features:**
+- Automatic connection handling and reconnection
+- Price history buffering (configurable max size)
+- Thread-safe price storage
+- Connection statistics and health monitoring
+
+**Example:**
+```python
+from market_data import BinanceWebSocketClient
+import time
+
+# Initialize client
+client = BinanceWebSocketClient(max_history=200)
+
+# Connect to WebSocket
+if client.connect():
+    print("Connected to Binance WebSocket")
+
+    # Wait for data
+    time.sleep(5)
+
+    # Get current price
+    price = client.get_current_price()
+    print(f"Current BTC price: ${price}")
+
+    # Get price history
+    history = client.get_price_history(count=50)
+    print(f"Price history: {len(history)} data points")
+
+    # Get technical indicators
+    rsi = client.get_rsi(period=14)
+    macd_line, signal_line, histogram = client.get_macd()
+
+    print(f"RSI: {rsi}")
+    print(f"MACD: {macd_line}, Signal: {signal_line}")
+
+    # Check connection stats
+    stats = client.get_statistics()
+    print(f"Updates received: {stats['update_count']}")
+
+    # Disconnect when done
+    client.disconnect()
+```
+
+### Technical Indicators
+
+Calculate RSI and MACD from price history.
+
+**RSI (Relative Strength Index):**
+- Range: 0-100
+- Overbought: > 70
+- Oversold: < 30
+- Default period: 14
+
+**MACD (Moving Average Convergence Divergence):**
+- MACD Line: Fast EMA (12) - Slow EMA (26)
+- Signal Line: EMA (9) of MACD line
+- Histogram: MACD line - Signal line
+- Bullish: MACD line > Signal line
+- Bearish: MACD line < Signal line
+
+**Example:**
+```python
+from market_data import TechnicalIndicators
+
+# Sample price data
+prices = [45000, 45100, 45200, 45150, 45300, ...]  # 50+ data points
+
+# Calculate RSI
+rsi = TechnicalIndicators.calculate_rsi(prices, period=14)
+if rsi is not None:
+    if rsi > 70:
+        print(f"RSI {rsi:.2f}: Overbought")
+    elif rsi < 30:
+        print(f"RSI {rsi:.2f}: Oversold")
+    else:
+        print(f"RSI {rsi:.2f}: Neutral")
+
+# Calculate MACD
+macd_line, signal_line, histogram = TechnicalIndicators.calculate_macd(prices)
+if macd_line is not None:
+    if macd_line > signal_line:
+        print("MACD: Bullish crossover")
+    else:
+        print("MACD: Bearish crossover")
+```
+
+### Order Book Analysis
+
+Analyze order book bid/ask imbalance to gauge market pressure.
+
+**Imbalance Calculation:**
+- Ratio of bid volume to ask volume
+- Uses top 10 levels of order book
+- Imbalance > 1.0: More buying pressure (bullish)
+- Imbalance < 1.0: More selling pressure (bearish)
+- Imbalance ≈ 1.0: Balanced market
+
+**Example:**
+```python
+from market_data import OrderBookAnalyzer
+
+analyzer = OrderBookAnalyzer()
+
+# Order book data (price, quantity)
+bids = [(45000, 10.5), (44995, 8.2), (44990, 5.0)]
+asks = [(45005, 3.5), (45010, 4.0), (45015, 2.5)]
+
+# Calculate imbalance
+imbalance = analyzer.calculate_imbalance(bids, asks)
+
+if imbalance > 1.1:
+    print(f"Imbalance {imbalance:.2f}: Strong buying pressure")
+elif imbalance < 0.9:
+    print(f"Imbalance {imbalance:.2f}: Strong selling pressure")
+else:
+    print(f"Imbalance {imbalance:.2f}: Balanced")
+```
+
+### MarketDataService
+
+Unified interface for accessing all market data and indicators.
+
+**Example:**
+```python
+from market_data import MarketDataService
+
+# Initialize service
+service = MarketDataService()
+
+# Start service (connects to Binance)
+if service.start():
+    print("Market data service started")
+
+    # Wait for sufficient data
+    import time
+    while not service.is_ready():
+        print("Waiting for sufficient price history...")
+        time.sleep(5)
+
+    # Get current price
+    btc_price = service.get_current_price()
+    print(f"BTC Price: ${btc_price}")
+
+    # Get all technical indicators
+    indicators = service.get_technical_indicators()
+    print(f"RSI: {indicators['rsi']}")
+    print(f"MACD: {indicators['macd_line']}")
+    print(f"Order Book Imbalance: {indicators['order_book_imbalance']}")
+
+    # Get complete market data snapshot
+    market_data = service.get_market_data()
+    print(market_data)
+
+    # Stop service when done
+    service.stop()
+```
+
+**Service States:**
+- `start()`: Connects to data sources
+- `is_ready()`: Returns True when sufficient data is available for indicators
+- `stop()`: Disconnects and cleans up resources
+
+**Data Requirements:**
+- Minimum 35 price points needed for MACD calculation
+- RSI requires minimum 15 price points
+- Service is "ready" when MACD can be calculated
+
 ## Enumerations
 
 ### BotStatus
@@ -519,6 +754,10 @@ The package includes comprehensive tests covering:
 - ✅ Serialization
 - ✅ Configuration management
 - ✅ Utility functions
+- ✅ Technical indicators (RSI, MACD)
+- ✅ Order book analysis
+- ✅ WebSocket client functionality
+- ✅ Market data service integration
 - ✅ Integration scenarios
 
 Run tests:
@@ -528,10 +767,12 @@ pytest -v
 
 # Specific test files
 pytest tests/test_models.py -v
+pytest tests/test_market_data.py -v
 pytest test_config.py test_polymarket_utils.py -v
 
 # With coverage
 pytest tests/test_models.py --cov=models --cov-report=html
+pytest tests/test_market_data.py --cov=market_data --cov-report=html
 pytest test_config.py -v --cov=config --cov-report=html
 ```
 
