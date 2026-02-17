@@ -11,7 +11,7 @@ Single-process monolithic application with event-driven loop architecture. The b
 
 ## 2. System Components
 
-**Main Orchestrator**: Event loop managing 5-minute interval timing, component coordination, and graceful shutdown on drawdown breach or completion.
+**Main Orchestrator**: Event loop managing 5-minute interval timing, component coordination, and graceful shutdown on drawdown breach or completion. Implements signal handlers for SIGINT/SIGTERM to enable graceful shutdown with state persistence. Maintains crash recovery through periodic state saves.
 
 **Market Data Service**: Fetches BTC price data from Binance WebSocket, calculates technical indicators (RSI, MACD), retrieves Polymarket odds via REST API.
 
