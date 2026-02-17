@@ -90,6 +90,12 @@ class Config:
         self.order_book_bearish_threshold = self._get_float_env('ORDER_BOOK_BEARISH_THRESHOLD', 0.9)
         self.prediction_confidence_score = self._get_float_env('PREDICTION_CONFIDENCE_SCORE', 0.75)
 
+        # Trade execution configuration with defaults
+        self.execution_max_retries = self._get_int_env('EXECUTION_MAX_RETRIES', 3)
+        self.execution_retry_base_delay = self._get_float_env('EXECUTION_RETRY_BASE_DELAY', 2.0)
+        self.execution_settlement_poll_interval = self._get_int_env('EXECUTION_SETTLEMENT_POLL_INTERVAL', 10)
+        self.execution_settlement_timeout = self._get_int_env('EXECUTION_SETTLEMENT_TIMEOUT', 300)
+
         # Validate numeric ranges
         self._validate_ranges()
 
@@ -257,6 +263,27 @@ class Config:
         if not (0 <= self.prediction_confidence_score <= 1):
             raise ConfigurationError(
                 f"PREDICTION_CONFIDENCE_SCORE must be between 0 and 1, got: {self.prediction_confidence_score}"
+            )
+
+        # Validate trade execution parameters
+        if self.execution_max_retries <= 0:
+            raise ConfigurationError(
+                f"EXECUTION_MAX_RETRIES must be greater than 0, got: {self.execution_max_retries}"
+            )
+
+        if self.execution_retry_base_delay <= 0:
+            raise ConfigurationError(
+                f"EXECUTION_RETRY_BASE_DELAY must be greater than 0, got: {self.execution_retry_base_delay}"
+            )
+
+        if self.execution_settlement_poll_interval <= 0:
+            raise ConfigurationError(
+                f"EXECUTION_SETTLEMENT_POLL_INTERVAL must be greater than 0, got: {self.execution_settlement_poll_interval}"
+            )
+
+        if self.execution_settlement_timeout <= 0:
+            raise ConfigurationError(
+                f"EXECUTION_SETTLEMENT_TIMEOUT must be greater than 0, got: {self.execution_settlement_timeout}"
             )
 
     def __repr__(self) -> str:
