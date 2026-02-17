@@ -59,6 +59,11 @@ This package provides:
 
 ### Capital Allocation
 - ✅ **Win-Streak Position Sizing**: Dynamic position sizing based on consecutive wins
+- ✅ **Base Size**: $5 starting position with zero streak
+- ✅ **Multiplier**: 1.5x scaling per consecutive win
+- ✅ **Position Cap**: Maximum $25 position size regardless of streak
+- ✅ **Capital Safety**: Automatic 50% capital constraint to prevent over-leverage
+- ✅ **Streak Reset**: Automatic streak reset to zero on any loss
 - ✅ **Configurable Parameters**: Customizable base size, multiplier, and maximum cap
 - ✅ **Risk Management**: Position size capped at 50% of available capital
 - ✅ **Automatic Streak Tracking**: Integration with StateManager for win/loss tracking
@@ -1100,6 +1105,126 @@ data/
 ├── bot_state.json   # Current bot state (atomic writes)
 ├── metrics.json     # Performance metrics (atomic writes)
 └── trades.log       # Trade history log (append-only)
+```
+
+## Capital Allocation
+
+The capital allocation module implements dynamic position sizing based on win-streak scaling. This approach rewards consecutive wins with larger positions while maintaining strict safety limits.
+
+### Position Sizing Formula
+
+```
+position_size = min(base_size * (multiplier ^ win_streak), max_size)
+```
+
+**Constants:**
+- **BASE_SIZE**: $5.00 (starting position with zero streak)
+- **MULTIPLIER**: 1.5x (scaling per consecutive win)
+- **MAX_SIZE**: $25.00 (maximum position cap)
+
+**Additional Safety:** Position size is also capped at 50% of current capital to prevent over-leverage.
+
+### Win-Streak Progression
+
+| Streak | Formula | Position Size | Capped At |
+|--------|---------|---------------|-----------|
+| 0 | 5.0 × 1.5⁰ | $5.00 | - |
+| 1 | 5.0 × 1.5¹ | $7.50 | - |
+| 2 | 5.0 × 1.5² | $11.25 | - |
+| 3 | 5.0 × 1.5³ | $16.88 | - |
+| 4 | 5.0 × 1.5⁴ | $25.31 | $25.00 |
+| 5+ | 5.0 × 1.5⁵⁺ | >$25.00 | $25.00 |
+
+### Usage
+
+```python
+from polymarket_bot.capital import calculate_position_size, update_win_streak
+
+# Mock bot state with current capital and win streak
+class BotState:
+    def __init__(self, current_capital, win_streak):
+        self.current_capital = current_capital
+        self.win_streak = win_streak
+
+# Calculate position size for new trade
+bot_state = BotState(current_capital=100.0, win_streak=0)
+position = calculate_position_size(bot_state)
+print(f"Position size: ${position}")  # $5.00
+
+# After a winning trade
+bot_state.win_streak = update_win_streak(bot_state, "WIN")
+position = calculate_position_size(bot_state)
+print(f"Position size after win: ${position}")  # $7.50
+
+# After a losing trade (streak resets)
+bot_state.win_streak = update_win_streak(bot_state, "LOSS")
+position = calculate_position_size(bot_state)
+print(f"Position size after loss: ${position}")  # $5.00 (back to base)
+```
+
+### Utility Function
+
+For testing or analysis, use `get_position_size_for_streak` to calculate position sizes without modifying bot state:
+
+```python
+from polymarket_bot.capital import get_position_size_for_streak
+
+# Calculate position for various streaks
+for streak in range(6):
+    size = get_position_size_for_streak(streak)
+    print(f"Streak {streak}: ${size:.2f}")
+
+# Output:
+# Streak 0: $5.00
+# Streak 1: $7.50
+# Streak 2: $11.25
+# Streak 3: $16.88
+# Streak 4: $25.00
+# Streak 5: $25.00 (capped)
+```
+
+### Capital Safety Features
+
+1. **Maximum Position Cap**: No position exceeds $25 regardless of streak length
+2. **Capital Constraint**: Position size limited to 50% of current capital
+3. **Automatic Streak Reset**: Any loss resets the win streak to zero
+4. **Low Capital Protection**: With capital < $10, positions automatically scale down
+
+### Example Scenarios
+
+**Scenario 1: Normal Trading**
+```python
+bot = BotState(current_capital=100.0, win_streak=2)
+position = calculate_position_size(bot)  # $11.25
+```
+
+**Scenario 2: Low Capital Constraint**
+```python
+bot = BotState(current_capital=20.0, win_streak=2)
+position = calculate_position_size(bot)  # $10.00 (50% of $20, not $11.25)
+```
+
+**Scenario 3: Very High Streak**
+```python
+bot = BotState(current_capital=100.0, win_streak=10)
+position = calculate_position_size(bot)  # $25.00 (capped at max)
+```
+
+**Scenario 4: Win-Loss Pattern**
+```python
+bot = BotState(current_capital=100.0, win_streak=0)
+
+# Win 1
+bot.win_streak = update_win_streak(bot, "WIN")  # streak = 1
+pos1 = calculate_position_size(bot)  # $7.50
+
+# Win 2
+bot.win_streak = update_win_streak(bot, "WIN")  # streak = 2
+pos2 = calculate_position_size(bot)  # $11.25
+
+# Loss (resets streak)
+bot.win_streak = update_win_streak(bot, "LOSS")  # streak = 0
+pos3 = calculate_position_size(bot)  # $5.00 (back to base)
 ```
 
 ## Utility Functions

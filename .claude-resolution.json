@@ -1,6 +1,6 @@
 {
   "method": "ai-assisted",
-  "filesResolved": 4,
-  "summary": "Resolved all 4 merge conflicts by accepting origin/main version which contains critical fixes from code review including: proper HMAC request signing for API authentication, TA-Lib for MACD calculations, thread-safe WebSocket client with proper locking, comprehensive PolymarketClient implementation, and BTCPriceData model for BTC price tracking. The origin/main version was more complete and addressed all the critical bugs identified in the code review.",
-  "strategyUsed": "Chose origin/main (theirs) for all conflicts. The main branch contained critical security fixes (HMAC-SHA256 API signing), proper technical indicator implementation (TA-Lib for MACD), thread-safety improvements (Lock for WebSocket price buffer), and a more comprehensive implementation with PolymarketClient, BinanceWebSocket, and BTCPriceData model. The feature branch had a simpler implementation missing these critical fixes that were explicitly requested in the code review feedback."
+  "filesResolved": 3,
+  "summary": "Resolved merge conflicts in README.md, capital.py, and test_capital.py by preserving the more comprehensive class-based implementation from HEAD while merging documentation enhancements from both branches",
+  "strategyUsed": "For README.md: merged both feature lists to preserve all documentation. For capital.py and test_capital.py: kept the HEAD version's class-based CapitalAllocator implementation as it is more flexible and feature-complete than origin/main's Protocol-based approach, while ensuring all functionality from both versions is preserved. The HEAD implementation includes validation, configurable parameters, and comprehensive testing that aligns better with the project's architecture."
 }
