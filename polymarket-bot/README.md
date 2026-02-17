@@ -7,6 +7,7 @@ Automated trading bot for Polymarket prediction markets with robust data models,
 This package provides:
 - **Validated Data Models**: Type-safe Pydantic models for bot state, trades, positions, and market data
 - **Configuration Management**: Secure API key management and environment-based configuration
+- **State Persistence**: Atomic file operations with crash recovery and audit logging
 - **Utility Functions**: Retry logic, validation, error handling, and helper functions
 - **Multi-Exchange Support**: Integration with Polymarket, Binance, and CoinGecko APIs
 - **Technical Analysis**: Built-in TA-Lib support for technical indicators
@@ -19,6 +20,14 @@ This package provides:
 - ✅ **Serialization Support**: Easy conversion to/from dictionaries for logging and storage
 - ✅ **Business Logic Methods**: Built-in helpers for common calculations (P&L, win rate, etc.)
 - ✅ **Test Coverage**: Comprehensive test suite with 100% model coverage
+
+### State Persistence & Logging
+- ✅ **Atomic Writes**: Crash-safe file operations using temp file + rename pattern
+- ✅ **Trade Audit Trail**: Append-only JSON Lines logging for complete trade history
+- ✅ **Metrics Tracking**: Performance metrics logging with automatic rotation
+- ✅ **Crash Recovery**: Automatic cleanup of temporary files on startup
+- ✅ **Log Rotation**: Automatic rotation when files exceed 10MB (keeps 5 backups)
+- ✅ **State Validation**: Full Pydantic validation on load/save operations
 
 ### Technical Capabilities
 - **Environment Configuration**: Secure API key management using `.env` files
@@ -35,9 +44,11 @@ polymarket-bot/
 ├── __init__.py         # Package initialization
 ├── config.py           # Configuration management
 ├── models.py           # Core data models (BotState, Trade, Position, MarketData)
+├── state.py            # State persistence and logging
 ├── utils.py            # Utility functions (retry, validation, error handling)
 ├── tests/              # Comprehensive test suite
-│   └── test_models.py  # Model validation tests
+│   ├── test_models.py  # Model validation tests
+│   └── test_state.py   # State persistence tests
 ├── test_config.py      # Configuration tests
 └── README.md           # This file
 ```
@@ -318,6 +329,156 @@ market_dict = market.to_dict()
 ### OutcomeType
 - `YES`: Yes outcome
 - `NO`: No outcome
+
+## State Persistence and Logging
+
+The `state.py` module provides robust state management with atomic writes, crash recovery, and comprehensive logging.
+
+### Features
+
+- **Atomic Writes**: Uses temp file + rename pattern to prevent data corruption
+- **Crash Recovery**: Automatic cleanup of temporary files on startup
+- **Trade Logging**: Append-only audit trail in JSON Lines format
+- **Metrics Tracking**: Performance metrics logging with timestamps
+- **Log Rotation**: Automatic rotation when files exceed 10MB (keeps 5 backups)
+- **State Validation**: Full Pydantic validation on load/save
+
+### State Management
+
+```python
+from state import load_state, save_state, clean_temp_files
+from models import BotState, BotStatus
+from decimal import Decimal
+
+# Clean up any temp files from crashed processes (call on startup)
+clean_temp_files()
+
+# Load state (returns default if file doesn't exist)
+state = load_state()
+
+# Update state
+state.status = BotStatus.RUNNING
+state.total_trades += 1
+state.winning_trades += 1
+state.total_pnl += Decimal("50.25")
+
+# Save state atomically
+save_state(state)
+```
+
+### Trade Logging
+
+```python
+from state import log_trade, load_trade_history
+from models import Trade, OrderSide, OrderType, TradeStatus, OutcomeType
+from decimal import Decimal
+
+# Create a trade
+trade = Trade(
+    trade_id="trade_001",
+    market_id="market_123",
+    order_id="order_456",
+    side=OrderSide.BUY,
+    order_type=OrderType.LIMIT,
+    outcome=OutcomeType.YES,
+    price=Decimal("0.65"),
+    quantity=Decimal("100"),
+    status=TradeStatus.EXECUTED,
+    fee=Decimal("0.50")
+)
+
+# Log trade to trades.log (append-only, with rotation)
+log_trade(trade)
+
+# Load trade history
+all_trades = load_trade_history()  # All trades
+recent_trades = load_trade_history(limit=10)  # Last 10 trades
+```
+
+### Metrics Logging
+
+```python
+from state import log_metrics, load_metrics_history
+
+# Log performance metrics
+metrics = {
+    "cycle": 1,
+    "timestamp": "2024-01-15T10:30:00Z",
+    "total_pnl": 125.50,
+    "win_rate": 0.65,
+    "active_positions": 3,
+    "total_exposure": 1500.00
+}
+
+log_metrics(metrics)
+
+# Load metrics history
+all_metrics = load_metrics_history()  # All metrics
+recent_metrics = load_metrics_history(limit=20)  # Last 20 entries
+```
+
+### State Summary
+
+```python
+from state import get_state_summary
+
+# Get human-readable summary
+summary = get_state_summary(state)
+
+# Output:
+# {
+#     "bot_id": "polymarket_bot_001",
+#     "status": "running",
+#     "total_trades": 42,
+#     "winning_trades": 28,
+#     "win_rate_percent": 66.67,
+#     "total_pnl": 350.50,
+#     "current_exposure": 2500.00,
+#     "active_markets_count": 3,
+#     "last_heartbeat": "2024-01-15T10:30:00Z"
+# }
+```
+
+### File Structure
+
+The state module creates and manages the following files in the `data/` directory:
+
+```
+data/
+├── bot_state.json      # Current bot state (atomically written)
+├── trades.log          # Trade history (JSON Lines format)
+├── trades.log.1        # Rotated backup (when > 10MB)
+├── trades.log.2        # Older backup
+├── metrics.log         # Performance metrics (JSON Lines format)
+└── metrics.log.1       # Rotated backup
+```
+
+### Crash Recovery
+
+The module implements atomic writes to prevent corruption:
+
+1. Write to temporary file (`.tmp` extension)
+2. Sync to disk with `fsync()`
+3. Atomically rename temp file to target file (POSIX guarantees atomicity)
+4. On startup, any `.tmp` files are cleaned up automatically
+
+**Example recovery scenario:**
+```python
+# On startup, always clean temp files first
+clean_temp_files()
+
+# Load state - will use last good state, not corrupted partial write
+state = load_state()
+```
+
+### Log Rotation
+
+Logs are automatically rotated when they exceed 10MB:
+- Current log: `trades.log` or `metrics.log`
+- Backups: `.1`, `.2`, `.3`, `.4`, `.5` (newest to oldest)
+- Oldest backup is deleted when limit is reached
+
+Rotation happens transparently during `log_trade()` and `log_metrics()` calls.
 
 ## Utility Functions
 
