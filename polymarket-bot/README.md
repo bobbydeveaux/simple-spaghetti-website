@@ -6,6 +6,7 @@ Automated trading bot for Polymarket prediction markets with robust data models,
 
 This package provides:
 - **Validated Data Models**: Type-safe Pydantic models for bot state, trades, positions, and market data
+- **State Persistence**: JSON-based state management with atomic writes and crash recovery
 - **Configuration Management**: Secure API key management and environment-based configuration
 - **State Persistence**: Atomic file operations with crash recovery and audit logging
 - **Utility Functions**: Retry logic, validation, error handling, and helper functions
@@ -29,6 +30,15 @@ This package provides:
 - ✅ **Log Rotation**: Automatic rotation when files exceed 10MB (keeps 5 backups)
 - ✅ **State Validation**: Full Pydantic validation on load/save operations
 
+### Polymarket API Integration
+- ✅ **Market Discovery**: Search and filter active prediction markets
+- ✅ **BTC Market Filtering**: Automatic discovery of Bitcoin-related markets
+- ✅ **Odds Retrieval**: Real-time market odds and pricing data
+- ✅ **Retry Logic**: Automatic retry with exponential backoff for API failures
+- ✅ **Rate Limit Handling**: Monitor and respect API rate limits
+- ✅ **Error Handling**: Comprehensive error handling for API interactions
+- ✅ **Multiple Response Formats**: Parse various API response structures
+
 ### Technical Capabilities
 - **Environment Configuration**: Secure API key management using `.env` files
 - **WebSocket Support**: Real-time market data streaming
@@ -41,16 +51,18 @@ This package provides:
 
 ```
 polymarket-bot/
-├── __init__.py         # Package initialization
-├── config.py           # Configuration management
-├── models.py           # Core data models (BotState, Trade, Position, MarketData)
-├── state.py            # State persistence and logging
-├── utils.py            # Utility functions (retry, validation, error handling)
-├── tests/              # Comprehensive test suite
-│   ├── test_models.py  # Model validation tests
-│   └── test_state.py   # State persistence tests
-├── test_config.py      # Configuration tests
-└── README.md           # This file
+├── __init__.py            # Package initialization
+├── config.py              # Configuration management
+├── models.py              # Core data models (BotState, Trade, Position, MarketData)
+├── market_data.py         # Polymarket API client for market discovery and odds
+├── state.py               # State persistence and logging
+├── utils.py               # Utility functions (retry, validation, error handling)
+├── tests/                 # Comprehensive test suite
+│   ├── test_models.py     # Model validation tests
+│   ├── test_market_data.py # Polymarket API integration tests
+│   └── test_state.py      # State persistence tests
+├── test_config.py         # Configuration tests
+└── README.md              # This file
 ```
 
 ## Installation
@@ -330,155 +342,328 @@ market_dict = market.to_dict()
 - `YES`: Yes outcome
 - `NO`: No outcome
 
+## Polymarket API Integration
+
+The `market_data.py` module provides a complete Polymarket API client for market discovery, odds retrieval, and BTC market filtering.
+
+### PolymarketClient
+
+Client for interacting with the Polymarket API with built-in retry logic and error handling.
+
+**Features:**
+- Market discovery and search
+- BTC-related market filtering
+- Real-time odds retrieval
+- Automatic retry logic with exponential backoff
+- Rate limit awareness
+- Comprehensive error handling
+
+**Example Usage:**
+
+```python
+from market_data import PolymarketClient
+from config import get_config
+
+# Initialize client
+config = get_config()
+client = PolymarketClient(config)
+
+# Get active markets
+markets = client.get_active_markets(limit=100)
+print(f"Found {len(markets)} active markets")
+
+# Search for specific markets
+btc_markets = client.search_markets("Bitcoin", limit=50)
+
+# Get BTC-related markets (searches multiple keywords)
+btc_markets = client.get_btc_markets(limit=50)
+
+# Get specific market by ID
+market = client.get_market_by_id("market_123")
+
+# Get current odds for a market
+yes_price, no_price = client.get_market_odds("market_123")
+print(f"YES: {yes_price}, NO: {no_price}")
+
+# Parse market data into MarketData model
+market_data = client.parse_market_data(market)
+print(f"Market: {market_data.question}")
+print(f"Liquidity: ${market_data.total_liquidity}")
+
+# Close client when done
+client.close()
+```
+
+**Using as Context Manager:**
+
+```python
+from market_data import PolymarketClient
+from config import get_config
+
+config = get_config()
+
+# Automatically closes connection
+with PolymarketClient(config) as client:
+    markets = client.get_btc_markets()
+    for market in markets:
+        market_data = client.parse_market_data(market)
+        print(f"{market_data.question}: YES={market_data.yes_price}")
+```
+
+### Market Discovery Methods
+
+#### get_active_markets(limit, offset, closed)
+Fetch active markets from Polymarket.
+
+```python
+# Get first 100 active markets
+markets = client.get_active_markets(limit=100, offset=0)
+
+# Paginate through markets
+markets_page_2 = client.get_active_markets(limit=100, offset=100)
+
+# Include closed markets
+all_markets = client.get_active_markets(closed=True)
+```
+
+#### search_markets(query, limit)
+Search for markets matching a query string.
+
+```python
+# Search for Bitcoin markets
+btc_markets = client.search_markets("Bitcoin", limit=50)
+
+# Search for election markets
+election_markets = client.search_markets("election", limit=25)
+```
+
+#### get_btc_markets(limit)
+Fetch BTC-related prediction markets with automatic filtering.
+
+Searches for multiple Bitcoin-related keywords ("BTC", "Bitcoin", "bitcoin") and:
+- Deduplicates results
+- Filters for active markets only
+- Excludes closed or expired markets
+
+```python
+# Get top 50 BTC markets
+btc_markets = client.get_btc_markets(limit=50)
+
+# Process each market
+for market in btc_markets:
+    market_data = client.parse_market_data(market)
+    if market_data.is_active:
+        print(f"{market_data.question}: {market_data.yes_price}")
+```
+
+#### get_market_by_id(market_id)
+Fetch a specific market by its unique identifier.
+
+```python
+market = client.get_market_by_id("0x1234567890abcdef")
+market_data = client.parse_market_data(market)
+```
+
+### Odds Retrieval
+
+#### get_market_odds(market_id)
+Get current YES/NO odds for a specific market.
+
+```python
+yes_price, no_price = client.get_market_odds("market_123")
+print(f"Market odds - YES: {yes_price}, NO: {no_price}")
+
+# Verify prices sum to approximately 1.0
+total = yes_price + no_price
+if abs(total - 1.0) < 0.05:
+    print("Prices are valid")
+```
+
+### Data Parsing
+
+#### parse_market_data(market)
+Parse raw API response into MarketData model with validation.
+
+Handles multiple API response formats:
+- Direct field names (e.g., `yes_price`, `no_price`)
+- CamelCase field names (e.g., `yesPrice`, `noPrice`)
+- Nested structures (e.g., `prices.yes`, `volumes.yes`)
+- Outcomes arrays
+
+```python
+# Parse market data
+raw_market = client.get_market_by_id("market_123")
+market_data = client.parse_market_data(raw_market)
+
+# Access parsed data
+print(f"Question: {market_data.question}")
+print(f"YES Price: {market_data.yes_price}")
+print(f"NO Price: {market_data.no_price}")
+print(f"Total Volume: ${market_data.get_total_volume()}")
+print(f"Spread: {market_data.get_price_spread()}")
+print(f"Active: {market_data.is_active}")
+```
+
+### Error Handling
+
+The client includes comprehensive error handling:
+
+```python
+from market_data import PolymarketClient, PolymarketAPIError
+from utils import ValidationError
+
+try:
+    client = PolymarketClient(config)
+
+    # Handles HTTP errors, connection errors, rate limits
+    markets = client.get_active_markets()
+
+except PolymarketAPIError as e:
+    print(f"API error: {e}")
+
+except ValidationError as e:
+    print(f"Validation error: {e}")
+```
+
+### Retry Logic
+
+All API requests automatically retry with exponential backoff:
+- **Max attempts:** 3
+- **Base delay:** 1 second
+- **Exponential backoff:** 2x multiplier
+- **Handles:** Connection errors, timeouts, 5xx errors
+
+```python
+# Automatically retries on transient failures
+@retry_with_backoff(max_attempts=3, base_delay=1.0)
+def _make_request(self, method, endpoint, params=None, data=None):
+    # Request implementation with automatic retry
+    pass
+```
+
+### Rate Limit Handling
+
+The client monitors rate limits when available:
+- Logs remaining rate limit from API headers
+- Respects rate limit restrictions
+- Provides warnings when approaching limits
+
 ## State Persistence and Logging
 
-The `state.py` module provides robust state management with atomic writes, crash recovery, and comprehensive logging.
+The `state.py` module provides robust state management, trade logging, and metrics tracking with atomic writes and crash recovery.
 
-### Features
+### StateManager
 
-- **Atomic Writes**: Uses temp file + rename pattern to prevent data corruption
-- **Crash Recovery**: Automatic cleanup of temporary files on startup
-- **Trade Logging**: Append-only audit trail in JSON Lines format
-- **Metrics Tracking**: Performance metrics logging with timestamps
-- **Log Rotation**: Automatic rotation when files exceed 10MB (keeps 5 backups)
-- **State Validation**: Full Pydantic validation on load/save
+The StateManager class handles:
+- **JSON-based state persistence** with atomic writes
+- **Trade history logging** with timestamps
+- **Performance metrics tracking** (win/loss streaks, drawdown, total trades)
+- **Crash recovery** using temporary files and renames
 
-### State Management
-
-```python
-from state import load_state, save_state, clean_temp_files
-from models import BotState, BotStatus
-from decimal import Decimal
-
-# Clean up any temp files from crashed processes (call on startup)
-clean_temp_files()
-
-# Load state (returns default if file doesn't exist)
-state = load_state()
-
-# Update state
-state.status = BotStatus.RUNNING
-state.total_trades += 1
-state.winning_trades += 1
-state.total_pnl += Decimal("50.25")
-
-# Save state atomically
-save_state(state)
-```
-
-### Trade Logging
+### Usage Example
 
 ```python
-from state import log_trade, load_trade_history
-from models import Trade, OrderSide, OrderType, TradeStatus, OutcomeType
+from state import StateManager, create_state_manager, recover_state
+from models import BotState, Trade, OrderSide, OrderType, OutcomeType, TradeStatus, BotStatus
 from decimal import Decimal
 
-# Create a trade
-trade = Trade(
-    trade_id="trade_001",
-    market_id="market_123",
-    order_id="order_456",
-    side=OrderSide.BUY,
-    order_type=OrderType.LIMIT,
-    outcome=OutcomeType.YES,
-    price=Decimal("0.65"),
-    quantity=Decimal("100"),
-    status=TradeStatus.EXECUTED,
-    fee=Decimal("0.50")
+# Create state manager
+state_manager = create_state_manager(state_dir="data")
+
+# Initialize bot state
+bot = BotState(
+    bot_id="my_bot_001",
+    status=BotStatus.RUNNING,
+    strategy_name="momentum_v1",
+    max_position_size=Decimal("1000.00"),
+    max_total_exposure=Decimal("5000.00"),
+    risk_per_trade=Decimal("100.00")
 )
 
-# Log trade to trades.log (append-only, with rotation)
-log_trade(trade)
+# Save state (atomic write)
+state_manager.save_state(bot)
 
-# Load trade history
-all_trades = load_trade_history()  # All trades
-recent_trades = load_trade_history(limit=10)  # Last 10 trades
-```
+# Load state
+loaded_state = state_manager.load_state()
 
-### Metrics Logging
+# Validate loaded state
+if loaded_state and state_manager.validate_state(loaded_state):
+    print("State loaded successfully")
 
-```python
-from state import log_metrics, load_metrics_history
+# Log a trade
+    quantity=Decimal("100.00")
+)
+state_manager.log_trade(trade)
 
-# Log performance metrics
-metrics = {
-    "cycle": 1,
-    "timestamp": "2024-01-15T10:30:00Z",
-    "total_pnl": 125.50,
-    "win_rate": 0.65,
-    "active_positions": 3,
-    "total_exposure": 1500.00
-}
+# Update metrics after trade
+state_manager.update_metrics(
+    trade_result="win",  # or "loss"
+    pnl=Decimal("50.00"),
+    current_equity=Decimal("1050.00")
+)
 
-log_metrics(metrics)
+# Get current metrics
+metrics = state_manager.get_metrics()
+print(f"Win Rate: {metrics['win_rate']:.2f}%")
+print(f"Win Streak: {metrics['win_streak']}")
+print(f"Max Drawdown: {metrics['max_drawdown']:.2%}")
 
-# Load metrics history
-all_metrics = load_metrics_history()  # All metrics
-recent_metrics = load_metrics_history(limit=20)  # Last 20 entries
-```
+# Save metrics to disk
+state_manager.save_metrics()
 
-### State Summary
-
-```python
-from state import get_state_summary
-
-# Get human-readable summary
-summary = get_state_summary(state)
-
-# Output:
-# {
-#     "bot_id": "polymarket_bot_001",
-#     "status": "running",
-#     "total_trades": 42,
-#     "winning_trades": 28,
-#     "win_rate_percent": 66.67,
-#     "total_pnl": 350.50,
-#     "current_exposure": 2500.00,
-#     "active_markets_count": 3,
-#     "last_heartbeat": "2024-01-15T10:30:00Z"
-# }
-```
-
-### File Structure
-
-The state module creates and manages the following files in the `data/` directory:
-
-```
-data/
-├── bot_state.json      # Current bot state (atomically written)
-├── trades.log          # Trade history (JSON Lines format)
-├── trades.log.1        # Rotated backup (when > 10MB)
-├── trades.log.2        # Older backup
-├── metrics.log         # Performance metrics (JSON Lines format)
-└── metrics.log.1       # Rotated backup
+# Load all trades
+all_trades = state_manager.load_trades()
+print(f"Total trades in log: {len(all_trades)}")
 ```
 
 ### Crash Recovery
 
-The module implements atomic writes to prevent corruption:
+The state manager uses atomic writes to prevent corruption during crashes:
 
-1. Write to temporary file (`.tmp` extension)
-2. Sync to disk with `fsync()`
-3. Atomically rename temp file to target file (POSIX guarantees atomicity)
-4. On startup, any `.tmp` files are cleaned up automatically
-
-**Example recovery scenario:**
 ```python
-# On startup, always clean temp files first
-clean_temp_files()
+from state import recover_state, create_state_manager
 
-# Load state - will use last good state, not corrupted partial write
-state = load_state()
+# After a crash, attempt to recover state
+state_manager = create_state_manager(state_dir="data")
+recovered_state = recover_state(state_manager)
+
+if recovered_state:
+    print("Successfully recovered state from disk")
+    # Reconstruct bot state from recovered data
+    bot = BotState(**recovered_state)
+else:
+    print("No state to recover, starting fresh")
+    # Initialize new bot state
 ```
 
-### Log Rotation
+### Atomic File Writes
 
-Logs are automatically rotated when they exceed 10MB:
-- Current log: `trades.log` or `metrics.log`
-- Backups: `.1`, `.2`, `.3`, `.4`, `.5` (newest to oldest)
-- Oldest backup is deleted when limit is reached
+All state and metrics saves use a temporary file + rename pattern:
 
-Rotation happens transparently during `log_trade()` and `log_metrics()` calls.
+1. Write to `bot_state.tmp` or `metrics.tmp`
+2. Atomically rename to `bot_state.json` or `metrics.json`
+3. If crash occurs during write, original file remains intact
+4. Temporary files are automatically cleaned up on errors
+
+### Metrics Tracked
+
+- **win_streak**: Current consecutive wins
+- **loss_streak**: Current consecutive losses
+- **max_drawdown**: Maximum drawdown from peak equity
+- **peak_equity**: Highest equity reached
+- **total_trades**: Total number of trades
+- **winning_trades**: Number of profitable trades
+- **losing_trades**: Number of losing trades
+- **win_rate**: Percentage of winning trades
+
+### File Structure
+
+```
+data/
+├── bot_state.json   # Current bot state (atomic writes)
+├── metrics.json     # Performance metrics (atomic writes)
+└── trades.log       # Trade history log (append-only)
+```
 
 ## Utility Functions
 
@@ -568,6 +753,237 @@ bet_size = clamp(calculated_size, min_bet=10, max_bet=1000)
 
 # Format currency
 display_amount = format_currency(123.456, "USDC", 2)  # "123.46 USDC"
+```
+
+## Market Data Service
+
+### Overview
+
+The Market Data Service (`market_data.py`) provides a complete integration with the Polymarket API for discovering active prediction markets and fetching current odds. It includes retry logic, error handling, and support for multiple API response formats.
+
+### Features
+
+- **Market Discovery**: Search for active BTC-related markets
+- **Odds Fetching**: Get real-time Yes/No outcome prices
+- **Market Filtering**: Filter by liquidity, volume, and activity status
+- **Retry Logic**: Automatic retries with exponential backoff
+- **Error Handling**: Comprehensive error handling and logging
+- **Rate Limiting**: Built-in rate limit management
+
+### Quick Start
+
+```python
+from market_data import MarketDataService, get_active_btc_markets
+from decimal import Decimal
+
+# Create service instance (uses config automatically)
+service = MarketDataService()
+
+# Discover active BTC markets
+markets = service.discover_markets(search_query="BTC", active_only=True, limit=50)
+
+# Filter by liquidity and volume
+filtered_markets = service.filter_btc_markets(
+    markets,
+    min_liquidity=Decimal("10000"),  # $10,000 minimum liquidity
+    min_volume=Decimal("50000")      # $50,000 minimum volume
+)
+
+# Get odds for a specific market
+market = service.get_market_odds("market_id_here")
+print(f"YES: {float(market.yes_price):.4f}, NO: {float(market.no_price):.4f}")
+```
+
+### Convenience Functions
+
+```python
+from market_data import get_active_btc_markets, get_market_odds_by_id
+from decimal import Decimal
+
+# Get active BTC markets with filtering
+markets = get_active_btc_markets(
+    min_liquidity=Decimal("5000"),
+    min_volume=Decimal("10000"),
+    limit=20
+)
+
+# Get odds for a specific market
+market = get_market_odds_by_id("0x123abc...")
+if market:
+    print(f"Market: {market.question}")
+    print(f"YES: {float(market.yes_price):.2%}")
+    print(f"NO: {float(market.no_price):.2%}")
+```
+
+### MarketDataService API
+
+#### `__init__(api_key, api_secret, base_url)`
+
+Initialize the service with optional custom credentials.
+
+**Parameters:**
+- `api_key` (optional): Polymarket API key (defaults to config)
+- `api_secret` (optional): Polymarket API secret (defaults to config)
+- `base_url` (optional): API base URL (defaults to config)
+
+#### `discover_markets(search_query, active_only, limit)`
+
+Discover markets matching search criteria.
+
+**Parameters:**
+- `search_query` (str, optional): Search term (default: "BTC")
+- `active_only` (bool): Only return active markets (default: True)
+- `limit` (int): Maximum number of markets (default: 50)
+
+**Returns:** List of `MarketData` objects
+
+**Raises:** `PolymarketAPIError` on API failure
+
+**Example:**
+```python
+# Find BTC markets
+btc_markets = service.discover_markets(
+    search_query="Bitcoin",
+    active_only=True,
+    limit=20
+)
+
+for market in btc_markets:
+    print(f"{market.question}")
+    print(f"  Liquidity: ${float(market.total_liquidity):,.2f}")
+    print(f"  Volume: ${float(market.get_total_volume()):,.2f}")
+```
+
+#### `get_market_odds(market_id)`
+
+Fetch current odds for a specific market.
+
+**Parameters:**
+- `market_id` (str): Unique Polymarket market identifier
+
+**Returns:** `MarketData` object with current odds
+
+**Raises:**
+- `PolymarketAPIError`: If API request fails
+- `ValueError`: If market_id is invalid
+
+**Example:**
+```python
+market = service.get_market_odds("0x1234567890abcdef")
+print(f"Current odds - YES: {market.yes_price}, NO: {market.no_price}")
+```
+
+#### `filter_btc_markets(markets, min_liquidity, min_volume)`
+
+Filter markets based on liquidity and volume criteria.
+
+**Parameters:**
+- `markets` (List[MarketData]): Markets to filter
+- `min_liquidity` (Decimal, optional): Minimum liquidity in USD
+- `min_volume` (Decimal, optional): Minimum volume in USD
+
+**Returns:** Filtered list of `MarketData` objects
+
+**Example:**
+```python
+# Get all markets
+all_markets = service.discover_markets("BTC", limit=100)
+
+# Filter for high-liquidity, high-volume markets
+quality_markets = service.filter_btc_markets(
+    all_markets,
+    min_liquidity=Decimal("50000"),
+    min_volume=Decimal("100000")
+)
+
+print(f"Found {len(quality_markets)} high-quality markets")
+```
+
+#### `get_market_by_id(market_id)`
+
+Get complete market information by ID (with error handling).
+
+**Parameters:**
+- `market_id` (str): Market identifier
+
+**Returns:** `MarketData` object or `None` if not found
+
+**Example:**
+```python
+market = service.get_market_by_id("market_123")
+if market:
+    print(f"Found market: {market.question}")
+else:
+    print("Market not found")
+```
+
+### Error Handling
+
+The service includes comprehensive error handling:
+
+```python
+from market_data import MarketDataService, PolymarketAPIError
+
+service = MarketDataService()
+
+try:
+    markets = service.discover_markets("BTC")
+    print(f"Found {len(markets)} markets")
+except PolymarketAPIError as e:
+    print(f"API error: {e}")
+except Exception as e:
+    print(f"Unexpected error: {e}")
+```
+
+### API Response Format Support
+
+The service handles multiple API response formats automatically:
+
+- Standard format: `{'yes_price': 0.65, 'no_price': 0.35}`
+- CamelCase format: `{'yesPrice': 0.65, 'noPrice': 0.35}`
+- Outcomes array: `{'outcomes': [0.65, 0.35]}`
+- Percentage format: `{'yes_price': 65.0}` (converted to 0.65)
+
+### Complete Example
+
+```python
+from market_data import MarketDataService
+from decimal import Decimal
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+
+# Initialize service
+service = MarketDataService()
+
+# Discover active BTC markets
+print("Discovering BTC markets...")
+markets = service.discover_markets(
+    search_query="Bitcoin",
+    active_only=True,
+    limit=50
+)
+print(f"Found {len(markets)} total markets")
+
+# Filter for quality markets
+quality_markets = service.filter_btc_markets(
+    markets,
+    min_liquidity=Decimal("10000"),
+    min_volume=Decimal("50000")
+)
+print(f"Filtered to {len(quality_markets)} quality markets")
+
+# Display top markets
+for market in quality_markets[:5]:
+    print(f"\nMarket: {market.question}")
+    print(f"  Market ID: {market.market_id}")
+    print(f"  YES: {float(market.yes_price):.2%}")
+    print(f"  NO: {float(market.no_price):.2%}")
+    print(f"  Liquidity: ${float(market.total_liquidity):,.2f}")
+    print(f"  Volume: ${float(market.get_total_volume()):,.2f}")
+    print(f"  Spread: {float(market.get_price_spread()):.2%}")
+    print(f"  Active: {market.is_active}")
 ```
 
 ## Usage Example - Complete Trading Bot
@@ -678,8 +1094,14 @@ The package includes comprehensive tests covering:
 - ✅ Cross-field validation
 - ✅ Business logic methods
 - ✅ Serialization
+- ✅ State persistence and logging
+- ✅ Atomic file writes and crash recovery
+- ✅ Metrics tracking
 - ✅ Configuration management
 - ✅ Utility functions
+- ✅ Polymarket API integration
+- ✅ Market discovery and filtering
+- ✅ Error handling and retry logic
 - ✅ Integration scenarios
 
 Run tests:
@@ -689,10 +1111,14 @@ pytest -v
 
 # Specific test files
 pytest tests/test_models.py -v
+pytest tests/test_market_data.py -v
+pytest tests/test_state.py -v
 pytest test_config.py test_polymarket_utils.py -v
 
 # With coverage
 pytest tests/test_models.py --cov=models --cov-report=html
+pytest tests/test_market_data.py --cov=market_data --cov-report=html
+pytest tests/test_state.py --cov=state --cov-report=html
 pytest test_config.py -v --cov=config --cov-report=html
 ```
 

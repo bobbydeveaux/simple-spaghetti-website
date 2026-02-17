@@ -1,451 +1,323 @@
 """
-State Persistence and Logging Module
+State Persistence and Logging System
 
-This module provides comprehensive state management and logging for the Polymarket bot:
-- Atomic writes to bot_state.json for crash-safe persistence
-- Trade logging to trades.log with append-only audit trail
-- Metrics tracking with automatic log rotation
-- State recovery and validation
+This module provides state management, trade logging, and metrics tracking
+for the Polymarket trading bot.
 
-All file operations use atomic writes (temp file + rename) to prevent data corruption
-during crashes or interruptions.
+Key Features:
+- JSON-based state persistence with atomic writes
+- Trade history logging with timestamps
+- Metrics tracking (win/loss streaks, drawdown, total trades)
+- Crash recovery using temporary files and renames
 """
 
-import json
-import os
-import shutil
-import logging
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Dict, Any, Optional, List
-from decimal import Decimal
-
-from .models import BotState, Trade
-
-# Configure module logger
-logger = logging.getLogger(__name__)
-
-# Default data directory
-DATA_DIR = Path("data")
-
-# File paths
-STATE_FILE = DATA_DIR / "bot_state.json"
-TRADES_LOG = DATA_DIR / "trades.log"
-METRICS_LOG = DATA_DIR / "metrics.log"
-
-# Log rotation settings (in bytes)
-MAX_LOG_SIZE = 10 * 1024 * 1024  # 10 MB
-MAX_LOG_BACKUPS = 5
+from models import BotState, Trade, Position
 
 
-def ensure_data_directory() -> None:
+class StateManager:
     """
-    Ensure the data directory exists.
+    Manages bot state persistence, trade logging, and metrics tracking.
 
-    Creates the data directory if it doesn't exist. Safe to call multiple times.
+    Uses atomic file writes with temporary files to prevent corruption
+    during crashes.
     """
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    logger.debug(f"Data directory ensured: {DATA_DIR.absolute()}")
 
-
-def _atomic_write(file_path: Path, content: str) -> None:
-    """
-    Write content to file atomically using temp file + rename pattern.
-
-    This prevents partial writes and corruption if the process crashes during write.
-    The temp file is written first, then atomically renamed to the target path.
-
-    Args:
-        file_path: Target file path to write to
-        content: String content to write
-
-    Raises:
-        IOError: If write or rename operation fails
-    """
-    ensure_data_directory()
-
-    # Create temp file in same directory for atomic rename
-    temp_path = file_path.with_suffix(file_path.suffix + ".tmp")
-
-    try:
-        # Write to temp file
-        with open(temp_path, 'w', encoding='utf-8') as f:
-            f.write(content)
-            f.flush()
-            os.fsync(f.fileno())  # Ensure data is written to disk
-
-        # Atomic rename (POSIX guarantees atomicity)
-        shutil.move(str(temp_path), str(file_path))
-        logger.debug(f"Atomically wrote to {file_path}")
-
-    except Exception as e:
-        # Clean up temp file on error
-        if temp_path.exists():
-            temp_path.unlink()
-        logger.error(f"Failed to write {file_path}: {e}")
-        raise IOError(f"Atomic write failed for {file_path}: {e}")
-
-
-def _rotate_log_if_needed(log_path: Path) -> None:
-    """
-    Rotate log file if it exceeds maximum size.
-
-    Keeps up to MAX_LOG_BACKUPS rotated files with .1, .2, etc. extensions.
-    Oldest backup is deleted when limit is reached.
-
-    Args:
-        log_path: Path to log file to check and rotate
-    """
-    if not log_path.exists():
-        return
-
-    # Check if rotation is needed
-    if log_path.stat().st_size < MAX_LOG_SIZE:
-        return
-
-    logger.info(f"Rotating log file {log_path}")
-
-    # Shift existing backups
-    for i in range(MAX_LOG_BACKUPS - 1, 0, -1):
-        old_backup = Path(f"{log_path}.{i}")
-        new_backup = Path(f"{log_path}.{i + 1}")
-
-        if old_backup.exists():
-            if i == MAX_LOG_BACKUPS - 1:
-                # Delete oldest backup
-                old_backup.unlink()
-            else:
-                shutil.move(str(old_backup), str(new_backup))
-
-    # Rotate current log to .1
-    backup_path = Path(f"{log_path}.1")
-    shutil.move(str(log_path), str(backup_path))
-
-    logger.info(f"Log rotated to {backup_path}")
-
-
-def load_state(state_file: Optional[Path] = None) -> BotState:
-    """
-    Load bot state from JSON file.
-
-    Reads the bot state from bot_state.json. If the file doesn't exist or is invalid,
-    returns a default initialized state.
-
-    Args:
-        state_file: Optional custom state file path (defaults to STATE_FILE)
-
-    Returns:
-        BotState object loaded from file or default state
-
-    Raises:
-        ValueError: If state file contains invalid data that can't be parsed
-    """
-    file_path = state_file or STATE_FILE
-
-    if not file_path.exists():
-        logger.info(f"State file not found at {file_path}, returning default state")
-        return _create_default_state()
-
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-
-        # Parse datetime fields
-        for field in ['last_heartbeat', 'created_at', 'updated_at']:
-            if field in data and data[field]:
-                data[field] = datetime.fromisoformat(data[field])
-
-        # Parse Decimal fields
-        decimal_fields = [
-            'max_position_size', 'max_total_exposure', 'risk_per_trade',
-            'total_pnl', 'current_exposure'
-        ]
-        for field in decimal_fields:
-            if field in data and data[field] is not None:
-                data[field] = Decimal(str(data[field]))
-
-        state = BotState(**data)
-        logger.info(f"Successfully loaded state from {file_path}")
-        return state
-
-    except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse state file {file_path}: {e}")
-        raise ValueError(f"Invalid JSON in state file: {e}")
-    except Exception as e:
-        logger.error(f"Failed to load state from {file_path}: {e}")
-        raise ValueError(f"Failed to load state: {e}")
-
-
-def save_state(state: BotState, state_file: Optional[Path] = None) -> None:
-    """
-    Save bot state to JSON file atomically.
-
-    Writes the complete bot state to bot_state.json using atomic write pattern
-    to prevent corruption on crashes. Updates the updated_at timestamp.
-
-    Args:
-        state: BotState object to persist
-        state_file: Optional custom state file path (defaults to STATE_FILE)
-
-    Raises:
-        IOError: If atomic write fails
-    """
-    file_path = state_file or STATE_FILE
-
-    # Update timestamp
-    state.updated_at = datetime.utcnow()
-
-    # Serialize to JSON
-    data = state.model_dump(mode='json')
-
-    # Convert datetime objects to ISO format strings
-    for field in ['last_heartbeat', 'created_at', 'updated_at']:
-        if field in data and data[field]:
-            if isinstance(data[field], datetime):
-                data[field] = data[field].isoformat()
-
-    # Convert Decimal to string for JSON serialization
-    decimal_fields = [
-        'max_position_size', 'max_total_exposure', 'risk_per_trade',
-        'total_pnl', 'current_exposure'
-    ]
-    for field in decimal_fields:
-        if field in data and data[field] is not None:
-            data[field] = str(data[field])
-
-    # Write atomically
-    content = json.dumps(data, indent=2, ensure_ascii=False)
-    _atomic_write(file_path, content)
-
-    logger.info(f"State saved successfully to {file_path}")
-
-
-def log_trade(trade: Trade, log_file: Optional[Path] = None) -> None:
-    """
-    Append trade record to trades.log.
-
-    Writes trade as a single JSON line (JSONL format) with timestamp.
-    Performs log rotation if file size exceeds limit.
-
-    Args:
-        trade: Trade object to log
-        log_file: Optional custom log file path (defaults to TRADES_LOG)
-
-    Raises:
-        IOError: If append operation fails
-    """
-    file_path = log_file or TRADES_LOG
-    ensure_data_directory()
-
-    # Check if rotation is needed before appending
-    _rotate_log_if_needed(file_path)
-
-    # Serialize trade
-    trade_data = trade.to_dict()
-
-    # Add logging timestamp
-    log_entry = {
-        "logged_at": datetime.utcnow().isoformat(),
-        "trade": trade_data
-    }
-
-    try:
-        # Append to log file (JSON Lines format)
-        with open(file_path, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(log_entry, ensure_ascii=False) + '\n')
-            f.flush()
-            os.fsync(f.fileno())
-
-        logger.debug(f"Trade {trade.trade_id} logged to {file_path}")
-
-    except Exception as e:
-        logger.error(f"Failed to log trade to {file_path}: {e}")
-        raise IOError(f"Failed to log trade: {e}")
-
-
-def log_metrics(metrics: Dict[str, Any], log_file: Optional[Path] = None) -> None:
-    """
-    Append performance metrics to metrics.log.
-
-    Writes metrics as a single JSON line with timestamp. Performs log rotation
-    if file size exceeds limit.
-
-    Args:
-        metrics: Dictionary of metrics to log (e.g., cycle number, PnL, win rate)
-        log_file: Optional custom log file path (defaults to METRICS_LOG)
-
-    Raises:
-        IOError: If append operation fails
-    """
-    file_path = log_file or METRICS_LOG
-    ensure_data_directory()
-
-    # Check if rotation is needed before appending
-    _rotate_log_if_needed(file_path)
-
-    # Add timestamp
-    log_entry = {
-        "timestamp": datetime.utcnow().isoformat(),
-        "metrics": metrics
-    }
-
-    try:
-        # Append to log file (JSON Lines format)
-        with open(file_path, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(log_entry, ensure_ascii=False) + '\n')
-            f.flush()
-            os.fsync(f.fileno())
-
-        logger.debug(f"Metrics logged to {file_path}")
-
-    except Exception as e:
-        logger.error(f"Failed to log metrics to {file_path}: {e}")
-        raise IOError(f"Failed to log metrics: {e}")
-
-
-def load_trade_history(log_file: Optional[Path] = None, limit: Optional[int] = None) -> List[Dict[str, Any]]:
-    """
-    Load trade history from trades.log.
-
-    Reads all trade records from the log file. Optionally limits to the most recent N trades.
-
-    Args:
-        log_file: Optional custom log file path (defaults to TRADES_LOG)
-        limit: Optional maximum number of trades to return (most recent first)
-
-    Returns:
-        List of trade records as dictionaries
-    """
-    file_path = log_file or TRADES_LOG
-
-    if not file_path.exists():
-        logger.info(f"Trade log not found at {file_path}")
-        return []
-
-    trades = []
-
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                if line.strip():
-                    log_entry = json.loads(line)
-                    trades.append(log_entry)
-
-        # Return most recent first if limit specified
-        if limit:
-            trades = trades[-limit:]
-
-        logger.info(f"Loaded {len(trades)} trades from {file_path}")
-        return trades
-
-    except Exception as e:
-        logger.error(f"Failed to load trade history from {file_path}: {e}")
-        return []
-
-
-def load_metrics_history(log_file: Optional[Path] = None, limit: Optional[int] = None) -> List[Dict[str, Any]]:
-    """
-    Load metrics history from metrics.log.
-
-    Reads all metrics records from the log file. Optionally limits to the most recent N entries.
-
-    Args:
-        log_file: Optional custom log file path (defaults to METRICS_LOG)
-        limit: Optional maximum number of entries to return (most recent first)
-
-    Returns:
-        List of metrics records as dictionaries
-    """
-    file_path = log_file or METRICS_LOG
-
-    if not file_path.exists():
-        logger.info(f"Metrics log not found at {file_path}")
-        return []
-
-    metrics = []
-
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                if line.strip():
-                    log_entry = json.loads(line)
-                    metrics.append(log_entry)
-
-        # Return most recent first if limit specified
-        if limit:
-            metrics = metrics[-limit:]
-
-        logger.info(f"Loaded {len(metrics)} metrics entries from {file_path}")
-        return metrics
-
-    except Exception as e:
-        logger.error(f"Failed to load metrics history from {file_path}: {e}")
-        return []
-
-
-def _create_default_state() -> BotState:
-    """
-    Create a default bot state for initialization.
-
-    Returns:
-        BotState object with sensible defaults
-    """
-    return BotState(
-        bot_id="polymarket_bot_001",
-        strategy_name="momentum_rsi_macd",
-        max_position_size=Decimal("100.00"),
-        max_total_exposure=Decimal("500.00"),
-        risk_per_trade=Decimal("20.00")
-    )
-
-
-def clean_temp_files() -> None:
-    """
-    Clean up any temporary files left over from crashed writes.
-
-    Should be called on bot startup to ensure clean state. Removes any .tmp files
-    in the data directory.
-    """
-    ensure_data_directory()
-
-    temp_files = list(DATA_DIR.glob("*.tmp"))
-
-    if temp_files:
-        logger.info(f"Cleaning up {len(temp_files)} temporary files")
-        for temp_file in temp_files:
-            try:
+    def __init__(self, state_dir: str = "data"):
+        """
+        Initialize the state manager.
+
+        Args:
+            state_dir: Directory for storing state and log files
+        """
+        self.state_dir = Path(state_dir)
+        self.state_file = self.state_dir / "bot_state.json"
+        self.trades_log = self.state_dir / "trades.log"
+
+        # Create state directory if it doesn't exist
+        self.state_dir.mkdir(parents=True, exist_ok=True)
+
+        # Initialize metrics
+        self._metrics = {
+            "win_streak": 0,
+            "loss_streak": 0,
+            "max_drawdown": Decimal("0.00"),
+            "peak_equity": Decimal("0.00"),
+            "total_trades": 0,
+            "winning_trades": 0,
+            "losing_trades": 0
+        }
+
+    def save_state(self, bot_state: BotState) -> None:
+        """
+        Save bot state to disk using atomic write operation.
+
+        Uses temporary file + rename pattern to prevent corruption
+        on crashes.
+
+        Args:
+            bot_state: BotState object to save
+
+        Raises:
+            IOError: If state cannot be saved
+        """
+        temp_file = self.state_file.with_suffix('.tmp')
+
+        try:
+            # Write to temporary file first
+            with open(temp_file, 'w') as f:
+                json.dump(bot_state.to_dict(), f, indent=2)
+
+            # Atomic rename (replaces existing file)
+            temp_file.replace(self.state_file)
+
+        except Exception as e:
+            # Clean up temporary file on error
+            if temp_file.exists():
                 temp_file.unlink()
-                logger.debug(f"Deleted temp file: {temp_file}")
-            except Exception as e:
-                logger.warning(f"Failed to delete temp file {temp_file}: {e}")
-    else:
-        logger.debug("No temp files to clean up")
+            raise IOError(f"Failed to save state: {e}")
+
+    def load_state(self) -> Optional[Dict[str, Any]]:
+        """
+        Load bot state from disk.
+
+        Returns:
+            Dictionary containing bot state, or None if file doesn't exist
+
+        Raises:
+            ValueError: If state file is corrupted
+        """
+        if not self.state_file.exists():
+            return None
+
+        try:
+            with open(self.state_file, 'r') as f:
+                return json.load(f)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Corrupted state file: {e}")
+
+    def validate_state(self, state_data: Dict[str, Any]) -> bool:
+        """
+        Validate loaded state data.
+
+        Args:
+            state_data: Dictionary containing state data
+
+        Returns:
+            True if state is valid, False otherwise
+        """
+        required_fields = [
+            'bot_id', 'status', 'strategy_name',
+            'max_position_size', 'max_total_exposure', 'risk_per_trade'
+        ]
+
+        for field in required_fields:
+            if field not in state_data:
+                return False
+
+        return True
+
+    def log_trade(self, trade: Trade) -> None:
+        """
+        Append trade to trade history log with timestamp.
+
+        Args:
+            trade: Trade object to log
+
+        Raises:
+            IOError: If trade cannot be logged
+        """
+        try:
+            timestamp = datetime.utcnow().isoformat()
+            log_entry = {
+                "timestamp": timestamp,
+                "trade": trade.to_dict()
+            }
+
+            # Append to log file (creates file if it doesn't exist)
+            with open(self.trades_log, 'a') as f:
+                f.write(json.dumps(log_entry) + '\n')
+
+        except Exception as e:
+            raise IOError(f"Failed to log trade: {e}")
+
+    def load_trades(self) -> List[Dict[str, Any]]:
+        """
+        Load all trades from trade history log.
+
+        Returns:
+            List of trade dictionaries
+        """
+        if not self.trades_log.exists():
+            return []
+
+        trades = []
+        try:
+            with open(self.trades_log, 'r') as f:
+                for line in f:
+                    if line.strip():
+                        trades.append(json.loads(line))
+            return trades
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Corrupted trades log: {e}")
+
+    def update_metrics(self, trade_result: str, pnl: Decimal, current_equity: Decimal) -> None:
+        """
+        Update performance metrics based on trade result.
+
+        Args:
+            trade_result: "win" or "loss"
+            pnl: Profit/loss for the trade
+            current_equity: Current total equity
+        """
+        self._metrics["total_trades"] += 1
+
+        if trade_result.lower() == "win":
+            self._metrics["winning_trades"] += 1
+            self._metrics["win_streak"] += 1
+            self._metrics["loss_streak"] = 0
+        else:
+            self._metrics["losing_trades"] += 1
+            self._metrics["loss_streak"] += 1
+            self._metrics["win_streak"] = 0
+
+        # Update peak equity and drawdown
+        if current_equity > self._metrics["peak_equity"]:
+            self._metrics["peak_equity"] = current_equity
+
+        if self._metrics["peak_equity"] > 0:
+            drawdown = (self._metrics["peak_equity"] - current_equity) / self._metrics["peak_equity"]
+            if drawdown > self._metrics["max_drawdown"]:
+                self._metrics["max_drawdown"] = drawdown
+
+    def get_metrics(self) -> Dict[str, Any]:
+        """
+        Get current performance metrics.
+
+        Returns:
+            Dictionary containing current metrics
+        """
+        return {
+            "win_streak": self._metrics["win_streak"],
+            "loss_streak": self._metrics["loss_streak"],
+            "max_drawdown": float(self._metrics["max_drawdown"]),
+            "peak_equity": float(self._metrics["peak_equity"]),
+            "total_trades": self._metrics["total_trades"],
+            "winning_trades": self._metrics["winning_trades"],
+            "losing_trades": self._metrics["losing_trades"],
+            "win_rate": self._calculate_win_rate()
+        }
+
+    def _calculate_win_rate(self) -> float:
+        """Calculate win rate percentage."""
+        if self._metrics["total_trades"] == 0:
+            return 0.0
+        return (self._metrics["winning_trades"] / self._metrics["total_trades"]) * 100
+
+    def reset_metrics(self) -> None:
+        """Reset all metrics to initial state."""
+        self._metrics = {
+            "win_streak": 0,
+            "loss_streak": 0,
+            "max_drawdown": Decimal("0.00"),
+            "peak_equity": Decimal("0.00"),
+            "total_trades": 0,
+            "winning_trades": 0,
+            "losing_trades": 0
+        }
+
+    def save_metrics(self) -> None:
+        """
+        Save metrics to disk using atomic write operation.
+
+        Raises:
+            IOError: If metrics cannot be saved
+        """
+        metrics_file = self.state_dir / "metrics.json"
+        temp_file = metrics_file.with_suffix('.tmp')
+
+        try:
+            # Convert Decimal to float for JSON serialization
+            metrics_to_save = {
+                k: float(v) if isinstance(v, Decimal) else v
+                for k, v in self._metrics.items()
+            }
+
+            # Write to temporary file first
+            with open(temp_file, 'w') as f:
+                json.dump(metrics_to_save, f, indent=2)
+
+            # Atomic rename
+            temp_file.replace(metrics_file)
+
+        except Exception as e:
+            if temp_file.exists():
+                temp_file.unlink()
+            raise IOError(f"Failed to save metrics: {e}")
+
+    def load_metrics(self) -> None:
+        """
+        Load metrics from disk.
+
+        Raises:
+            ValueError: If metrics file is corrupted
+        """
+        metrics_file = self.state_dir / "metrics.json"
+
+        if not metrics_file.exists():
+            return
+
+        try:
+            with open(metrics_file, 'r') as f:
+                loaded_metrics = json.load(f)
+
+            # Convert numeric values back to Decimal where appropriate
+            self._metrics["win_streak"] = loaded_metrics.get("win_streak", 0)
+            self._metrics["loss_streak"] = loaded_metrics.get("loss_streak", 0)
+            self._metrics["max_drawdown"] = Decimal(str(loaded_metrics.get("max_drawdown", "0.00")))
+            self._metrics["peak_equity"] = Decimal(str(loaded_metrics.get("peak_equity", "0.00")))
+            self._metrics["total_trades"] = loaded_metrics.get("total_trades", 0)
+            self._metrics["winning_trades"] = loaded_metrics.get("winning_trades", 0)
+            self._metrics["losing_trades"] = loaded_metrics.get("losing_trades", 0)
+
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Corrupted metrics file: {e}")
 
 
-def get_state_summary(state: BotState) -> Dict[str, Any]:
+def create_state_manager(state_dir: str = "data") -> StateManager:
     """
-    Get a human-readable summary of the bot state.
+    Helper function to create a StateManager instance.
 
     Args:
-        state: BotState object to summarize
+        state_dir: Directory for storing state and log files
 
     Returns:
-        Dictionary with key state metrics
+        Initialized StateManager instance
     """
-    win_rate = (
-        (state.winning_trades / state.total_trades * 100)
-        if state.total_trades > 0
-        else 0.0
-    )
+    return StateManager(state_dir)
 
-    return {
-        "bot_id": state.bot_id,
-        "status": state.status.value,
-        "total_trades": state.total_trades,
-        "winning_trades": state.winning_trades,
-        "win_rate_percent": round(win_rate, 2),
-        "total_pnl": float(state.total_pnl),
-        "current_exposure": float(state.current_exposure),
-        "active_markets_count": len(state.active_markets),
-        "last_heartbeat": state.last_heartbeat.isoformat(),
-    }
+
+def recover_state(state_manager: StateManager) -> Optional[Dict[str, Any]]:
+    """
+    Attempt to recover state from disk after a crash.
+
+    Args:
+        state_manager: StateManager instance
+
+    Returns:
+        Recovered state dictionary, or None if recovery fails
+    """
+    try:
+        state_data = state_manager.load_state()
+
+        if state_data and state_manager.validate_state(state_data):
+            return state_data
+
+        return None
+
+    except (ValueError, IOError) as e:
+        print(f"State recovery failed: {e}")
+        return None
