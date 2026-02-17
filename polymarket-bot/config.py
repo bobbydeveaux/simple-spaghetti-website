@@ -90,6 +90,20 @@ class Config:
         self.order_book_bearish_threshold = self._get_float_env('ORDER_BOOK_BEARISH_THRESHOLD', 0.9)
         self.prediction_confidence_score = self._get_float_env('PREDICTION_CONFIDENCE_SCORE', 0.75)
 
+        # Trade execution configuration with defaults
+        self.execution_max_retries = self._get_int_env('EXECUTION_MAX_RETRIES', 3)
+        self.execution_retry_base_delay = self._get_float_env('EXECUTION_RETRY_BASE_DELAY', 2.0)
+        self.execution_settlement_poll_interval = self._get_int_env('EXECUTION_SETTLEMENT_POLL_INTERVAL', 10)
+        self.execution_settlement_timeout = self._get_int_env('EXECUTION_SETTLEMENT_TIMEOUT', 300)
+
+        # Orchestrator configuration with defaults
+        self.starting_capital = self._get_float_env('STARTING_CAPITAL', 100.0)
+        self.base_position_size = self._get_float_env('BASE_POSITION_SIZE', 5.0)
+        self.max_drawdown = self._get_float_env('MAX_DRAWDOWN', 0.30)
+        self.max_volatility = self._get_float_env('MAX_VOLATILITY', 0.03)
+        self.max_total_exposure = self._get_float_env('MAX_TOTAL_EXPOSURE', 50.0)
+        self.state_dir = self._get_env('STATE_DIR', 'data')
+
         # Validate numeric ranges
         self._validate_ranges()
 
@@ -257,6 +271,54 @@ class Config:
         if not (0 <= self.prediction_confidence_score <= 1):
             raise ConfigurationError(
                 f"PREDICTION_CONFIDENCE_SCORE must be between 0 and 1, got: {self.prediction_confidence_score}"
+            )
+
+        # Validate trade execution parameters
+        if self.execution_max_retries <= 0:
+            raise ConfigurationError(
+                f"EXECUTION_MAX_RETRIES must be greater than 0, got: {self.execution_max_retries}"
+            )
+
+        if self.execution_retry_base_delay <= 0:
+            raise ConfigurationError(
+                f"EXECUTION_RETRY_BASE_DELAY must be greater than 0, got: {self.execution_retry_base_delay}"
+            )
+
+        if self.execution_settlement_poll_interval <= 0:
+            raise ConfigurationError(
+                f"EXECUTION_SETTLEMENT_POLL_INTERVAL must be greater than 0, got: {self.execution_settlement_poll_interval}"
+            )
+
+        if self.execution_settlement_timeout <= 0:
+            raise ConfigurationError(
+                f"EXECUTION_SETTLEMENT_TIMEOUT must be greater than 0, got: {self.execution_settlement_timeout}"
+            )
+
+        # Validate orchestrator parameters
+        if self.starting_capital <= 0:
+            raise ConfigurationError(
+                f"STARTING_CAPITAL must be greater than 0, got: {self.starting_capital}"
+            )
+
+        if self.base_position_size <= 0:
+            raise ConfigurationError(
+                f"BASE_POSITION_SIZE must be greater than 0, got: {self.base_position_size}"
+            )
+
+        if not (0 < self.max_drawdown <= 1):
+            raise ConfigurationError(
+                f"MAX_DRAWDOWN must be between 0 and 1, got: {self.max_drawdown}"
+            )
+
+        if not (0 < self.max_volatility <= 1):
+            raise ConfigurationError(
+                f"MAX_VOLATILITY must be between 0 and 1, got: {self.max_volatility}"
+            )
+
+        if self.max_total_exposure < self.base_position_size:
+            raise ConfigurationError(
+                f"MAX_TOTAL_EXPOSURE must be at least BASE_POSITION_SIZE, "
+                f"got: {self.max_total_exposure} < {self.base_position_size}"
             )
 
     def __repr__(self) -> str:

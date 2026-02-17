@@ -50,19 +50,33 @@ data/                            # Created at runtime
 
 ### 3.1 Main Orchestrator (`main.py`)
 
+**Implementation Status:** ✅ COMPLETE
+
 **Responsibilities:** Event loop management, component initialization, shutdown handling
 
+**Key Classes:**
+- `TradingOrchestrator`: Main class managing full trading lifecycle
+
 **Key Functions:**
-- `main()`: Entry point, initializes components, runs 18-cycle loop
-- `run_trading_cycle(interval_number: int) -> bool`: Executes single 5-minute cycle, returns False on critical failure
-- `shutdown(reason: str)`: Logs shutdown reason, saves final state
+- `main()`: Entry point, creates orchestrator and starts event loop
+- `initialize_components()`: Initialize all trading components (Binance, Polymarket, prediction, risk, capital)
+- `run_trading_cycle(cycle_number: int) -> bool`: Executes single 5-minute cycle, returns False on critical failure
+- `shutdown(reason: str)`: Gracefully closes connections, saves final state, logs shutdown reason
+- `_signal_handler(signum, frame)`: Handles SIGINT/SIGTERM for graceful shutdown
 
 **Control Flow:**
-1. Load configuration and validate API connectivity
-2. Restore state from `bot_state.json` if exists
-3. Loop 18 times with 5-minute sleep intervals
-4. Each iteration: fetch data → predict → check risk → allocate capital → execute → log
-5. Exit on completion or drawdown breach
+1. Register signal handlers (SIGINT/SIGTERM)
+2. Initialize all components (Binance WebSocket, Polymarket client, prediction engine, risk controller, capital allocator, state manager)
+3. Load or create bot state (support for crash recovery from saved state)
+4. Loop 18 times with 5-minute sleep intervals
+5. Each iteration: fetch data → predict → check risk → allocate capital → execute (simulated) → log
+6. Exit on completion, drawdown breach, or signal interrupt
+7. Save final state and metrics on shutdown
+
+**Implementation Notes:**
+- Trade execution is currently simulated (random outcomes) pending real Polymarket execution.py implementation
+- Responsive shutdown: sleeps in 1-second intervals to detect shutdown signals quickly
+- Comprehensive logging with cycle summaries and final P&L report
 
 ### 3.2 Market Data Service (`market_data.py`)
 

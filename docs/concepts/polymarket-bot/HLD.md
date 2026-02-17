@@ -11,7 +11,7 @@ Single-process monolithic application with event-driven loop architecture. The b
 
 ## 2. System Components
 
-**Main Orchestrator**: Event loop managing 5-minute interval timing, component coordination, and graceful shutdown on drawdown breach or completion.
+**Main Orchestrator**: Event loop managing 5-minute interval timing, component coordination, and graceful shutdown on drawdown breach or completion. Implements signal handlers for SIGINT/SIGTERM to enable graceful shutdown with state persistence. Maintains crash recovery through periodic state saves.
 
 **Market Data Service**: Fetches BTC price data from Binance WebSocket, calculates technical indicators (RSI, MACD), retrieves Polymarket odds via REST API.
 
@@ -22,6 +22,8 @@ Single-process monolithic application with event-driven loop architecture. The b
 **Capital Allocator**: Calculates position size using win-streak multiplier (base=$5, multiplier=1.5x, cap=$25), maintains streak counter.
 
 **Risk Controller**: Pre-trade checks for max drawdown (30%), volatility circuit breaker (3% 5-min range), halts trading on breach.
+
+**Trade Execution Engine**: Submits market and limit orders to Polymarket API with automatic retry logic (3 attempts max with exponential backoff: 2s, 4s, 8s), polls settlement status until completion (max 300s timeout), handles API errors and connection failures. HTTP connection pooling and session reuse for efficiency.
 
 **State Persistence**: JSON-based logging for trades, equity curve, and bot state. Writes after each cycle.
 
@@ -84,14 +86,19 @@ Single-process monolithic application with event-driven loop architecture. The b
 **Polymarket REST API** (external):
 - GET `/markets?asset=BTC&interval=5m`
 - Response: `{market_id: "abc123", odds_yes: 0.52, odds_no: 0.48, settlement_time: "..."}`
-- POST `/orders` Body: `{market_id, side: "YES"|"NO", amount, type: "MARKET"}`
-- Response: `{order_id, status, filled_amount}`
+- POST `/orders` Body: `{market_id, side: "BUY"|"SELL", outcome: "YES"|"NO", amount, type: "MARKET"|"LIMIT", price?: float}`
+- Response: `{order_id, status: "pending"|"matched"|"settled", filled_amount, fee}`
+- GET `/orders/{order_id}` Response: `{order_id, status, filled_amount, outcome: "WIN"|"LOSS"}`
+- Retry Logic: Automatic retry with exponential backoff (2s, 4s, 8s) on transient failures (5xx errors, timeouts)
+- Settlement Polling: 10s intervals until status="settled" or 300s timeout
 
 **Internal Data Flow**:
 - MarketDataService → PredictionEngine: MarketData object
-- PredictionEngine → RiskController: {signal: "UP"|"DOWN", confidence: float}
+- PredictionEngine → RiskController: {signal: "UP"|"DOWN"|"SKIP", confidence: float}
 - RiskController → CapitalAllocator: approved: bool
-- CapitalAllocator → TradeExecutor: {direction, size}
+- CapitalAllocator → ExecutionEngine: {direction, size}
+- ExecutionEngine → Polymarket API: Order submission with retry logic
+- ExecutionEngine → StateManager: Trade object with order_id, status, filled_quantity
 
 ---
 
@@ -301,8 +308,8 @@ Do not assume perfect foresight. Assume realistic market behavior.
 - FR-001: Connect to Polymarket API and authenticate using provided credentials
 - FR-002: Fetch BTC 5-minute directional market odds and settlement times via API
 - FR-003: Retrieve BTC price feed from external source (Binance/CoinGecko) with <5s latency
-- FR-004: Calculate RSI (14-period), MACD (12,26,9), and order book imbalance from data inputs
-- FR-005: Generate UP prediction if RSI<30 AND MACD bullish crossover, DOWN if RSI>70 AND MACD bearish crossover
+- FR-004: Calculate RSI (configurable period, default 14), MACD (configurable periods, defaults 12,26,9), and order book imbalance from data inputs
+- FR-005: Generate UP prediction if RSI<oversold_threshold (default 30) AND MACD bullish crossover, DOWN if RSI>overbought_threshold (default 70) AND MACD bearish crossover (all thresholds configurable)
 - FR-006: Submit market orders to Polymarket with calculated position size before interval closes
 - FR-007: Track open position status and settlement outcome for each 5-minute interval
 - FR-008: Implement base position $5, win-streak multiplier 1.5x, max exposure $25 per trade
