@@ -1,6 +1,6 @@
 {
   "method": "ai-assisted",
-  "filesResolved": 4,
-  "summary": "Resolved merge conflicts between feature branch and main by choosing the more complete implementations from origin/main. Preserved PolymarketClient (with context manager support) over MarketDataService, and integrated state.py additions from main branch.",
-  "strategyUsed": "Analyzed both versions and chose origin/main implementations for market_data.py and test_market_data.py as they provided more complete functionality with proper session management, context manager support, and comprehensive test coverage. For README.md, merged both versions by taking the more detailed project structure and comprehensive feature list from origin/main. Removed .claude-output.json as deleted by main branch. All four conflicted files resolved successfully."
+  "filesResolved": 2,
+  "summary": "Successfully merged feature branch (BinanceWebSocket with BTCPriceData) with main branch (technical indicators). Preserved both implementations to maintain full functionality.",
+  "strategyUsed": "preserve-both-features: HEAD added BinanceWebSocket class using BTCPriceData model for real-time price feeds, while origin/main added BinanceWebSocketClient and technical indicator functions (calculate_rsi, calculate_macd, get_order_book_imbalance, get_market_data, get_fallback_btc_price). Both implementations are complementary - BinanceWebSocket provides structured BTCPriceData output while BinanceWebSocketClient supports backward compatibility and technical indicators. Merged module docstrings to reflect all capabilities. Updated README to include test_binance_websocket.py test file."
 }

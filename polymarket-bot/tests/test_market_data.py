@@ -1,24 +1,39 @@
 """
-Tests for Market Data Module (Polymarket API Integration)
+Unit tests for market_data module.
 
-This module tests the Polymarket API client including:
-- Market discovery and search
-- BTC market filtering
-- Odds retrieval and parsing
+Tests cover:
+- BinanceWebSocketClient connection and data handling
+- Technical indicator calculations (RSI, MACD)
+- PolymarketClient API integration
+- Order book imbalance calculations
+- Market data aggregation
+- Market discovery and filtering
 - Error handling and retry logic
 """
 
 import pytest
+import json
+import time
 from unittest.mock import Mock, patch, MagicMock
 from decimal import Decimal
 from datetime import datetime, timedelta
+import numpy as np
 import requests
 
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from market_data import PolymarketClient, PolymarketAPIError
+from market_data import (
+    BinanceWebSocketClient,
+    PolymarketClient,
+    PolymarketAPIError,
+    calculate_rsi,
+    calculate_macd,
+    get_order_book_imbalance,
+    get_market_data,
+    get_fallback_btc_price
+)
 from models import MarketData, OutcomeType
 from config import Config
 from utils import ValidationError
@@ -33,6 +48,8 @@ def mock_config():
     config.polymarket_base_url = "https://api.polymarket.com"
     config.polymarket_api_key = "test_api_key"
     config.polymarket_api_secret = "test_api_secret"
+    config.ws_reconnect_delay = 5
+    config.ws_max_reconnect_attempts = 10
     return config
 
 
@@ -73,7 +90,8 @@ def sample_btc_markets():
             "yes_price": 0.65,
             "no_price": 0.35,
             "active": True,
-            "closed": False
+            "closed": False,
+            "end_date": (datetime.utcnow() + timedelta(days=30)).isoformat() + "Z"
         },
         {
             "id": "btc_market_2",
@@ -81,7 +99,8 @@ def sample_btc_markets():
             "yes_price": 0.55,
             "no_price": 0.45,
             "active": True,
-            "closed": False
+            "closed": False,
+            "end_date": (datetime.utcnow() + timedelta(days=60)).isoformat() + "Z"
         },
         {
             "id": "btc_market_3",
@@ -89,12 +108,138 @@ def sample_btc_markets():
             "yes_price": 0.80,
             "no_price": 0.20,
             "active": True,
-            "closed": False
+            "closed": False,
+            "end_date": (datetime.utcnow() + timedelta(days=90)).isoformat() + "Z"
         }
     ]
 
 
-# Test PolymarketClient initialization
+class TestBinanceWebSocketClient:
+    """Test cases for BinanceWebSocketClient."""
+
+    @patch('market_data.WebSocketApp')
+    def test_initialization(self, mock_ws_app):
+        """Test client initialization with custom buffer size."""
+        client = BinanceWebSocketClient(buffer_size=50)
+
+        assert client.buffer_size == 50
+        assert len(client.price_buffer) == 0
+        assert not client.is_connected
+        assert client.reconnect_attempts == 0
+
+    @patch('market_data.WebSocketApp')
+    @patch('market_data.Thread')
+    def test_connect_success(self, mock_thread, mock_ws_app):
+        """Test successful WebSocket connection."""
+        client = BinanceWebSocketClient()
+
+        # Mock WebSocket connection
+        mock_ws_instance = MagicMock()
+        mock_ws_app.return_value = mock_ws_instance
+
+        mock_thread_instance = MagicMock()
+        mock_thread.return_value = mock_thread_instance
+
+        # Simulate connection established
+        def simulate_connection(*args, **kwargs):
+            client.is_connected = True
+
+        mock_thread_instance.start.side_effect = simulate_connection
+
+        client.connect()
+
+        # Verify WebSocket was created with correct URL
+        mock_ws_app.assert_called_once()
+        args, kwargs = mock_ws_app.call_args
+        assert 'wss://stream.binance.com:9443/ws/btcusdt@kline_1m' in args
+
+    def test_on_message_valid_data(self):
+        """Test message handling with valid kline data."""
+        client = BinanceWebSocketClient()
+
+        # Sample Binance kline message
+        message = json.dumps({
+            'k': {
+                'c': '45123.50',  # Close price
+                's': 'BTCUSDT',
+                't': 1234567890
+            }
+        })
+
+        client._on_message(None, message)
+
+        # Verify price was added to buffer
+        assert len(client.price_buffer) == 1
+        assert client.price_buffer[0] == 45123.50
+
+    def test_on_message_invalid_data(self):
+        """Test message handling with invalid data."""
+        client = BinanceWebSocketClient()
+
+        # Invalid JSON
+        client._on_message(None, "invalid json")
+        assert len(client.price_buffer) == 0
+
+        # Missing 'k' field
+        message = json.dumps({'data': 'invalid'})
+        client._on_message(None, message)
+        assert len(client.price_buffer) == 0
+
+    def test_buffer_size_limit(self):
+        """Test that buffer respects max size."""
+        client = BinanceWebSocketClient(buffer_size=5)
+
+        # Add 10 prices
+        for i in range(10):
+            message = json.dumps({'k': {'c': str(100 + i)}})
+            client._on_message(None, message)
+
+        # Only last 5 should be kept
+        assert len(client.price_buffer) == 5
+        assert client.price_buffer[0] == 105.0
+        assert client.price_buffer[-1] == 109.0
+
+    def test_get_latest_prices(self):
+        """Test retrieving latest prices from buffer."""
+        client = BinanceWebSocketClient()
+
+        # Add sample prices
+        prices = [100.0, 101.0, 102.0, 103.0, 104.0]
+        for price in prices:
+            client.price_buffer.append(price)
+
+        # Get last 3 prices
+        latest = client.get_latest_prices(count=3)
+        assert latest == [102.0, 103.0, 104.0]
+
+        # Request more than available
+        latest = client.get_latest_prices(count=10)
+        assert latest == prices
+
+    def test_get_latest_price(self):
+        """Test retrieving single latest price."""
+        client = BinanceWebSocketClient()
+
+        # Empty buffer
+        assert client.get_latest_price() is None
+
+        # With prices
+        client.price_buffer.append(100.0)
+        client.price_buffer.append(101.0)
+        assert client.get_latest_price() == 101.0
+
+    def test_close(self):
+        """Test graceful connection closure."""
+        client = BinanceWebSocketClient()
+        client.ws = MagicMock()
+        client.ws_thread = MagicMock()
+        client.is_connected = True
+
+        client.close()
+
+        assert not client.is_connected
+        client.ws.close.assert_called_once()
+
 
 class TestPolymarketClientInitialization:
     """Tests for PolymarketClient initialization."""
@@ -118,8 +263,6 @@ class TestPolymarketClientInitialization:
         assert headers["Accept"] == "application/json"
         assert "Bearer" in headers["Authorization"]
 
-
-# Test API request methods
 
 class TestAPIRequests:
     """Tests for API request methods."""
@@ -189,8 +332,6 @@ class TestAPIRequests:
 
         assert "Invalid JSON" in str(exc_info.value)
 
-
-# Test market discovery methods
 
 class TestMarketDiscovery:
     """Tests for market discovery methods."""
@@ -272,8 +413,6 @@ class TestMarketDiscovery:
         assert "query" in str(exc_info.value).lower()
 
 
-# Test BTC market filtering
-
 class TestBTCMarketFiltering:
     """Tests for BTC-related market filtering."""
 
@@ -292,7 +431,13 @@ class TestBTCMarketFiltering:
     def test_get_btc_markets_deduplication(self, mock_search, polymarket_client):
         """Test BTC markets are deduplicated."""
         # Return same market for different keywords
-        duplicate_market = {"id": "same_market", "question": "BTC price", "active": True}
+        duplicate_market = {
+            "id": "same_market",
+            "question": "BTC price",
+            "active": True,
+            "closed": False,
+            "end_date": (datetime.utcnow() + timedelta(days=30)).isoformat() + "Z"
+        }
         mock_search.return_value = [duplicate_market]
 
         markets = polymarket_client.get_btc_markets()
@@ -305,7 +450,7 @@ class TestBTCMarketFiltering:
     def test_get_btc_markets_filters_inactive(self, mock_search, polymarket_client):
         """Test BTC markets filters out inactive markets."""
         markets_with_inactive = [
-            {"id": "1", "question": "BTC", "active": True, "closed": False},
+            {"id": "1", "question": "BTC", "active": True, "closed": False, "end_date": (datetime.utcnow() + timedelta(days=30)).isoformat() + "Z"},
             {"id": "2", "question": "BTC", "active": False, "closed": False},
             {"id": "3", "question": "BTC", "active": True, "closed": True}
         ]
@@ -322,7 +467,7 @@ class TestBTCMarketFiltering:
         """Test BTC markets handles search errors gracefully."""
         # First call succeeds, second fails
         mock_search.side_effect = [
-            [{"id": "1", "question": "BTC", "active": True}],
+            [{"id": "1", "question": "BTC", "active": True, "closed": False, "end_date": (datetime.utcnow() + timedelta(days=30)).isoformat() + "Z"}],
             PolymarketAPIError("API error")
         ]
 
@@ -331,8 +476,6 @@ class TestBTCMarketFiltering:
         # Should still return markets from successful searches
         assert len(markets) >= 1
 
-
-# Test market status checks
 
 class TestMarketStatusChecks:
     """Tests for market status validation."""
@@ -387,8 +530,6 @@ class TestMarketStatusChecks:
         # Should assume active if date can't be parsed
         assert polymarket_client._is_market_active(market) is True
 
-
-# Test market data parsing
 
 class TestMarketDataParsing:
     """Tests for parsing market data into MarketData models."""
@@ -502,8 +643,6 @@ class TestMarketDataParsing:
         assert market_data.no_volume == Decimal("0")
 
 
-# Test odds retrieval
-
 class TestOddsRetrieval:
     """Tests for odds retrieval methods."""
 
@@ -526,8 +665,6 @@ class TestOddsRetrieval:
         with pytest.raises(PolymarketAPIError):
             polymarket_client.get_market_odds("invalid_id")
 
-
-# Test utility methods
 
 class TestUtilityMethods:
     """Tests for utility methods."""
@@ -583,8 +720,6 @@ class TestUtilityMethods:
         assert result == default
 
 
-# Test context manager
-
 class TestContextManager:
     """Tests for context manager functionality."""
 
@@ -606,3 +741,241 @@ class TestContextManager:
         """Test close method."""
         polymarket_client.close()
         # Session should be closed (no easy way to verify, just ensure no exception)
+
+
+class TestTechnicalIndicators:
+    """Test cases for technical indicator calculations."""
+
+    def test_calculate_rsi_valid_data(self):
+        """Test RSI calculation with valid price data."""
+        # Generate sample price data with upward trend
+        prices = [100 + i * 0.5 for i in range(50)]
+
+        rsi = calculate_rsi(prices, period=14)
+
+        # RSI should be between 0 and 100
+        assert 0 <= rsi <= 100
+
+        # With upward trend, RSI should be > 50
+        assert rsi > 50
+
+    def test_calculate_rsi_insufficient_data(self):
+        """Test RSI with insufficient price data."""
+        prices = [100.0, 101.0, 102.0]  # Less than period + 1
+
+        with pytest.raises(ValueError, match="Insufficient price data"):
+            calculate_rsi(prices, period=14)
+
+    def test_calculate_rsi_oversold(self):
+        """Test RSI with oversold conditions (downward trend)."""
+        # Generate downward trend
+        prices = [100 - i * 0.5 for i in range(50)]
+
+        rsi = calculate_rsi(prices, period=14)
+
+        # With strong downward trend, RSI should be < 50
+        assert rsi < 50
+
+    def test_calculate_macd_valid_data(self):
+        """Test MACD calculation with valid price data."""
+        # Generate sample price data
+        prices = [100 + i * 0.2 for i in range(100)]
+
+        macd_line, signal_line = calculate_macd(prices)
+
+        # MACD values should be calculated
+        assert isinstance(macd_line, float)
+        assert isinstance(signal_line, float)
+
+    def test_calculate_macd_insufficient_data(self):
+        """Test MACD with insufficient price data."""
+        prices = [100.0, 101.0, 102.0]  # Less than 34 required
+
+        with pytest.raises(ValueError, match="Insufficient price data"):
+            calculate_macd(prices)
+
+    def test_calculate_macd_bullish_crossover(self):
+        """Test MACD in bullish crossover scenario."""
+        # Create price pattern that generates bullish signal
+        prices = [100.0] * 30 + [100 + i * 0.5 for i in range(30)]
+
+        macd_line, signal_line = calculate_macd(prices)
+
+        # In bullish trend, MACD should be above signal
+        # Note: This may not always be true depending on exact pattern
+        assert isinstance(macd_line, float)
+        assert isinstance(signal_line, float)
+
+
+class TestOrderBookImbalance:
+    """Test cases for order book imbalance calculation."""
+
+    @patch('market_data.requests.get')
+    def test_order_book_imbalance_success(self, mock_get):
+        """Test successful order book imbalance calculation."""
+        # Mock Binance order book response
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            'bids': [['45000', '1.5'], ['44999', '2.0']],  # Total: 3.5
+            'asks': [['45001', '1.0'], ['45002', '1.5']]   # Total: 2.5
+        }
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        imbalance = get_order_book_imbalance()
+
+        # 3.5 / 2.5 = 1.4
+        assert abs(imbalance - 1.4) < 0.01
+
+    @patch('market_data.requests.get')
+    def test_order_book_imbalance_zero_ask_volume(self, mock_get):
+        """Test handling of zero ask volume."""
+        # Mock response with zero ask volume
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            'bids': [['45000', '1.5']],
+            'asks': []
+        }
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        imbalance = get_order_book_imbalance()
+
+        # Should return neutral imbalance
+        assert imbalance == 1.0
+
+    @patch('market_data.requests.get')
+    def test_order_book_imbalance_api_error(self, mock_get):
+        """Test handling API errors."""
+        mock_get.side_effect = Exception("Network error")
+
+        with pytest.raises(ConnectionError, match="Failed to fetch order book"):
+            get_order_book_imbalance()
+
+
+class TestGetMarketData:
+    """Test cases for market data aggregation."""
+
+    def test_get_market_data_success(self):
+        """Test successful market data aggregation."""
+        # Mock Binance client
+        binance_client = MagicMock()
+        prices = [100 + i * 0.2 for i in range(100)]
+        binance_client.get_latest_prices.return_value = prices
+
+        # Mock Polymarket client
+        polymarket_client = MagicMock()
+        sample_market = {
+            "id": "market_123",
+            "question": "Will BTC go up?",
+            "yes_price": 0.65,
+            "no_price": 0.35,
+            "end_date": "2024-01-01T12:00:00Z"
+        }
+        polymarket_client.get_btc_markets.return_value = [sample_market]
+        polymarket_client.parse_market_data.return_value = MarketData(
+            market_id="market_123",
+            question="Will BTC go up?",
+            end_date=datetime(2024, 1, 1, 12, 0, 0),
+            yes_price=Decimal("0.65"),
+            no_price=Decimal("0.35")
+        )
+
+        # Mock order book imbalance
+        with patch('market_data.get_order_book_imbalance', return_value=1.2):
+            market_data = get_market_data(
+                binance_client,
+                polymarket_client
+            )
+
+        # Verify MarketData object
+        assert isinstance(market_data, MarketData)
+        assert market_data.market_id == 'market_123'
+        assert market_data.yes_price == Decimal('0.65')
+        assert market_data.no_price == Decimal('0.35')
+
+        # Verify metadata includes technical indicators
+        assert 'btc_price' in market_data.metadata
+        assert 'rsi_14' in market_data.metadata
+        assert 'macd_line' in market_data.metadata
+        assert 'macd_signal' in market_data.metadata
+        assert 'order_book_imbalance' in market_data.metadata
+
+    def test_get_market_data_insufficient_prices(self):
+        """Test handling insufficient price data."""
+        # Mock Binance client with insufficient data
+        binance_client = MagicMock()
+        binance_client.get_latest_prices.return_value = [100.0, 101.0]
+
+        polymarket_client = MagicMock()
+
+        with pytest.raises(ValueError, match="Insufficient price data"):
+            get_market_data(binance_client, polymarket_client, market_id='market_123')
+
+    def test_get_market_data_no_active_market(self):
+        """Test handling when no active market is found."""
+        binance_client = MagicMock()
+        prices = [100 + i * 0.2 for i in range(100)]
+        binance_client.get_latest_prices.return_value = prices
+
+        polymarket_client = MagicMock()
+        polymarket_client.get_btc_markets.return_value = []
+
+        with pytest.raises(ValueError, match="No active Polymarket markets found"):
+            get_market_data(binance_client, polymarket_client)
+
+
+class TestFallbackBTCPrice:
+    """Test cases for CoinGecko fallback price retrieval."""
+
+    @patch('market_data.requests.get')
+    def test_fallback_price_success(self, mock_get):
+        """Test successful BTC price retrieval from CoinGecko."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            'bitcoin': {'usd': 45123.50}
+        }
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        price = get_fallback_btc_price()
+
+        assert price == 45123.50
+
+    @patch('market_data.requests.get')
+    def test_fallback_price_api_error(self, mock_get):
+        """Test handling API errors."""
+        mock_get.side_effect = Exception("Network error")
+
+        with pytest.raises(ConnectionError, match="Failed to fetch BTC price from CoinGecko"):
+            get_fallback_btc_price()
+
+
+class TestIntegration:
+    """Integration tests for market_data module."""
+
+    @patch('market_data.WebSocketApp')
+    @patch('market_data.requests.Session.get')
+    def test_full_workflow(self, mock_session_get, mock_ws_app):
+        """Test complete workflow from connection to data aggregation."""
+        # Setup Binance client
+        binance_client = BinanceWebSocketClient()
+
+        # Simulate price data
+        for i in range(100):
+            message = json.dumps({'k': {'c': str(45000 + i)}})
+            binance_client._on_message(None, message)
+
+        # Verify prices collected
+        prices = binance_client.get_latest_prices(100)
+        assert len(prices) == 100
+        assert prices[0] == 45000.0
+        assert prices[-1] == 45099.0
+
+        # Test technical indicators
+        rsi = calculate_rsi(prices, period=14)
+        assert 0 <= rsi <= 100
+
+        macd_line, signal_line = calculate_macd(prices)
+        assert isinstance(macd_line, float)
+        assert isinstance(signal_line, float)

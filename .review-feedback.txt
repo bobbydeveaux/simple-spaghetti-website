@@ -1,107 +1,57 @@
 ## Code Review - Changes Requested
 
-## ❌ BLOCKING ISSUES FOUND
+I've completed a comprehensive code review of PR #247. Here's my assessment:
 
-I've completed a comprehensive review of PR #221. While this PR demonstrates excellent documentation and test structure, there is a **critical blocking issue** that will prevent the code from running.
+## Review Complete
 
----
+I found **ONE CRITICAL BUG** that will prevent this code from running in production:
 
-## 1. **Bugs and Logic Errors**
+### 🔴 BLOCKING ISSUE: Pydantic Validation Error
 
-### CRITICAL: Invalid Pydantic v2 Field Parameter
+In `market_data.py:482`, the code creates a `MarketData` object with `end_date=None`:
 
-**Location:** `polymarket-bot/models.py` (multiple instances throughout the file)
-
-**Issue:** The code uses `decimal_places` parameter in Pydantic `Field()` definitions, which **does not exist in Pydantic v2**. This parameter was available in Pydantic v1 but was removed in v2.
-
-**Examples:**
-- Line 116: `max_position_size: Decimal = Field(..., gt=0, decimal_places=2)`
-- Line 123: `max_total_exposure: Decimal = Field(..., gt=0, decimal_places=2)`
-- Line 130: `risk_per_trade: Decimal = Field(..., gt=0, decimal_places=2)`
-- Line 153: `total_pnl: Decimal = Field(default=Decimal("0.00"), decimal_places=2)`
-- Line 158: `current_exposure: Decimal = Field(default=Decimal("0.00"), ge=0, decimal_places=2)`
-- Line 314: `price: Decimal = Field(..., ge=0, le=1, decimal_places=4)`
-- Line 321: `quantity: Decimal = Field(..., gt=0, decimal_places=2)`
-- And many more instances throughout the file
-
-**Impact:** This will cause immediate runtime errors when attempting to instantiate any of the models. The code will fail with errors like:
-```
-TypeError: Field() got an unexpected keyword argument 'decimal_places'
+```python
+market_data = MarketData(
+    market_id=market_id,
+    question=f"BTC 5-min prediction market {market_id}",
+    end_date=None,  # ❌ CRITICAL BUG
+    yes_price=Decimal(str(yes_odds)),
+    no_price=Decimal(str(no_odds))
+)
 ```
 
-**Required Fix:** Remove all `decimal_places` parameters from Field definitions. In Pydantic v2, decimal precision should be validated using custom validators with `@field_validator` if needed, or rely on application logic to enforce precision.
+However, in `models.py:622-625`, the `end_date` field is **required** (not Optional):
+
+```python
+end_date: datetime = Field(
+    ...,  # Required field
+    description="Market end/resolution timestamp"
+)
+```
+
+This will cause a **Pydantic ValidationError** every time `get_market_data()` is called, making the entire feature non-functional.
+
+**Fix:** The `PolymarketClient.get_market_odds()` method should return the complete market data including `end_date` from the API response, not just the odds.
 
 ---
 
-## 2. **Security Vulnerabilities**
+### Other Issues (Non-Blocking)
 
-No security vulnerabilities found. The code handles financial data appropriately using `Decimal` types for precision.
-
----
-
-## 3. **Code Quality**
-
-**Positive aspects:**
-- Excellent use of Pydantic for data validation
-- Comprehensive docstrings and type hints
-- Good separation of concerns with enums
-- Well-structured models with clear business logic methods
-- Proper use of `Decimal` for financial calculations
-
-**Minor issues (non-blocking):**
-- The `datetime.utcnow()` is deprecated in Python 3.12+ (should use `datetime.now(timezone.utc)`), but this is a minor concern for now
+- **Medium:** WebSocket `_on_close()` handler uses blocking `time.sleep()` which can cause threading issues
+- **Minor:** Race condition in connection timeout logic
+- **Documentation:** `.claude-output.json` was deleted instead of updated
 
 ---
 
-## 4. **Test Coverage**
+### Positive Aspects
 
-**Positive aspects:**
-- Excellent test coverage with 565 lines of tests for 766 lines of model code
-- Tests cover creation, validation, business logic, serialization, and integration scenarios
-- Good use of pytest with proper assertions and error checking
-- Tests are well-organized into test classes
+- Excellent test coverage with comprehensive unit and integration tests
+- Well-documented with clear examples in README
+- Good separation of concerns and clean architecture
+- Proper thread-safe implementation
+- All dependencies already in requirements.txt
 
-**Issue:**
-- Tests cannot run successfully due to the `decimal_places` bug in the models
-- Once the bug is fixed, tests should be executed to verify they all pass
-
----
-
-## 5. **Performance**
-
-No performance issues identified. The use of `Decimal` for financial calculations is appropriate despite being slower than floats, as precision is critical for trading applications.
-
----
-
-## 6. **Documentation Completeness**
-
-**Excellent documentation:**
-- ✅ Main `README.md` updated to include Polymarket Bot in services list
-- ✅ Comprehensive `polymarket-bot/README.md` with 444 lines covering:
-  - Installation instructions
-  - Detailed model documentation with examples
-  - Validation examples
-  - Serialization examples
-  - Integration workflow examples
-  - Architecture alignment notes
-- ✅ All models have comprehensive docstrings
-- ✅ Code comments are clear and helpful
-
-No documentation gaps identified.
-
----
-
-## Summary
-
-This PR has **one critical blocking issue** that must be fixed before merging:
-
-1. **CRITICAL:** Remove all `decimal_places` parameters from Pydantic Field definitions (not supported in Pydantic v2)
-
-Once this issue is resolved, the PR will be ready to merge. The overall code quality, test coverage, and documentation are excellent.
-
----
-
-**Recommendation:** Request changes to fix the Pydantic v2 compatibility issue.
+The review decision and metadata have been written to `/workspace/.claude-review.json` for the workflow automation.
 
 **Action Required**: Please address the blocking issues above before merging.
 
