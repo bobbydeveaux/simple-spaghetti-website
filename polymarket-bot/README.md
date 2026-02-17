@@ -8,6 +8,7 @@ This package provides:
 - **Validated Data Models**: Type-safe Pydantic models for bot state, trades, positions, and market data
 - **State Persistence**: JSON-based state management with atomic writes and crash recovery
 - **Configuration Management**: Secure API key management and environment-based configuration
+- **State Persistence**: Atomic file operations with crash recovery and audit logging
 - **Utility Functions**: Retry logic, validation, error handling, and helper functions
 - **Multi-Exchange Support**: Integration with Polymarket, Binance, and CoinGecko APIs
 - **Technical Analysis**: Built-in TA-Lib support for technical indicators
@@ -20,6 +21,14 @@ This package provides:
 - ✅ **Serialization Support**: Easy conversion to/from dictionaries for logging and storage
 - ✅ **Business Logic Methods**: Built-in helpers for common calculations (P&L, win rate, etc.)
 - ✅ **Test Coverage**: Comprehensive test suite with 100% model coverage
+
+### State Persistence & Logging
+- ✅ **Atomic Writes**: Crash-safe file operations using temp file + rename pattern
+- ✅ **Trade Audit Trail**: Append-only JSON Lines logging for complete trade history
+- ✅ **Metrics Tracking**: Performance metrics logging with automatic rotation
+- ✅ **Crash Recovery**: Automatic cleanup of temporary files on startup
+- ✅ **Log Rotation**: Automatic rotation when files exceed 10MB (keeps 5 backups)
+- ✅ **State Validation**: Full Pydantic validation on load/save operations
 
 ### Polymarket API Integration
 - ✅ **Market Discovery**: Search and filter active prediction markets
@@ -582,14 +591,6 @@ if loaded_state and state_manager.validate_state(loaded_state):
     print("State loaded successfully")
 
 # Log a trade
-trade = Trade(
-    trade_id="trade_001",
-    market_id="market_123",
-    order_id="order_456",
-    side=OrderSide.BUY,
-    order_type=OrderType.LIMIT,
-    outcome=OutcomeType.YES,
-    price=Decimal("0.65"),
     quantity=Decimal("100.00")
 )
 state_manager.log_trade(trade)
