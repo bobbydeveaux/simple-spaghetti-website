@@ -16,7 +16,7 @@ Default Parameters:
 
 from decimal import Decimal
 from typing import Optional
-from models import BotState
+from .models import BotState
 
 
 class CapitalAllocator:

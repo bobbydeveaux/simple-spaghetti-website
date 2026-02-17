@@ -1,6 +1,6 @@
 {
   "method": "ai-assisted",
-  "filesResolved": 3,
-  "summary": "Resolved conflicts by choosing the more comprehensive origin/main implementation for risk management system. The main branch contained a complete RiskManager class with RiskApprovalResult, better error handling, and additional features like capital allocation and prediction modules. README.md was merged to preserve both feature descriptions while eliminating redundancy.",
-  "strategyUsed": "Chose origin/main for risk.py and tests/test_risk.py as it contains the more complete RiskManager implementation with detailed risk metrics, approval results, and comprehensive validation. For README.md, merged both versions to show all capabilities while removing redundant sections. Added module-level constants MAX_DRAWDOWN_PERCENT and MAX_VOLATILITY_PERCENT to risk.py to support test imports."
+  "filesResolved": 1,
+  "summary": "Merged two code review feedbacks that identified missing timezone imports in different files. HEAD identified issues in 3 test files (test_binance_websocket.py, test_market_data.py, test_models.py) while origin/main identified issues in 2 production/test files (risk.py, test_risk.py). Combined both reviews into a comprehensive single review covering all 5 affected files.",
+  "strategyUsed": "preserved both changes - Both code reviews were valid and complementary, identifying missing timezone imports in different sets of files. The resolution merged both reviews into a unified, comprehensive review that covers all affected files (2 from origin/main + 3 from HEAD) while maintaining consistency in format and recommendations."
 }

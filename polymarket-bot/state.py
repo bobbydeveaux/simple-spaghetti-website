@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Dict, Any, Optional, List
-from models import BotState, Trade, Position
+from .models import BotState, Trade, Position
 
 
 class StateManager:
