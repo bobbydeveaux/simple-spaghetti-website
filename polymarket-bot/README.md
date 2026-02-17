@@ -20,6 +20,14 @@ This package provides:
 - ✅ **Business Logic Methods**: Built-in helpers for common calculations (P&L, win rate, etc.)
 - ✅ **Test Coverage**: Comprehensive test suite with 100% model coverage
 
+### Market Data Integration
+- ✅ **Polymarket API Client**: Full integration for market discovery and odds fetching
+- ✅ **Market Discovery**: Search and discover active BTC-related markets
+- ✅ **Odds Fetching**: Real-time retrieval of Yes/No outcome prices
+- ✅ **Market Filtering**: Filter markets by liquidity, volume, and activity status
+- ✅ **Retry Logic**: Exponential backoff for reliable API calls
+- ✅ **Error Handling**: Comprehensive error handling with detailed logging
+
 ### Technical Capabilities
 - **Environment Configuration**: Secure API key management using `.env` files
 - **WebSocket Support**: Real-time market data streaming
@@ -36,8 +44,10 @@ polymarket-bot/
 ├── config.py           # Configuration management
 ├── models.py           # Core data models (BotState, Trade, Position, MarketData)
 ├── utils.py            # Utility functions (retry, validation, error handling)
+├── market_data.py      # Polymarket API integration for market data
 ├── tests/              # Comprehensive test suite
-│   └── test_models.py  # Model validation tests
+│   ├── test_models.py      # Model validation tests
+│   └── test_market_data.py # Market data service tests
 ├── test_config.py      # Configuration tests
 └── README.md           # This file
 ```
@@ -409,6 +419,237 @@ bet_size = clamp(calculated_size, min_bet=10, max_bet=1000)
 display_amount = format_currency(123.456, "USDC", 2)  # "123.46 USDC"
 ```
 
+## Market Data Service
+
+### Overview
+
+The Market Data Service (`market_data.py`) provides a complete integration with the Polymarket API for discovering active prediction markets and fetching current odds. It includes retry logic, error handling, and support for multiple API response formats.
+
+### Features
+
+- **Market Discovery**: Search for active BTC-related markets
+- **Odds Fetching**: Get real-time Yes/No outcome prices
+- **Market Filtering**: Filter by liquidity, volume, and activity status
+- **Retry Logic**: Automatic retries with exponential backoff
+- **Error Handling**: Comprehensive error handling and logging
+- **Rate Limiting**: Built-in rate limit management
+
+### Quick Start
+
+```python
+from market_data import MarketDataService, get_active_btc_markets
+from decimal import Decimal
+
+# Create service instance (uses config automatically)
+service = MarketDataService()
+
+# Discover active BTC markets
+markets = service.discover_markets(search_query="BTC", active_only=True, limit=50)
+
+# Filter by liquidity and volume
+filtered_markets = service.filter_btc_markets(
+    markets,
+    min_liquidity=Decimal("10000"),  # $10,000 minimum liquidity
+    min_volume=Decimal("50000")      # $50,000 minimum volume
+)
+
+# Get odds for a specific market
+market = service.get_market_odds("market_id_here")
+print(f"YES: {float(market.yes_price):.4f}, NO: {float(market.no_price):.4f}")
+```
+
+### Convenience Functions
+
+```python
+from market_data import get_active_btc_markets, get_market_odds_by_id
+from decimal import Decimal
+
+# Get active BTC markets with filtering
+markets = get_active_btc_markets(
+    min_liquidity=Decimal("5000"),
+    min_volume=Decimal("10000"),
+    limit=20
+)
+
+# Get odds for a specific market
+market = get_market_odds_by_id("0x123abc...")
+if market:
+    print(f"Market: {market.question}")
+    print(f"YES: {float(market.yes_price):.2%}")
+    print(f"NO: {float(market.no_price):.2%}")
+```
+
+### MarketDataService API
+
+#### `__init__(api_key, api_secret, base_url)`
+
+Initialize the service with optional custom credentials.
+
+**Parameters:**
+- `api_key` (optional): Polymarket API key (defaults to config)
+- `api_secret` (optional): Polymarket API secret (defaults to config)
+- `base_url` (optional): API base URL (defaults to config)
+
+#### `discover_markets(search_query, active_only, limit)`
+
+Discover markets matching search criteria.
+
+**Parameters:**
+- `search_query` (str, optional): Search term (default: "BTC")
+- `active_only` (bool): Only return active markets (default: True)
+- `limit` (int): Maximum number of markets (default: 50)
+
+**Returns:** List of `MarketData` objects
+
+**Raises:** `PolymarketAPIError` on API failure
+
+**Example:**
+```python
+# Find BTC markets
+btc_markets = service.discover_markets(
+    search_query="Bitcoin",
+    active_only=True,
+    limit=20
+)
+
+for market in btc_markets:
+    print(f"{market.question}")
+    print(f"  Liquidity: ${float(market.total_liquidity):,.2f}")
+    print(f"  Volume: ${float(market.get_total_volume()):,.2f}")
+```
+
+#### `get_market_odds(market_id)`
+
+Fetch current odds for a specific market.
+
+**Parameters:**
+- `market_id` (str): Unique Polymarket market identifier
+
+**Returns:** `MarketData` object with current odds
+
+**Raises:**
+- `PolymarketAPIError`: If API request fails
+- `ValueError`: If market_id is invalid
+
+**Example:**
+```python
+market = service.get_market_odds("0x1234567890abcdef")
+print(f"Current odds - YES: {market.yes_price}, NO: {market.no_price}")
+```
+
+#### `filter_btc_markets(markets, min_liquidity, min_volume)`
+
+Filter markets based on liquidity and volume criteria.
+
+**Parameters:**
+- `markets` (List[MarketData]): Markets to filter
+- `min_liquidity` (Decimal, optional): Minimum liquidity in USD
+- `min_volume` (Decimal, optional): Minimum volume in USD
+
+**Returns:** Filtered list of `MarketData` objects
+
+**Example:**
+```python
+# Get all markets
+all_markets = service.discover_markets("BTC", limit=100)
+
+# Filter for high-liquidity, high-volume markets
+quality_markets = service.filter_btc_markets(
+    all_markets,
+    min_liquidity=Decimal("50000"),
+    min_volume=Decimal("100000")
+)
+
+print(f"Found {len(quality_markets)} high-quality markets")
+```
+
+#### `get_market_by_id(market_id)`
+
+Get complete market information by ID (with error handling).
+
+**Parameters:**
+- `market_id` (str): Market identifier
+
+**Returns:** `MarketData` object or `None` if not found
+
+**Example:**
+```python
+market = service.get_market_by_id("market_123")
+if market:
+    print(f"Found market: {market.question}")
+else:
+    print("Market not found")
+```
+
+### Error Handling
+
+The service includes comprehensive error handling:
+
+```python
+from market_data import MarketDataService, PolymarketAPIError
+
+service = MarketDataService()
+
+try:
+    markets = service.discover_markets("BTC")
+    print(f"Found {len(markets)} markets")
+except PolymarketAPIError as e:
+    print(f"API error: {e}")
+except Exception as e:
+    print(f"Unexpected error: {e}")
+```
+
+### API Response Format Support
+
+The service handles multiple API response formats automatically:
+
+- Standard format: `{'yes_price': 0.65, 'no_price': 0.35}`
+- CamelCase format: `{'yesPrice': 0.65, 'noPrice': 0.35}`
+- Outcomes array: `{'outcomes': [0.65, 0.35]}`
+- Percentage format: `{'yes_price': 65.0}` (converted to 0.65)
+
+### Complete Example
+
+```python
+from market_data import MarketDataService
+from decimal import Decimal
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+
+# Initialize service
+service = MarketDataService()
+
+# Discover active BTC markets
+print("Discovering BTC markets...")
+markets = service.discover_markets(
+    search_query="Bitcoin",
+    active_only=True,
+    limit=50
+)
+print(f"Found {len(markets)} total markets")
+
+# Filter for quality markets
+quality_markets = service.filter_btc_markets(
+    markets,
+    min_liquidity=Decimal("10000"),
+    min_volume=Decimal("50000")
+)
+print(f"Filtered to {len(quality_markets)} quality markets")
+
+# Display top markets
+for market in quality_markets[:5]:
+    print(f"\nMarket: {market.question}")
+    print(f"  Market ID: {market.market_id}")
+    print(f"  YES: {float(market.yes_price):.2%}")
+    print(f"  NO: {float(market.no_price):.2%}")
+    print(f"  Liquidity: ${float(market.total_liquidity):,.2f}")
+    print(f"  Volume: ${float(market.get_total_volume()):,.2f}")
+    print(f"  Spread: {float(market.get_price_spread()):.2%}")
+    print(f"  Active: {market.is_active}")
+```
+
 ## Usage Example - Complete Trading Bot
 
 ```python
@@ -528,10 +769,12 @@ pytest -v
 
 # Specific test files
 pytest tests/test_models.py -v
+pytest tests/test_market_data.py -v
 pytest test_config.py test_polymarket_utils.py -v
 
 # With coverage
 pytest tests/test_models.py --cov=models --cov-report=html
+pytest tests/test_market_data.py --cov=market_data --cov-report=html
 pytest test_config.py -v --cov=config --cov-report=html
 ```
 
