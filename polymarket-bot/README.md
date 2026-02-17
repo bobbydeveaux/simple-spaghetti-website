@@ -87,6 +87,16 @@ This package provides:
 - ✅ **Automatic Streak Tracking**: Integration with StateManager for win/loss tracking
 - ✅ **Comprehensive Testing**: Full test coverage including edge cases and boundary conditions
 
+### Trade Execution
+- ✅ **Order Submission**: Submit market orders to Polymarket API with validation
+- ✅ **Settlement Polling**: Automatic polling of order status until settlement
+- ✅ **Retry Logic**: Exponential backoff for transient API failures
+- ✅ **Error Classification**: Distinguishes retryable vs. terminal errors
+- ✅ **Configurable Retry**: Max retries, initial delay, and backoff multiplier from config
+- ✅ **Network Resilience**: Automatic retry on connection errors, timeouts, and rate limits
+- ✅ **Terminal Error Handling**: No retry for authentication and validation errors
+- ✅ **Comprehensive Testing**: 40+ test cases covering all execution scenarios
+
 ### Technical Capabilities
 - **Environment Configuration**: Secure API key management using `.env` files
 - **WebSocket Streaming**: Real-time BTC/USDT price streaming from Binance with automatic reconnection
@@ -110,6 +120,7 @@ polymarket-bot/
 ├── prediction.py               # Prediction engine (RSI/MACD-based signal generation)
 ├── risk.py                     # Risk management system (drawdown, volatility, trade approval)
 ├── capital.py                  # Capital allocation with win-streak position sizing
+├── execution.py                # Trade execution module (order submission, settlement polling)
 ├── state.py                    # State persistence and logging
 ├── utils.py                    # Utility functions (retry, validation, error handling)
 ├── tests/                      # Comprehensive test suite
@@ -119,6 +130,7 @@ polymarket-bot/
 │   ├── test_prediction.py      # Prediction engine tests
 │   ├── test_risk.py            # Risk management tests
 │   ├── test_capital.py         # Capital allocation tests
+│   ├── test_execution.py       # Trade execution tests
 │   └── test_state.py           # State persistence tests
 ├── test_config.py              # Configuration tests
 ├── test_risk.py                # Risk management tests
@@ -197,6 +209,13 @@ The bot uses environment variables for configuration. All required variables mus
 - `MACD_SIGNAL_PERIOD`: MACD signal period (default: `9`)
 - `ORDER_BOOK_BULLISH_THRESHOLD`: Order book imbalance threshold for bullish signals (default: `1.1`)
 - `ORDER_BOOK_BEARISH_THRESHOLD`: Order book imbalance threshold for bearish signals (default: `0.9`)
+
+### Retry Logic Configuration
+
+- `MAX_RETRIES`: Maximum number of retry attempts for API failures (default: `3`)
+- `INITIAL_DELAY`: Initial delay in seconds before first retry (default: `1.0`)
+- `BACKOFF_MULTIPLIER`: Exponential backoff multiplier (default: `2.0`)
+- `MAX_DELAY`: Maximum delay between retries in seconds (default: `60.0`)
 - `PREDICTION_CONFIDENCE_SCORE`: Confidence score for actionable signals (default: `0.75`)
 
 ## Data Models
@@ -1344,6 +1363,103 @@ bot.win_streak = update_win_streak(bot, "LOSS")  # streak = 0
 pos3 = calculate_position_size(bot)  # $5.00 (back to base)
 ```
 
+## Trade Execution
+
+The execution module handles order submission and settlement polling with automatic retry logic.
+
+### Submitting Orders
+
+```python
+from polymarket_bot.execution import submit_order
+
+# Submit a market order with automatic retry on failures
+order_id = submit_order(
+    market_id="0x123abc...",
+    direction="YES",  # or "NO"
+    size=50.0  # Position size in USDC
+)
+
+print(f"Order submitted: {order_id}")
+```
+
+### Polling Settlement
+
+```python
+from polymarket_bot.execution import poll_settlement
+
+# Poll until order is settled (with 5 minute timeout)
+outcome = poll_settlement(
+    order_id=order_id,
+    timeout=300,  # seconds
+    poll_interval=10  # check every 10 seconds
+)
+
+if outcome == "WIN":
+    print("Position won!")
+else:
+    print("Position lost")
+```
+
+### Getting Order Status
+
+```python
+from polymarket_bot.execution import get_order_status
+
+# Get current order status without polling
+status = get_order_status(order_id)
+print(f"Order status: {status['status']}")  # PENDING or SETTLED
+```
+
+### Error Handling
+
+The execution module distinguishes between retryable and terminal errors:
+
+**Retryable Errors** (automatically retried with exponential backoff):
+- Network errors (connection failures, timeouts)
+- Rate limiting (HTTP 429)
+- Server errors (HTTP 5xx)
+
+**Terminal Errors** (not retried):
+- Authentication errors (HTTP 401, 403)
+- Validation errors (HTTP 400, 404)
+- Invalid parameters
+
+```python
+from polymarket_bot.execution import (
+    submit_order,
+    ExecutionError,
+    TerminalExecutionError
+)
+from polymarket_bot.utils import RetryError
+
+try:
+    order_id = submit_order(
+        market_id="0x123abc...",
+        direction="YES",
+        size=50.0
+    )
+except TerminalExecutionError as e:
+    # Non-retryable error (e.g., insufficient funds)
+    print(f"Order rejected: {e}")
+except RetryError as e:
+    # All retry attempts exhausted
+    print(f"Order failed after retries: {e}")
+```
+
+### Retry Configuration
+
+Configure retry behavior via environment variables:
+
+```bash
+# .env file
+MAX_RETRIES=5              # Maximum retry attempts (default: 3)
+INITIAL_DELAY=2.0          # Initial delay in seconds (default: 1.0)
+BACKOFF_MULTIPLIER=2.0     # Exponential backoff multiplier (default: 2.0)
+MAX_DELAY=60.0             # Maximum delay between retries (default: 60.0)
+```
+
+With these settings, retries will happen at: 2s, 4s, 8s, 16s, 32s
+
 ## Utility Functions
 
 ### Configuration Management
@@ -1358,6 +1474,7 @@ config = get_config()
 print(f"Polymarket API URL: {config.polymarket_base_url}")
 print(f"Max Position Size: {config.max_position_size}")
 print(f"Risk Percentage: {config.risk_percentage}")
+print(f"Max Retries: {config.max_retries}")
 ```
 
 ### Retry Decorator
