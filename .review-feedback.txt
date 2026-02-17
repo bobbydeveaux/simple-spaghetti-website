@@ -1,42 +1,84 @@
 ## Code Review - Changes Requested
 
-## Review Complete
-
-I've completed comprehensive code reviews for the prediction engine implementation. Here's my assessment:
-
 ## ❌ BLOCKING ISSUES FOUND
 
-### Critical Issue 1: MACD Configuration Not Applied
+### CRITICAL: Missing Import - Tests Will Fail at Runtime
 
-The prediction engine has a **functional bug** where MACD configuration parameters (`macd_fast_period`, `macd_slow_period`, `macd_signal_period`) are validated, logged, and documented but **never actually used** in the calculation. The `calculate_macd()` function in `market_data.py` uses hardcoded values (12, 26, 9) instead.
+**Severity: BLOCKING** - The code cannot execute successfully.
 
-**Impact**: Users can set these environment variables, see them in logs, and believe they're working - but they have no effect on predictions.
+All three modified test files use `timezone.utc` but **none of them import `timezone`** from the datetime module. This will cause immediate `NameError` failures when the tests are run.
 
-### Critical Issue 2: ValidationError Called with Incorrect Arguments (RESOLVED)
+#### Affected Files:
+1. **polymarket-bot/tests/test_binance_websocket.py** (line 14)
+   - Current: `from datetime import datetime`
+   - Uses `timezone.utc` at: lines 382, 493, 507, 519, 535
+   - Required: `from datetime import datetime, timezone`
 
-**Note:** This issue was identified in an earlier version where `ValidationError` was called with two arguments (field name, message) but the class only accepts one argument. This has been resolved in the current implementation.
+2. **polymarket-bot/tests/test_market_data.py** (line 19)
+   - Current: `from datetime import datetime, timedelta`
+   - Uses `timezone.utc` at: lines 91, 100, 109, 436, 450, 467, 485, 510, 702
+   - Required: `from datetime import datetime, timedelta, timezone`
 
-### Additional Non-Blocking Issues Found:
+3. **polymarket-bot/tests/test_models.py** (line 14)
+   - Current: `from datetime import datetime, timedelta`
+   - Uses `timezone.utc` at: lines 391, 407, 420, 435, 448, 472, 491, 597, 611, 621+
+   - Required: `from datetime import datetime, timedelta, timezone`
 
-1. **Deprecated API**: Uses `datetime.utcnow()` which is deprecated in Python 3.12+
-2. **Incomplete Documentation**: The HLD/LLD docs in `docs/concepts/polymarket-bot/` weren't updated
-3. **Test Inconsistency**: Mixed mocking patterns (`prediction.X` vs `polymarket_bot.prediction.X`)
-4. **Config Validation Logic**: Order book threshold validation may not align with semantic meaning
-5. **API Design**: Exported test helper calls private method
+#### Impact:
+Every test that uses `datetime.now(timezone.utc)` will fail with:
+```python
+NameError: name 'timezone' is not defined
+```
 
-### Positive Aspects:
+#### How to Fix:
+Add `timezone` to the datetime imports in all three files:
 
-✅ Excellent test coverage (60+ test cases)
-✅ Comprehensive README documentation
-✅ Strong configuration validation
-✅ Clean code structure and error handling
-✅ Well-designed models and type hints
+**test_binance_websocket.py:14**
+```python
+from datetime import datetime, timezone
+```
 
-## Summary
+**test_market_data.py:19**
+```python
+from datetime import datetime, timedelta, timezone
+```
 
-The MACD configuration issue is a functional defect that must be fixed before merge. The fix is straightforward - update `calculate_macd()` to accept period parameters and pass the config values through.
+**test_models.py:14**
+```python
+from datetime import datetime, timedelta, timezone
+```
 
-**Action Required**: Please address the blocking issue above before merging.
+---
+
+### Additional Observations (Non-blocking)
+
+#### ✅ Positive Aspects:
+
+1. **Correct Deprecation Fix**: The replacement of `datetime.utcnow()` with `datetime.now(timezone.utc)` is the correct approach for Python 3.12+ compatibility.
+
+2. **Documentation Accuracy**: The LLD.md update correctly reflects the actual function signature in market_data.py:1019-1074, which does accept configurable MACD period parameters.
+
+3. **Comprehensive Coverage**: The changes systematically address all instances of the deprecated API across multiple test files.
+
+4. **No Production Code Impact**: The deprecated datetime usage was only in test files, minimizing production risk.
+
+5. **MACD Configuration Verified**: As stated in the PR description, the MACD configuration parameters are correctly passed through the call chain (config → PredictionEngine:148-153 → calculate_macd:1019-1074).
+
+#### 📝 Code Quality Notes (Non-critical):
+
+1. **Test Coverage**: While the MACD tests exist (test_market_data.py:779-807), there don't appear to be specific tests verifying that custom MACD periods are correctly applied through the configuration chain. The PR description mentions "Existing unit tests validate custom MACD periods (test_market_data.py:115-127)" but line 115 starts the BinanceWebSocketClient tests, not MACD configuration tests.
+
+2. **Consistency**: All datetime replacements follow the same pattern consistently, which is good for maintainability.
+
+---
+
+## Verdict
+
+**CHANGES REQUESTED** - The missing `timezone` import is a critical bug that will cause all modified tests to fail at runtime. This must be fixed before the PR can be merged.
+
+Once the import statements are corrected in all three test files, the PR will be ready for approval.
+
+**Action Required**: Please address the blocking issues above before merging.
 
 ---
 *Reviewed by code-reviewer agent*
