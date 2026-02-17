@@ -20,9 +20,17 @@ This package provides:
 - ✅ **Business Logic Methods**: Built-in helpers for common calculations (P&L, win rate, etc.)
 - ✅ **Test Coverage**: Comprehensive test suite with 100% model coverage
 
+### Market Data Integration
+- ✅ **Binance WebSocket**: Real-time BTC/USDT price streaming with automatic reconnection
+- ✅ **Technical Indicators**: RSI and MACD calculations for price analysis
+- ✅ **Order Book Analysis**: Real-time order book imbalance metrics
+- ✅ **Polymarket API**: Market discovery and odds retrieval
+- ✅ **Unified Service Interface**: Single interface for all market data needs
+- ✅ **Comprehensive Tests**: Integration tests verify complete data flow
+
 ### Technical Capabilities
 - **Environment Configuration**: Secure API key management using `.env` files
-- **WebSocket Support**: Real-time market data streaming
+- **WebSocket Support**: Real-time market data streaming with reconnection logic
 - **Configurable Risk Management**: Customizable position sizing and stop-loss parameters
 - **Retry Logic**: Exponential backoff for resilient API calls
 - **Validation Functions**: Type checking, range validation, and data validation
@@ -32,14 +40,16 @@ This package provides:
 
 ```
 polymarket-bot/
-├── __init__.py         # Package initialization
-├── config.py           # Configuration management
-├── models.py           # Core data models (BotState, Trade, Position, MarketData)
-├── utils.py            # Utility functions (retry, validation, error handling)
-├── tests/              # Comprehensive test suite
-│   └── test_models.py  # Model validation tests
-├── test_config.py      # Configuration tests
-└── README.md           # This file
+├── __init__.py           # Package initialization
+├── config.py             # Configuration management
+├── models.py             # Core data models (BotState, Trade, Position, MarketData)
+├── market_data.py        # Market data service (Binance + Polymarket integration)
+├── utils.py              # Utility functions (retry, validation, error handling)
+├── tests/                # Comprehensive test suite
+│   └── test_models.py    # Model validation tests
+├── test_config.py        # Configuration tests
+├── test_market_data.py   # Market data integration tests
+└── README.md             # This file
 ```
 
 ## Installation
@@ -407,6 +417,181 @@ bet_size = clamp(calculated_size, min_bet=10, max_bet=1000)
 
 # Format currency
 display_amount = format_currency(123.456, "USDC", 2)  # "123.46 USDC"
+```
+
+## Market Data Service
+
+The Market Data Service provides unified access to real-time price data, technical indicators, and market odds from multiple sources.
+
+### Components
+
+#### BinanceWebSocketClient
+
+Real-time BTC/USDT price streaming with automatic reconnection.
+
+```python
+from market_data import BinanceWebSocketClient
+
+# Initialize client
+client = BinanceWebSocketClient(
+    symbol="btcusdt",
+    interval="1m",
+    buffer_size=100,
+    max_reconnect_attempts=5
+)
+
+# Connect to WebSocket
+client.connect()
+
+# Get latest price
+current_price = client.get_latest_price()
+print(f"Current BTC price: ${current_price:,.2f}")
+
+# Get price history for indicators
+price_history = client.get_price_history(count=50)
+
+# Cleanup
+client.close()
+```
+
+**Features:**
+- Automatic reconnection on disconnect
+- Thread-safe price buffer
+- Configurable buffer size for indicator calculations
+- Real-time price updates via WebSocket
+
+#### PolymarketClient
+
+REST API client for Polymarket market discovery and odds retrieval.
+
+```python
+from market_data import PolymarketClient
+from config import Config
+
+config = Config()
+
+# Initialize client
+client = PolymarketClient(
+    api_key=config.polymarket_api_key,
+    api_secret=config.polymarket_api_secret
+)
+
+# Find active BTC markets
+market = client.find_active_btc_market(category="crypto")
+if market:
+    print(f"Found market: {market['market_id']}")
+
+    # Get current odds
+    yes_odds, no_odds = client.get_market_odds(market['market_id'])
+    print(f"YES: {yes_odds}, NO: {no_odds}")
+```
+
+**Features:**
+- Market discovery with filters
+- Real-time odds retrieval
+- Automatic retry logic
+- Input validation
+
+#### Technical Indicators
+
+Calculate RSI, MACD, and order book imbalance.
+
+```python
+from market_data import calculate_rsi, calculate_macd, get_order_book_imbalance
+
+# Calculate RSI (14-period)
+prices = client.get_price_history(count=50)
+rsi = calculate_rsi(prices, period=14)
+print(f"RSI-14: {rsi:.2f}")
+
+# Calculate MACD
+macd_line, signal_line = calculate_macd(prices)
+print(f"MACD: {macd_line:.4f}, Signal: {signal_line:.4f}")
+
+# Get order book imbalance
+imbalance = get_order_book_imbalance(
+    binance_api_key=config.binance_api_key,
+    binance_api_secret=config.binance_api_secret
+)
+print(f"Order Book Imbalance: {imbalance:.4f}")
+```
+
+**Indicator Details:**
+- **RSI**: Relative Strength Index (0-100 scale)
+- **MACD**: Moving Average Convergence Divergence with signal line
+- **Order Book Imbalance**: Bid volume / Ask volume ratio (>1 = buying pressure)
+
+#### MarketDataService
+
+Unified service orchestrating all data sources.
+
+```python
+from market_data import MarketDataService, BinanceWebSocketClient, PolymarketClient
+from config import Config
+
+config = Config()
+
+# Initialize clients
+binance_client = BinanceWebSocketClient()
+polymarket_client = PolymarketClient(
+    api_key=config.polymarket_api_key,
+    api_secret=config.polymarket_api_secret
+)
+
+# Create unified service
+service = MarketDataService(binance_client, polymarket_client)
+
+# Start all data sources
+service.start()
+
+# Get comprehensive market data
+market_data = service.get_market_data()
+
+print(f"Market: {market_data.market_id}")
+print(f"BTC Price: ${market_data.metadata['btc_price']:,.2f}")
+print(f"RSI-14: {market_data.metadata['rsi_14']:.2f}")
+print(f"MACD Line: {market_data.metadata['macd_line']:.4f}")
+print(f"MACD Signal: {market_data.metadata['macd_signal']:.4f}")
+print(f"YES Odds: {market_data.yes_price}")
+print(f"NO Odds: {market_data.no_price}")
+
+# Cleanup
+service.stop()
+```
+
+**Features:**
+- Single interface for all market data
+- Automatic initialization of all components
+- Graceful handling of missing data
+- Thread-safe operations
+- Comprehensive error handling
+
+### Integration with Models
+
+Market data integrates seamlessly with the `MarketData` model:
+
+```python
+from models import MarketData
+
+# Service returns MarketData model
+market_data = service.get_market_data()
+
+# Access structured data
+print(f"Market: {market_data.market_id}")
+print(f"Question: {market_data.question}")
+print(f"YES price: {market_data.yes_price}")
+print(f"NO price: {market_data.no_price}")
+
+# Access metadata
+btc_price = market_data.metadata['btc_price']
+rsi = market_data.metadata['rsi_14']
+macd_line = market_data.metadata['macd_line']
+
+# Serialize to dict
+data_dict = market_data.to_dict()
+
+# Validate prices sum to ~1
+is_valid = market_data.validate_prices_sum()
 ```
 
 ## Usage Example - Complete Trading Bot
