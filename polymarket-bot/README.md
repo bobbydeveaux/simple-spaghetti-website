@@ -65,16 +65,6 @@ This package provides:
 - ✅ **24h Statistics**: Volume, high, low, and price change tracking
 - ✅ **Callback Support**: Custom handlers for price updates
 
-### Prediction Engine
-- ✅ **Signal Generation**: Deterministic UP/DOWN/SKIP signals based on technical indicators
-- ✅ **RSI Analysis**: Oversold/overbought detection for momentum shifts
-- ✅ **MACD Analysis**: Bullish/bearish crossover detection for trend confirmation
-- ✅ **Order Book Analysis**: Market pressure detection via bid/ask imbalance
-- ✅ **Configurable Thresholds**: Customizable RSI, MACD, and order book thresholds
-- ✅ **Confidence Scoring**: Confidence levels for signal reliability
-- ✅ **Signal Reasoning**: Human-readable explanations for each signal
-- ✅ **Comprehensive Tests**: >80% test coverage with edge case handling
-
 ### Risk Management System
 - ✅ **Max Drawdown Monitoring**: Automatic tracking of 30% drawdown threshold from peak equity
 - ✅ **Volatility Circuit Breaker**: 3% 5-minute price range checks to prevent trading in unstable markets
@@ -84,6 +74,7 @@ This package provides:
 - ✅ **Peak Tracking**: Automatic peak capital tracking for accurate drawdown calculations
 - ✅ **Position Sizing**: Dynamic calculation based on risk parameters and exposure limits
 - ✅ **Market Validation**: Active market, liquidity, and closure checks
+- ✅ **Comprehensive Testing**: 50+ test cases covering boundary conditions and edge cases
 
 ### Capital Allocation
 - ✅ **Win-Streak Position Sizing**: Dynamic position sizing based on consecutive wins

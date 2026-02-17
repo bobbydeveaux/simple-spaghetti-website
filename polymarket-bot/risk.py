@@ -20,6 +20,10 @@ from .models import BotState, MarketData
 # Configure logging
 logger = logging.getLogger(__name__)
 
+# Module-level constants for tests and external use
+MAX_DRAWDOWN_PERCENT = Decimal("30.0")
+MAX_VOLATILITY_PERCENT = Decimal("3.0")
+
 
 class RiskViolation(Exception):
     """Exception raised when a risk threshold is violated."""

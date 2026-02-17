@@ -1,6 +1,6 @@
 {
   "method": "ai-assisted",
-  "filesResolved": 5,
-  "summary": "Resolved conflicts by choosing class-based PredictionEngine API from origin/main and merging documentation sections. Preserved both prediction engine and capital allocation features from both branches.",
-  "strategyUsed": "Preserved origin/main's class-based PredictionEngine architecture (with PredictionEngine class) over HEAD's function-based API, as it aligns with the newer codebase design including risk management and capital allocation. Merged README documentation to include both prediction engine and capital allocation sections. Combined review feedback from both branches addressing ValidationError bug (resolved) and MACD configuration issue (pending). Updated __init__.py exports to match the class-based API and bumped version to 0.3.0."
+  "filesResolved": 3,
+  "summary": "Resolved conflicts by choosing the more comprehensive origin/main implementation for risk management system. The main branch contained a complete RiskManager class with RiskApprovalResult, better error handling, and additional features like capital allocation and prediction modules. README.md was merged to preserve both feature descriptions while eliminating redundancy.",
+  "strategyUsed": "Chose origin/main for risk.py and tests/test_risk.py as it contains the more complete RiskManager implementation with detailed risk metrics, approval results, and comprehensive validation. For README.md, merged both versions to show all capabilities while removing redundant sections. Added module-level constants MAX_DRAWDOWN_PERCENT and MAX_VOLATILITY_PERCENT to risk.py to support test imports."
 }
