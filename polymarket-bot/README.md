@@ -6,6 +6,7 @@ Automated trading bot for Polymarket prediction markets with robust data models,
 
 This package provides:
 - **Validated Data Models**: Type-safe Pydantic models for bot state, trades, positions, and market data
+- **State Persistence**: JSON-based state management with atomic writes and crash recovery
 - **Configuration Management**: Secure API key management and environment-based configuration
 - **Utility Functions**: Retry logic, validation, error handling, and helper functions
 - **Multi-Exchange Support**: Integration with Polymarket, Binance, and CoinGecko APIs
@@ -45,10 +46,12 @@ polymarket-bot/
 ├── config.py              # Configuration management
 ├── models.py              # Core data models (BotState, Trade, Position, MarketData)
 ├── market_data.py         # Polymarket API client for market discovery and odds
+├── state.py               # State persistence and logging
 ├── utils.py               # Utility functions (retry, validation, error handling)
 ├── tests/                 # Comprehensive test suite
 │   ├── test_models.py     # Model validation tests
-│   └── test_market_data.py # Polymarket API integration tests
+│   ├── test_market_data.py # Polymarket API integration tests
+│   └── test_state.py      # State persistence tests
 ├── test_config.py         # Configuration tests
 └── README.md              # This file
 ```
@@ -536,6 +539,131 @@ The client monitors rate limits when available:
 - Respects rate limit restrictions
 - Provides warnings when approaching limits
 
+## State Persistence and Logging
+
+The `state.py` module provides robust state management, trade logging, and metrics tracking with atomic writes and crash recovery.
+
+### StateManager
+
+The StateManager class handles:
+- **JSON-based state persistence** with atomic writes
+- **Trade history logging** with timestamps
+- **Performance metrics tracking** (win/loss streaks, drawdown, total trades)
+- **Crash recovery** using temporary files and renames
+
+### Usage Example
+
+```python
+from state import StateManager, create_state_manager, recover_state
+from models import BotState, Trade, OrderSide, OrderType, OutcomeType, TradeStatus, BotStatus
+from decimal import Decimal
+
+# Create state manager
+state_manager = create_state_manager(state_dir="data")
+
+# Initialize bot state
+bot = BotState(
+    bot_id="my_bot_001",
+    status=BotStatus.RUNNING,
+    strategy_name="momentum_v1",
+    max_position_size=Decimal("1000.00"),
+    max_total_exposure=Decimal("5000.00"),
+    risk_per_trade=Decimal("100.00")
+)
+
+# Save state (atomic write)
+state_manager.save_state(bot)
+
+# Load state
+loaded_state = state_manager.load_state()
+
+# Validate loaded state
+if loaded_state and state_manager.validate_state(loaded_state):
+    print("State loaded successfully")
+
+# Log a trade
+trade = Trade(
+    trade_id="trade_001",
+    market_id="market_123",
+    order_id="order_456",
+    side=OrderSide.BUY,
+    order_type=OrderType.LIMIT,
+    outcome=OutcomeType.YES,
+    price=Decimal("0.65"),
+    quantity=Decimal("100.00")
+)
+state_manager.log_trade(trade)
+
+# Update metrics after trade
+state_manager.update_metrics(
+    trade_result="win",  # or "loss"
+    pnl=Decimal("50.00"),
+    current_equity=Decimal("1050.00")
+)
+
+# Get current metrics
+metrics = state_manager.get_metrics()
+print(f"Win Rate: {metrics['win_rate']:.2f}%")
+print(f"Win Streak: {metrics['win_streak']}")
+print(f"Max Drawdown: {metrics['max_drawdown']:.2%}")
+
+# Save metrics to disk
+state_manager.save_metrics()
+
+# Load all trades
+all_trades = state_manager.load_trades()
+print(f"Total trades in log: {len(all_trades)}")
+```
+
+### Crash Recovery
+
+The state manager uses atomic writes to prevent corruption during crashes:
+
+```python
+from state import recover_state, create_state_manager
+
+# After a crash, attempt to recover state
+state_manager = create_state_manager(state_dir="data")
+recovered_state = recover_state(state_manager)
+
+if recovered_state:
+    print("Successfully recovered state from disk")
+    # Reconstruct bot state from recovered data
+    bot = BotState(**recovered_state)
+else:
+    print("No state to recover, starting fresh")
+    # Initialize new bot state
+```
+
+### Atomic File Writes
+
+All state and metrics saves use a temporary file + rename pattern:
+
+1. Write to `bot_state.tmp` or `metrics.tmp`
+2. Atomically rename to `bot_state.json` or `metrics.json`
+3. If crash occurs during write, original file remains intact
+4. Temporary files are automatically cleaned up on errors
+
+### Metrics Tracked
+
+- **win_streak**: Current consecutive wins
+- **loss_streak**: Current consecutive losses
+- **max_drawdown**: Maximum drawdown from peak equity
+- **peak_equity**: Highest equity reached
+- **total_trades**: Total number of trades
+- **winning_trades**: Number of profitable trades
+- **losing_trades**: Number of losing trades
+- **win_rate**: Percentage of winning trades
+
+### File Structure
+
+```
+data/
+├── bot_state.json   # Current bot state (atomic writes)
+├── metrics.json     # Performance metrics (atomic writes)
+└── trades.log       # Trade history log (append-only)
+```
+
 ## Utility Functions
 
 ### Configuration Management
@@ -734,6 +862,9 @@ The package includes comprehensive tests covering:
 - ✅ Cross-field validation
 - ✅ Business logic methods
 - ✅ Serialization
+- ✅ State persistence and logging
+- ✅ Atomic file writes and crash recovery
+- ✅ Metrics tracking
 - ✅ Configuration management
 - ✅ Utility functions
 - ✅ Polymarket API integration
@@ -749,11 +880,13 @@ pytest -v
 # Specific test files
 pytest tests/test_models.py -v
 pytest tests/test_market_data.py -v
-pytest test_config.py -v
+pytest tests/test_state.py -v
+pytest test_config.py test_polymarket_utils.py -v
 
 # With coverage
 pytest tests/test_models.py --cov=models --cov-report=html
 pytest tests/test_market_data.py --cov=market_data --cov-report=html
+pytest tests/test_state.py --cov=state --cov-report=html
 pytest test_config.py -v --cov=config --cov-report=html
 ```
 
