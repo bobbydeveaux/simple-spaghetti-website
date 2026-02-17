@@ -442,7 +442,7 @@ class RiskManager:
         drawdown_percent = self.calculate_drawdown(current_capital, self.peak_capital)
 
         return {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "starting_capital": float(self.starting_capital),
             "peak_capital": float(self.peak_capital),
             "current_capital": float(current_capital),
