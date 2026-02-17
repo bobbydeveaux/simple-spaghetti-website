@@ -87,6 +87,18 @@ This package provides:
 - ✅ **Automatic Streak Tracking**: Integration with StateManager for win/loss tracking
 - ✅ **Comprehensive Testing**: Full test coverage including edge cases and boundary conditions
 
+### Trade Execution and Settlement
+- ✅ **Order Submission**: Submit market and limit orders to Polymarket API with retry logic
+- ✅ **Settlement Polling**: Configurable polling to track order status until settlement
+- ✅ **Outcome Tracking**: Automatic WIN/LOSS determination based on market resolution
+- ✅ **Trade Lifecycle Management**: Complete order tracking from submission to settlement
+- ✅ **Position Updates**: Automatic position closing and P&L calculation on settlement
+- ✅ **Retry Logic**: Exponential backoff for API failures (max 3 retries, 2s/4s/8s delays)
+- ✅ **Rate Limit Respect**: Configurable polling intervals to respect API rate limits (default: 10s)
+- ✅ **Timeout Handling**: Graceful timeout after configurable period (default: 300s)
+- ✅ **Error Handling**: Comprehensive error handling for failed/cancelled orders
+- ✅ **Comprehensive Testing**: 40+ test cases covering all execution scenarios
+
 ### Technical Capabilities
 - **Environment Configuration**: Secure API key management using `.env` files
 - **WebSocket Streaming**: Real-time BTC/USDT price streaming from Binance with automatic reconnection
@@ -110,6 +122,7 @@ polymarket-bot/
 ├── prediction.py               # Prediction engine (RSI/MACD-based signal generation)
 ├── risk.py                     # Risk management system (drawdown, volatility, trade approval)
 ├── capital.py                  # Capital allocation with win-streak position sizing
+├── execution.py                # Trade execution and settlement polling
 ├── state.py                    # State persistence and logging
 ├── utils.py                    # Utility functions (retry, validation, error handling)
 ├── tests/                      # Comprehensive test suite
@@ -119,6 +132,7 @@ polymarket-bot/
 │   ├── test_prediction.py      # Prediction engine tests
 │   ├── test_risk.py            # Risk management tests
 │   ├── test_capital.py         # Capital allocation tests
+│   ├── test_execution.py       # Trade execution and settlement tests
 │   └── test_state.py           # State persistence tests
 ├── test_config.py              # Configuration tests
 ├── test_risk.py                # Risk management tests
@@ -2517,6 +2531,364 @@ print(f"Drawdown limit: {metrics['drawdown_limit']:.2f}%")
 print(f"Drawdown remaining: {metrics['drawdown_remaining']:.2f}%")
 print(f"Win rate: {metrics['win_rate']:.2f}%")
 ```
+
+## Trade Execution and Settlement
+
+The `execution.py` module handles order submission to Polymarket and settlement polling to track order outcomes. It provides complete lifecycle management from order placement to final WIN/LOSS determination.
+
+### PolymarketAPIClient
+
+Mock API client for submitting orders and checking settlement status.
+
+**Features:**
+- Order submission with market and limit orders
+- Settlement status polling
+- Outcome tracking (WIN/LOSS determination)
+- Mock implementation for testing (production would use real HTTP requests)
+- Comprehensive error handling
+
+**Example Usage:**
+
+```python
+from execution import PolymarketAPIClient
+from decimal import Decimal
+
+# Initialize client
+client = PolymarketAPIClient(
+    api_key="your_api_key",
+    api_secret="your_api_secret",
+    base_url="https://api.polymarket.com"
+)
+
+# Submit a market order
+order = client.submit_order(
+    market_id="market_123",
+    side="BUY",
+    outcome="YES",
+    amount=Decimal("10.00"),
+    order_type="MARKET"
+)
+
+print(f"Order submitted: {order['order_id']}")
+
+# Submit a limit order
+limit_order = client.submit_order(
+    market_id="market_123",
+    side="BUY",
+    outcome="YES",
+    amount=Decimal("10.00"),
+    order_type="LIMIT",
+    price=Decimal("0.65")
+)
+
+# Check order status
+status = client.get_order_status(order['order_id'])
+print(f"Order status: {status['status']}")
+print(f"Filled amount: {status['filled_amount']}")
+```
+
+### Order Submission
+
+Submit orders with automatic retry logic using exponential backoff.
+
+```python
+from execution import submit_order
+from decimal import Decimal
+
+# Submit order with UP direction (converts to YES outcome)
+order_id, trade = submit_order(
+    client=client,
+    market_id="market_123",
+    direction="UP",  # or "DOWN"
+    size=Decimal("10.00")
+)
+
+print(f"Order ID: {order_id}")
+print(f"Trade ID: {trade.trade_id}")
+print(f"Status: {trade.status.value}")
+
+# Submit limit order
+order_id, trade = submit_order(
+    client=client,
+    market_id="market_123",
+    direction="UP",
+    size=Decimal("10.00"),
+    price=Decimal("0.65"),
+    order_type="LIMIT"
+)
+```
+
+**Retry Logic:**
+- Max attempts: 3
+- Base delay: 2 seconds
+- Exponential backoff: 2x multiplier (2s, 4s, 8s)
+- Retries on all exceptions
+
+### Settlement Polling
+
+Poll for order settlement and determine WIN/LOSS outcome.
+
+```python
+from execution import poll_settlement, SettlementOutcome
+
+# Poll for settlement (default: 300s timeout, 10s interval)
+outcome = poll_settlement(
+    client=client,
+    order_id="order_123",
+    timeout=300,
+    poll_interval=10
+)
+
+if outcome == SettlementOutcome.WIN:
+    print("Trade won!")
+elif outcome == SettlementOutcome.LOSS:
+    print("Trade lost")
+elif outcome == SettlementOutcome.PUSH:
+    print("Market cancelled - refund")
+
+# Custom polling parameters
+outcome = poll_settlement(
+    client=client,
+    order_id="order_123",
+    timeout=600,  # 10 minutes
+    poll_interval=30  # Poll every 30 seconds
+)
+```
+
+**Polling Behavior:**
+- Polls API at configurable intervals (default: 10s)
+- Continues until order is settled or timeout reached
+- Respects API rate limits through poll interval
+- Handles network failures with retry logic
+- Throws SettlementError on timeout or cancelled/failed orders
+
+### Trade and Position Updates
+
+Automatically update Trade and Position objects with settlement results.
+
+```python
+from execution import (
+    update_trade_with_settlement,
+    update_position_with_settlement,
+    SettlementOutcome
+)
+from models import Trade, Position
+from decimal import Decimal
+
+# Update trade with WIN outcome
+trade = Trade(...)  # Your trade object
+updated_trade = update_trade_with_settlement(
+    trade=trade,
+    outcome=SettlementOutcome.WIN,
+    realized_pnl=Decimal("3.50")
+)
+
+print(f"Status: {updated_trade.status.value}")
+print(f"Outcome: {updated_trade.metadata['settlement_outcome']}")
+print(f"PnL: ${updated_trade.metadata['realized_pnl']}")
+
+# Update position with settlement
+position = Position(...)  # Your position object
+updated_position = update_position_with_settlement(
+    position=position,
+    outcome=SettlementOutcome.WIN,
+    exit_price=Decimal("1.00")  # WIN = $1.00, LOSS = $0.00
+)
+
+print(f"Status: {updated_position.status.value}")
+print(f"Realized PnL: ${updated_position.realized_pnl}")
+print(f"Exit Price: ${updated_position.exit_price}")
+```
+
+### Complete Order Lifecycle Tracking
+
+Track the complete order lifecycle from submission to settlement.
+
+```python
+from execution import track_order_lifecycle, PolymarketAPIClient
+from models import Trade, Position
+from decimal import Decimal
+
+# Initialize client
+client = PolymarketAPIClient(api_key="...", api_secret="...", base_url="...")
+
+# Create trade and position objects
+trade = Trade(...)
+position = Position(...)
+
+# Track complete lifecycle
+updated_trade, updated_position, outcome = track_order_lifecycle(
+    client=client,
+    order_id="order_123",
+    trade=trade,
+    position=position,
+    timeout=300,
+    poll_interval=10
+)
+
+# Check final outcome
+if outcome == SettlementOutcome.WIN:
+    print(f"Trade won! PnL: ${updated_trade.metadata['realized_pnl']}")
+    print(f"Position closed at: ${updated_position.exit_price}")
+elif outcome == SettlementOutcome.LOSS:
+    print(f"Trade lost. Loss: ${updated_trade.metadata['realized_pnl']}")
+```
+
+**Features:**
+- Automatically polls for settlement
+- Calculates realized P&L based on outcome
+- Updates both Trade and Position objects
+- Returns final outcome for further processing
+
+### Settlement Outcome Types
+
+```python
+from execution import SettlementOutcome
+
+# Possible outcomes
+SettlementOutcome.WIN    # Position won - shares worth $1.00
+SettlementOutcome.LOSS   # Position lost - shares worth $0.00
+SettlementOutcome.PUSH   # Market cancelled - refund
+SettlementOutcome.UNKNOWN  # Unable to determine outcome
+```
+
+### P&L Calculation
+
+For prediction markets:
+- **WIN**: Payout = $1.00 per share, PnL = (payout - cost - fees)
+- **LOSS**: Payout = $0.00 per share, PnL = -(cost + fees)
+- **PUSH**: Refund original cost (zero PnL)
+
+```python
+# Example calculations
+# Bought 10 shares at $0.65 with $0.50 fee
+
+# WIN outcome:
+cost = Decimal("0.65") * Decimal("10") = Decimal("6.50")
+payout = Decimal("1.00") * Decimal("10") = Decimal("10.00")
+pnl = payout - cost - fee = Decimal("3.00")
+
+# LOSS outcome:
+cost = Decimal("0.65") * Decimal("10") = Decimal("6.50")
+payout = Decimal("0.00")
+pnl = -cost - fee = Decimal("-7.00")
+```
+
+### Error Handling
+
+```python
+from execution import ExecutionError, SettlementError
+
+# Order submission errors
+try:
+    order_id, trade = submit_order(
+        client=client,
+        market_id="invalid_market",
+        direction="UP",
+        size=Decimal("-10.00")  # Invalid negative amount
+    )
+except ExecutionError as e:
+    print(f"Execution error: {e}")
+
+# Settlement polling errors
+try:
+    outcome = poll_settlement(
+        client=client,
+        order_id="order_123",
+        timeout=10,  # Short timeout for testing
+        poll_interval=2
+    )
+except SettlementError as e:
+    print(f"Settlement error: {e}")
+    # Could be: timeout, order cancelled, order failed, etc.
+```
+
+### Integration Example
+
+Complete trading workflow with execution and settlement:
+
+```python
+from execution import (
+    PolymarketAPIClient,
+    submit_order,
+    track_order_lifecycle
+)
+from models import Trade, Position
+from decimal import Decimal
+
+# 1. Initialize client
+client = PolymarketAPIClient(
+    api_key=config.polymarket_api_key,
+    api_secret=config.polymarket_api_secret,
+    base_url=config.polymarket_base_url
+)
+
+# 2. Submit order
+order_id, trade = submit_order(
+    client=client,
+    market_id="market_123",
+    direction="UP",
+    size=Decimal("10.00")
+)
+
+# 3. Create position
+position = Position(
+    position_id=f"pos_{order_id}",
+    market_id="market_123",
+    outcome=trade.outcome,
+    quantity=trade.quantity,
+    entry_price=trade.price,
+    current_price=trade.price
+)
+
+# 4. Track to settlement
+trade, position, outcome = track_order_lifecycle(
+    client=client,
+    order_id=order_id,
+    trade=trade,
+    position=position
+)
+
+# 5. Log results
+print(f"Final outcome: {outcome.value}")
+print(f"Realized PnL: ${position.realized_pnl}")
+
+# 6. Update bot state
+if outcome == SettlementOutcome.WIN:
+    bot_state.winning_trades += 1
+    bot_state.win_streak += 1
+else:
+    bot_state.win_streak = 0
+
+bot_state.total_trades += 1
+bot_state.total_pnl += position.realized_pnl
+```
+
+### Testing
+
+The execution module includes comprehensive tests:
+
+```bash
+# Run all execution tests
+pytest tests/test_execution.py -v
+
+# Run specific test classes
+pytest tests/test_execution.py::TestPolymarketAPIClient -v
+pytest tests/test_execution.py::TestPollSettlement -v
+pytest tests/test_execution.py::TestTrackOrderLifecycle -v
+
+# With coverage
+pytest tests/test_execution.py --cov=execution --cov-report=html
+```
+
+**Test Coverage:**
+- Order submission (market and limit orders)
+- Settlement polling (immediate, delayed, timeout)
+- Outcome determination (WIN/LOSS/PUSH/UNKNOWN)
+- Trade and position updates
+- Complete lifecycle tracking
+- Error handling and edge cases
+- 40+ test cases covering all scenarios
 
 ## Dependencies
 
