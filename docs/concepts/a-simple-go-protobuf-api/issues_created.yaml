@@ -1,0 +1,15 @@
+GeneratedAt: "2026-02-17T20:56:19Z"
+Issues:
+- IssueNumber: 297
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/297
+  TaskID: task-a-simple-go-protobuf-api-feat-protobuf-service-1
+- IssueNumber: 298
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/298
+  TaskID: task-a-simple-go-protobuf-api-feat-protobuf-service-2
+- IssueNumber: 299
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/299
+  TaskID: task-a-simple-go-protobuf-api-feat-protobuf-service-3
+- IssueNumber: 300
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/300
+  TaskID: task-a-simple-go-protobuf-api-feat-http-server-1
+Plan: a-simple-go-protobuf-api-plan
