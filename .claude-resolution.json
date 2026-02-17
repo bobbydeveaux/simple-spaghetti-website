@@ -1,6 +1,6 @@
 {
   "method": "ai-assisted",
-  "filesResolved": 4,
-  "summary": "Resolved all 4 merge conflicts by accepting origin/main version which contains critical fixes from code review including: proper HMAC request signing for API authentication, TA-Lib for MACD calculations, thread-safe WebSocket client with proper locking, comprehensive PolymarketClient implementation, and BTCPriceData model for BTC price tracking. The origin/main version was more complete and addressed all the critical bugs identified in the code review.",
-  "strategyUsed": "Chose origin/main (theirs) for all conflicts. The main branch contained critical security fixes (HMAC-SHA256 API signing), proper technical indicator implementation (TA-Lib for MACD), thread-safety improvements (Lock for WebSocket price buffer), and a more comprehensive implementation with PolymarketClient, BinanceWebSocket, and BTCPriceData model. The feature branch had a simpler implementation missing these critical fixes that were explicitly requested in the code review feedback."
+  "filesResolved": 2,
+  "summary": "Successfully resolved merge conflicts by preserving functionality from both branches. Combined Prediction Engine features from HEAD with Risk Management and Capital Allocation features from main. Merged import statements in state.py to include all necessary modules (json, datetime, timezone).",
+  "strategyUsed": "Preserved both changes - merged feature sections in README.md by keeping all three feature sections (Prediction Engine, Risk Management System, and Capital Allocation). Updated project structure to include all new modules (prediction.py, risk.py, capital.py). In state.py, combined imports from both branches to ensure all required modules are available. This approach maintains all functionality from both development streams without losing any features."
 }

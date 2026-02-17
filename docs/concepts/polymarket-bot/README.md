@@ -11,9 +11,10 @@ The Polymarket Bot is a Python-based automated trading system designed to trade 
 - **Secure Configuration Management**: Environment-based configuration with validation
 - **Multi-API Integration**: Supports Polymarket, Binance, and CoinGecko APIs
 - **WebSocket Support**: Real-time market data streaming
-- **Technical Analysis**: TA-Lib integration for technical indicators
-- **Risk Management**: Configurable position sizing and stop-loss parameters
-- **Comprehensive Testing**: Full test suite with pytest
+- **Technical Analysis**: TA-Lib integration for RSI, MACD, and order book analysis
+- **Risk Management System**: Max drawdown monitoring (30% threshold) and volatility circuit breaker (3% 5-minute range)
+- **State Persistence**: Atomic file operations with crash recovery
+- **Comprehensive Testing**: Full test suite with pytest and 100% model coverage
 
 ## Project Structure
 
@@ -21,7 +22,13 @@ The Polymarket Bot is a Python-based automated trading system designed to trade 
 polymarket-bot/
 ├── __init__.py           # Package initialization
 ├── config.py             # Configuration management
+├── models.py             # Core data models (BotState, Trade, Position, MarketData)
+├── market_data.py        # Market data service (Binance WebSocket, Polymarket API)
+├── risk.py               # Risk management system (drawdown, volatility, validation)
+├── state.py              # State persistence and logging
+├── utils.py              # Utility functions (retry, validation, error handling)
 ├── test_config.py        # Configuration tests
+├── test_risk.py          # Risk management tests
 ├── .env.example          # Environment variable template
 ├── requirements.txt      # Python dependencies
 └── README.md            # User documentation
@@ -40,6 +47,24 @@ See the [main README](../../../polymarket-bot/README.md) in the polymarket-bot d
   - [x] Created `requirements.txt` with pinned dependencies
   - [x] Implemented `config.py` with validation
   - [x] Added comprehensive test suite
+  - [x] Documentation complete
+
+### Sprint 2: Market Data & State Management
+
+- [x] Task 1: Binance WebSocket BTC price feed
+- [x] Task 2: Technical indicators (RSI, MACD, order book)
+- [x] Task 3: Polymarket API integration
+- [x] Task 4: Unified market data service
+- [x] Task 5: State persistence and logging
+
+### Sprint 3: Prediction Engine & Risk Management
+
+- [x] Task 1: Risk management system
+  - [x] Implemented `risk.py` with RiskManager class
+  - [x] Max drawdown calculation (30% threshold)
+  - [x] Volatility circuit breaker (3% 5-minute range)
+  - [x] Pre-trade validation logic
+  - [x] Comprehensive unit tests (test_risk.py)
   - [x] Documentation complete
 
 ## Documentation

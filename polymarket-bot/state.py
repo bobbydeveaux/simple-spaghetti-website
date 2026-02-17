@@ -11,6 +11,7 @@ Key Features:
 - Crash recovery using temporary files and renames
 """
 
+import json
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
