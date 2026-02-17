@@ -1,94 +1,130 @@
 ## Code Review - Changes Requested
 
-I've completed a comprehensive code review of PR #246. While the implementation is well-structured and thoroughly tested, **I found critical issues that need to be addressed**.
+## ❌ BLOCKING ISSUES FOUND
 
-## Review Complete
-
-I found **CRITICAL BUGS** that will prevent this code from running in production:
-
-## 1. **CRITICAL - Security Vulnerability: API Secret Handling**
-
-**Location:** `polymarket-bot/market_data.py`
-
-**Issue:** API secret handling needs proper HMAC-SHA256 request signing implementation to ensure secure authentication.
-
-**Action Required:** Implement proper HMAC request signing for API authentication.
+I've identified a **critical bug** that will cause runtime failures in production. This must be fixed before the PR can be merged.
 
 ---
 
-## 2. **CRITICAL - MACD Implementation**
+## 1. Bugs and Logic Errors
 
-**Location:** `polymarket-bot/market_data.py`
+### 🔴 CRITICAL - ValidationError called with incorrect arguments
 
-**Issue:** MACD signal line calculation needs proper implementation using TA-Lib to ensure accurate technical analysis.
+**Location:** polymarket-bot/prediction.py:73, 76, 79, 239, 246, 251
 
-**Action Required:** Use TA-Lib's MACD function for accurate calculations.
+**Issue:** The `ValidationError` class is defined in utils.py as a simple exception with no custom `__init__` method:
+
+```python
+class ValidationError(Exception):
+    """Exception raised when validation fails."""
+    pass
+```
+
+However, prediction.py calls it with **two arguments** throughout the code:
+
+```python
+raise ValidationError("market_id", "Market ID is required")  # Line 73
+raise ValidationError("rsi", f"RSI must be between 0 and 100, got {rsi}")  # Line 239
+raise ValidationError("macd", "Both MACD line and signal must be provided together")  # Line 246
+```
+
+**Expected usage** (based on all other files in the codebase):
+```python
+raise ValidationError("Market ID is required")
+raise ValidationError(f"RSI must be between 0 and 100, got {rsi}")
+raise ValidationError("Both MACD line and signal must be provided together")
+```
+
+**Impact:** This will cause `TypeError: Exception() takes at most 1 argument (2 given)` at runtime whenever validation fails. This is a **major bug** that breaks core functionality.
+
+**Evidence:** Every other usage in the codebase uses a single string:
+- utils.py:218: `raise ValidationError(f"{field_name} cannot be None")`
+- market_data.py:502: `raise ValidationError("Market data missing 'id' field")`
+
+**Fix required:** Remove the first argument (field name) from all 6 ValidationError calls in prediction.py and include the field name in the message string instead.
 
 ---
 
-## 3. **CRITICAL - Thread Safety in WebSocket Client**
+## 2. Security Vulnerabilities
 
-**Location:** `polymarket-bot/market_data.py`
-
-**Issue:** The `price_buffer` needs thread-safe synchronization with proper locking mechanisms.
-
-**Action Required:** Use threading.Lock() to protect shared price buffer access from multiple threads.
-
----
-
-## 4. Additional Issues
-
-### Performance and Error Handling
-- RSI calculation should use TA-Lib for better performance
-- Datetime parsing needs better error handling
-- WebSocket reconnection logic with exponential backoff needed
-
-### Test Coverage
-- Add integration tests for API authentication
-- Add tests for WebSocket reconnection scenarios
-- Order book imbalance test consistency
-
-### Documentation
-- Document MACD implementation limitations
-- Add API response format documentation
-- Document rate limits and WebSocket message format
+✅ No security vulnerabilities found. The code:
+- Performs proper input validation
+- Uses type hints and validation for all inputs
+- No SQL injection, XSS, or other common vulnerabilities
+- No secrets or credentials exposed
 
 ---
 
-## 5. Code Quality & Best Practices
+## 3. Code Quality
 
-### Good Practices Observed ✅
-- Comprehensive test suite with 30+ test cases
-- Proper use of Pydantic for data validation
-- Retry logic with exponential backoff
-- Extensive error handling and logging
-- Type hints throughout
-- Good separation of concerns
-- Thread-safe implementation with locks
-- Proper use of TA-Lib for technical indicators
+### Minor Issues (Non-blocking):
 
-### Areas for Improvement
-- Remove unused imports
-- Make configuration values (buffer size, timeouts, retry attempts) configurable
-- Consistent error message formatting
+1. **Unused import** (prediction.py:18): `from decimal import Decimal` is imported but never used
+2. **Unused import** (prediction.py:21): `validate_non_empty` is imported but never used
+3. **Inconsistent naming** (prediction.py:278): Variable `macd_signal` shadows the parameter name for MACD signal line, which could be confusing. Consider renaming to `macd_signal_result` throughout (already done in line 269, but parameter name collides).
+
+### Positive aspects:
+- Excellent docstrings with clear parameter descriptions
+- Well-structured code with good separation of concerns
+- Comprehensive logging throughout
+- Good use of constants for magic numbers
+- Clear function names
+
+---
+
+## 4. Test Coverage
+
+✅ **Excellent test coverage:**
+- 40+ test cases covering all scenarios
+- Tests for individual indicator functions
+- Tests for edge cases (invalid inputs, boundary values)
+- Tests for integration scenarios
+- Tests for signal consistency and determinism
+- Tests for confidence calculation
+
+**Note:** Tests cannot be run in this environment (no Python runtime), but the test code structure follows pytest best practices and appears comprehensive.
+
+---
+
+## 5. Performance
+
+✅ No performance issues identified:
+- All calculations are simple arithmetic operations (O(1))
+- No database queries or network calls
+- No resource leaks
+- Efficient use of built-in Python functions
+
+---
+
+## 6. Documentation Completeness
+
+✅ **Documentation is comprehensive:**
+
+- ✅ README.md updated with new "Prediction Engine" section (lines 27-33, 39-184 in diff)
+- ✅ Usage examples provided with code snippets
+- ✅ All thresholds documented (RSI, MACD, order book)
+- ✅ Edge cases documented with examples
+- ✅ Integration instructions included
+- ✅ Testing guidance provided
+- ✅ __init__.py updated to export new functions
+- ✅ Version bumped to 0.3.0
+- ✅ Project structure updated to include prediction.py
+
+**Docs folder:** The /workspace/docs/polymarket-bot folder only contains utilities.md, which doesn't need updating for this feature. The main README.md is the primary documentation and has been thoroughly updated.
 
 ---
 
 ## Summary
 
-This PR has been updated with fixes for critical issues:
+This PR implements a well-designed prediction engine with excellent test coverage and comprehensive documentation. However, there is a **critical bug** that will cause the code to fail at runtime:
 
-1. ✅ **FIXED**: API secret handling - proper HMAC request signing implemented
-2. ✅ **FIXED**: MACD implementation - using TA-Lib for accurate calculations
-3. ✅ **FIXED**: WebSocket client - thread-safe with proper locking
+**BLOCKING ISSUE:** ValidationError is called with 2 arguments in 6 places, but the class only accepts 1 argument. This will throw a TypeError when any validation fails.
 
-### Files Changed:
-- ✅ `polymarket-bot/market_data.py` - Well-structured with all critical fixes
-- ✅ `polymarket-bot/tests/test_market_data.py` - Comprehensive test coverage
-- ✅ `polymarket-bot/README.md` - Excellent documentation
-- ✅ All other supporting files updated
+**Required changes:**
+1. Fix all 6 ValidationError calls in prediction.py to use a single string message instead of two arguments
+2. Consider removing unused imports (Decimal, validate_non_empty) for code cleanliness
 
-**Test Coverage:** Extensive test suite with proper mocking and integration tests.
+Once the ValidationError bug is fixed, this PR will be ready to merge. The implementation is otherwise solid, well-tested, and properly documented.
 
 **Action Required**: Please address the blocking issues above before merging.
 
