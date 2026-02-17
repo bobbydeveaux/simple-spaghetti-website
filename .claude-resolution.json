@@ -1,6 +1,6 @@
 {
   "method": "ai-assisted",
-  "filesResolved": 3,
-  "summary": "Resolved conflicts by choosing the more comprehensive origin/main implementation for risk management system. The main branch contained a complete RiskManager class with RiskApprovalResult, better error handling, and additional features like capital allocation and prediction modules. README.md was merged to preserve both feature descriptions while eliminating redundancy.",
-  "strategyUsed": "Chose origin/main for risk.py and tests/test_risk.py as it contains the more complete RiskManager implementation with detailed risk metrics, approval results, and comprehensive validation. For README.md, merged both versions to show all capabilities while removing redundant sections. Added module-level constants MAX_DRAWDOWN_PERCENT and MAX_VOLATILITY_PERCENT to risk.py to support test imports."
+  "filesResolved": 1,
+  "summary": "Merged both versions of polymarket-bot/main.py by preserving the best features from both branches: kept TradingBot class name, dry-run mode, signal handlers (SIGINT/SIGTERM), comprehensive bot state tracking, and combined initialization/shutdown logic from both implementations.",
+  "strategyUsed": "Combined both implementations - preserved feature branch's class name (TradingBot), dry-run mode, RiskManager, and TradeExecutor while incorporating main branch's signal handlers, BotState tracking, responsive shutdown mechanism, and enhanced error handling. Used relative imports from feature branch. Merged logging and metrics reporting from both versions for comprehensive monitoring."
 }
