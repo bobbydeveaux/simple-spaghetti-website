@@ -11,8 +11,10 @@ This module implements the main event loop that coordinates all bot components:
 
 The bot runs for 18 cycles with 5-minute intervals between each cycle.
 It automatically halts if max drawdown (30%) is exceeded or on critical errors.
+Supports both dry-run simulation mode and live trading mode.
 """
 
+import signal
 import logging
 import time
 import sys
@@ -21,7 +23,7 @@ from decimal import Decimal
 from datetime import datetime, timezone
 
 from .config import Config, get_config, ConfigurationError
-from .models import BotState, BotStatus, SignalType
+from .models import BotState, BotStatus, SignalType, Trade
 from .market_data import BinanceWebSocketClient, PolymarketClient, get_market_data
 from .prediction import PredictionEngine
 from .risk import RiskManager
@@ -47,7 +49,7 @@ class TradingBot:
     Main trading bot orchestrator.
 
     Manages the complete trading lifecycle including initialization,
-    event loop execution, and graceful shutdown.
+    event loop execution, signal handling, and graceful shutdown.
     """
 
     # Constants
@@ -65,6 +67,8 @@ class TradingBot:
         """
         self.config = config if config else get_config()
         self.dry_run = dry_run
+        self.should_shutdown = False
+        self.shutdown_reason = None
 
         # Initialize components
         self.binance_client: Optional[BinanceWebSocketClient] = None
@@ -76,15 +80,34 @@ class TradingBot:
         self.state_manager: Optional[StateManager] = None
 
         # Bot state tracking
+        self.bot_state: Optional[BotState] = None
         self.current_capital = self.STARTING_CAPITAL
         self.win_streak = 0
         self.total_trades = 0
+        self.current_cycle = 0
         self.is_running = False
+
+        # Register signal handlers
+        signal.signal(signal.SIGINT, self._signal_handler)
+        signal.signal(signal.SIGTERM, self._signal_handler)
 
         logger.info(
             f"TradingBot initialized (dry_run={dry_run}, "
             f"starting_capital=${self.STARTING_CAPITAL})"
         )
+
+    def _signal_handler(self, signum, frame):
+        """
+        Handle shutdown signals (SIGINT/SIGTERM).
+
+        Args:
+            signum: Signal number
+            frame: Current stack frame
+        """
+        signal_name = 'SIGINT' if signum == signal.SIGINT else 'SIGTERM'
+        logger.warning(f"Received {signal_name} signal, initiating graceful shutdown...")
+        self.should_shutdown = True
+        self.shutdown_reason = f"Signal {signal_name} received"
 
     def initialize(self) -> bool:
         """
@@ -99,12 +122,8 @@ class TradingBot:
             # Initialize state manager
             self.state_manager = StateManager(state_dir="data")
 
-            # Try to recover previous state
-            previous_state = self.state_manager.load_state()
-            if previous_state:
-                logger.info("Found previous state, checking if resumable...")
-                # For now, always start fresh (can implement resume logic later)
-                logger.info("Starting fresh session")
+            # Load or create bot state
+            self.bot_state = self.load_or_create_bot_state()
 
             # Initialize Binance WebSocket
             self.binance_client = BinanceWebSocketClient(buffer_size=100)
@@ -114,6 +133,11 @@ class TradingBot:
             # Wait for price buffer to fill
             logger.info("Waiting for price buffer to populate...")
             time.sleep(10)  # Give WebSocket time to accumulate data
+
+            # Verify we have price data
+            if len(self.binance_client.get_latest_prices(1)) == 0:
+                logger.error("Failed to receive initial price data from Binance")
+                return False
 
             # Initialize Polymarket client
             self.polymarket_client = PolymarketClient(self.config)
@@ -147,6 +171,54 @@ class TradingBot:
             logger.error(f"Initialization failed: {e}", exc_info=True)
             return False
 
+    def load_or_create_bot_state(self) -> BotState:
+        """
+        Load existing bot state or create new one.
+
+        Returns:
+            BotState object
+        """
+        # Try to load existing state
+        previous_state = self.state_manager.load_state()
+        if previous_state:
+            logger.info("Found previous state, checking if resumable...")
+            self.current_cycle = previous_state.get('current_cycle', 0)
+            # For now, always start fresh (can implement resume logic later)
+            logger.info("Starting fresh session")
+
+        # Create new bot state
+        bot_state = BotState(
+            bot_id=f"polymarket_bot_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
+            status=BotStatus.INITIALIZING,
+            strategy_name="rsi_macd_momentum",
+            max_position_size=Decimal(str(self.config.max_position_size)),
+            max_total_exposure=Decimal(str(self.config.max_total_exposure)),
+            risk_per_trade=Decimal(str(self.config.base_position_size)),
+            active_markets=[],
+            total_trades=0,
+            winning_trades=0,
+            total_pnl=Decimal("0.00"),
+            current_exposure=Decimal("0.00"),
+            api_key_active=True,
+            last_heartbeat=datetime.now(timezone.utc),
+            error_message=None
+        )
+
+        return bot_state
+
+    def save_bot_state(self):
+        """Save current bot state to disk."""
+        if self.bot_state and self.state_manager:
+            try:
+                state_dict = self.bot_state.model_dump()
+                state_dict['current_cycle'] = self.current_cycle
+                # Convert datetime to string for JSON serialization
+                state_dict['last_heartbeat'] = state_dict['last_heartbeat'].isoformat()
+                self.state_manager.save_state(type('obj', (object,), {'to_dict': lambda: state_dict})())
+                logger.debug("Bot state saved to disk")
+            except Exception as e:
+                logger.error(f"Failed to save bot state: {e}")
+
     def run(self) -> None:
         """
         Run the main trading loop for 18 cycles.
@@ -166,10 +238,25 @@ class TradingBot:
             return
 
         self.is_running = True
-        logger.info(f"Starting trading bot for {self.TOTAL_CYCLES} cycles...")
+        self.bot_state.status = BotStatus.RUNNING
 
-        for cycle in range(1, self.TOTAL_CYCLES + 1):
-            try:
+        logger.info("=" * 60)
+        logger.info("POLYMARKET TRADING BOT STARTED")
+        logger.info("=" * 60)
+        logger.info(f"Bot ID: {self.bot_state.bot_id}")
+        logger.info(f"Strategy: {self.bot_state.strategy_name}")
+        logger.info(f"Starting Capital: ${self.STARTING_CAPITAL:.2f}")
+        logger.info(f"Cycles: {self.TOTAL_CYCLES} x {self.CYCLE_INTERVAL_SECONDS}s = {self.TOTAL_CYCLES * self.CYCLE_INTERVAL_SECONDS / 60:.0f} minutes")
+        logger.info(f"Mode: {'DRY RUN' if self.dry_run else 'LIVE TRADING'}")
+        logger.info("=" * 60)
+
+        try:
+            for cycle in range(self.current_cycle + 1, self.TOTAL_CYCLES + 1):
+                if self.should_shutdown:
+                    break
+
+                self.current_cycle = cycle
+
                 logger.info(f"\n{'=' * 60}")
                 logger.info(f"CYCLE {cycle}/{self.TOTAL_CYCLES}")
                 logger.info(f"{'=' * 60}")
@@ -188,28 +275,43 @@ class TradingBot:
                     break
 
                 # Wait for next cycle (skip wait on last cycle)
-                if cycle < self.TOTAL_CYCLES:
+                if cycle < self.TOTAL_CYCLES and not self.should_shutdown:
                     logger.info(
                         f"Waiting {self.CYCLE_INTERVAL_SECONDS}s for next cycle..."
                     )
-                    time.sleep(self.CYCLE_INTERVAL_SECONDS)
+                    # Sleep in smaller intervals to allow for responsive shutdown
+                    for _ in range(self.CYCLE_INTERVAL_SECONDS):
+                        if self.should_shutdown:
+                            break
+                        time.sleep(1)
 
-            except KeyboardInterrupt:
-                logger.info("Received interrupt signal, shutting down...")
-                self.shutdown("User interrupt")
-                return
+        except KeyboardInterrupt:
+            logger.info("Received interrupt signal, shutting down...")
+            self.shutdown("User interrupt")
+            return
 
-            except Exception as e:
-                logger.error(f"Unexpected error in cycle {cycle}: {e}", exc_info=True)
-                self.shutdown("Unexpected error")
-                return
+        except Exception as e:
+            logger.error(f"Unexpected error in main loop: {e}", exc_info=True)
+            self.shutdown("Unexpected error")
+            return
 
         # Normal completion
-        self.shutdown("Completed successfully")
+        if not self.should_shutdown:
+            self.shutdown("Completed successfully")
+        elif self.shutdown_reason:
+            self.shutdown(self.shutdown_reason)
 
     def run_trading_cycle(self, cycle_number: int) -> bool:
         """
         Execute a single trading cycle.
+
+        Pipeline:
+        1. Fetch market data (BTC price, indicators, Polymarket odds)
+        2. Generate prediction signal
+        3. Check risk constraints
+        4. Calculate position size
+        5. Execute trade (or simulate in dry-run mode)
+        6. Log results and save state
 
         Args:
             cycle_number: Current cycle number (1-18)
@@ -218,6 +320,10 @@ class TradingBot:
             True if cycle completed successfully, False on critical failure
         """
         try:
+            # Update bot state
+            self.bot_state.status = BotStatus.RUNNING
+            self.bot_state.last_heartbeat = datetime.now(timezone.utc)
+
             # Step 1: Fetch market data
             logger.info("Step 1: Fetching market data...")
             market_data = get_market_data(
@@ -225,7 +331,8 @@ class TradingBot:
                 self.polymarket_client
             )
             logger.info(
-                f"Market data fetched - BTC: ${market_data.metadata.get('btc_price'):.2f}"
+                f"Market data fetched - BTC: ${market_data.metadata.get('btc_price'):.2f}, "
+                f"Market: {market_data.market_id[:8]}..."
             )
 
             # Step 2: Generate prediction signal
@@ -264,6 +371,8 @@ class TradingBot:
                     f"DRAWDOWN LIMIT EXCEEDED: {current_drawdown:.2f}% > "
                     f"{self.risk_manager.max_drawdown_percent}%"
                 )
+                self.should_shutdown = True
+                self.shutdown_reason = "Maximum drawdown threshold breached"
                 return False
 
             # Check volatility
@@ -317,27 +426,48 @@ class TradingBot:
 
             # Step 7: Update state
             self.total_trades += 1
+            self.bot_state.total_trades += 1
             self.current_capital += pnl
+            self.bot_state.total_pnl += pnl
 
             if outcome == "WIN":
                 self.win_streak += 1
+                self.bot_state.winning_trades += 1
             else:
                 self.win_streak = 0
 
             # Log trade to state manager
+            trade = Trade(
+                trade_id=f"trade_{self.bot_state.total_trades}",
+                bot_id=self.bot_state.bot_id,
+                market_id=market_data.market_id,
+                timestamp=datetime.now(timezone.utc),
+                side="YES" if signal.signal == SignalType.UP else "NO",
+                size=position_size,
+                status="executed",
+                outcome=outcome,
+                pnl=pnl,
+                signal_type=signal.signal,
+                confidence=signal.confidence
+            )
+            self.state_manager.log_trade(trade)
+
+            # Update metrics
             self.state_manager.update_metrics(
                 trade_result=outcome,
                 pnl=pnl,
                 current_equity=self.current_capital
             )
 
-            # Save metrics
+            # Save state
+            self.save_bot_state()
             self.state_manager.save_metrics()
 
             logger.info(
                 f"Updated state - Capital: ${self.current_capital:.2f}, "
                 f"Win streak: {self.win_streak}, "
-                f"Total trades: {self.total_trades}"
+                f"Total trades: {self.total_trades}, "
+                f"Win rate: {self.bot_state.winning_trades}/{self.bot_state.total_trades}"
             )
 
             return True
@@ -395,6 +525,12 @@ class TradingBot:
 
         self.is_running = False
 
+        # Update bot status
+        if self.bot_state:
+            self.bot_state.status = BotStatus.STOPPED
+            self.bot_state.last_heartbeat = datetime.now(timezone.utc)
+            self.save_bot_state()
+
         # Close WebSocket connections
         if self.binance_client:
             try:
@@ -425,13 +561,16 @@ class TradingBot:
             logger.info("\n" + "=" * 60)
             logger.info("FINAL PERFORMANCE METRICS")
             logger.info("=" * 60)
+            logger.info(f"Total Cycles: {self.current_cycle}/{self.TOTAL_CYCLES}")
             logger.info(f"Total Trades: {metrics['total_trades']}")
             logger.info(f"Winning Trades: {metrics['winning_trades']}")
             logger.info(f"Losing Trades: {metrics['losing_trades']}")
             logger.info(f"Win Rate: {metrics['win_rate']:.2f}%")
             logger.info(f"Final Capital: ${self.current_capital:.2f}")
             logger.info(f"Total PnL: ${self.current_capital - self.STARTING_CAPITAL:.2f}")
+            logger.info(f"ROI: {(self.current_capital - self.STARTING_CAPITAL) / self.STARTING_CAPITAL * 100:.2f}%")
             logger.info(f"Max Drawdown: {metrics['max_drawdown']:.2f}%")
+            logger.info(f"Shutdown Reason: {reason}")
             logger.info("=" * 60)
 
         logger.info("Bot shutdown complete")

@@ -10,7 +10,7 @@ Tests cover:
 
 import pytest
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timezone
 
 from risk import (
     RiskManager,
@@ -540,7 +540,7 @@ class TestStandaloneFunctions:
         market_data = MarketData(
             market_id="test",
             question="Test market",
-            end_date=datetime.utcnow(),
+            end_date=datetime.now(timezone.utc),
             yes_price=Decimal("0.5"),
             no_price=Decimal("0.5")
         )

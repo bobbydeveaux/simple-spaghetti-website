@@ -171,7 +171,7 @@ class BotState(BaseModel):
     )
 
     last_heartbeat: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Timestamp of last bot heartbeat"
     )
 
@@ -182,12 +182,12 @@ class BotState(BaseModel):
 
     # Timestamps
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Bot creation timestamp"
     )
 
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Last update timestamp"
     )
 
@@ -335,7 +335,7 @@ class Trade(BaseModel):
 
     # Timestamps
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Trade creation timestamp"
     )
 
@@ -494,7 +494,7 @@ class Position(BaseModel):
 
     # Timestamps
     opened_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Position open timestamp"
     )
 
@@ -504,7 +504,7 @@ class Position(BaseModel):
     )
 
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Last update timestamp"
     )
 
@@ -622,7 +622,7 @@ class MarketData(BaseModel):
 
     # Market Timing
     created_date: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Market creation timestamp"
     )
 
@@ -699,7 +699,7 @@ class MarketData(BaseModel):
 
     # Update Tracking
     last_updated: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Last data update timestamp"
     )
 
@@ -933,7 +933,7 @@ class PredictionSignal(BaseModel):
     )
 
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Signal generation timestamp"
     )
 
