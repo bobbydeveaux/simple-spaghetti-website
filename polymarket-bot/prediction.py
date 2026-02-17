@@ -15,10 +15,9 @@ The prediction engine:
 
 import logging
 from typing import Tuple, Optional
-from decimal import Decimal
 
 from .models import MarketData
-from .utils import ValidationError, validate_non_empty
+from .utils import ValidationError
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -70,13 +69,13 @@ def validate_market_data(market_data: MarketData) -> None:
     # For now, we'll add basic validation and extend as needed
 
     if not hasattr(market_data, 'market_id') or not market_data.market_id:
-        raise ValidationError("market_id", "Market ID is required")
+        raise ValidationError("Market ID is required")
 
     if not hasattr(market_data, 'yes_price') or market_data.yes_price is None:
-        raise ValidationError("yes_price", "Yes price is required")
+        raise ValidationError("Yes price is required")
 
     if not hasattr(market_data, 'no_price') or market_data.no_price is None:
-        raise ValidationError("no_price", "No price is required")
+        raise ValidationError("No price is required")
 
 
 def calculate_signal_from_rsi(rsi: float) -> Tuple[Optional[str], str]:
@@ -236,19 +235,19 @@ def generate_signal(
     # Validate RSI
     if rsi is not None:
         if not (0 <= rsi <= 100):
-            raise ValidationError("rsi", f"RSI must be between 0 and 100, got {rsi}")
+            raise ValidationError(f"RSI must be between 0 and 100, got {rsi}")
         available_indicators += 1
 
     # Validate MACD (both line and signal must be present or both absent)
     if macd_line is not None and macd_signal is not None:
         available_indicators += 1
     elif macd_line is not None or macd_signal is not None:
-        raise ValidationError("macd", "Both MACD line and signal must be provided together")
+        raise ValidationError("Both MACD line and signal must be provided together")
 
     # Validate order book imbalance
     if order_book_imbalance is not None:
         if order_book_imbalance < 0:
-            raise ValidationError("order_book_imbalance", f"Order book imbalance must be >= 0, got {order_book_imbalance}")
+            raise ValidationError(f"Order book imbalance must be >= 0, got {order_book_imbalance}")
         available_indicators += 1
 
     # Validate BTC price if provided (sanity check)
