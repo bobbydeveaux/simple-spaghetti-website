@@ -1,42 +1,101 @@
 ## Code Review - Changes Requested
 
-## Review Complete
-
-I've completed comprehensive code reviews for the prediction engine implementation. Here's my assessment:
-
 ## ❌ BLOCKING ISSUES FOUND
 
-### Critical Issue 1: MACD Configuration Not Applied
+### 🔴 CRITICAL BUG: Missing `timezone` Import
 
-The prediction engine has a **functional bug** where MACD configuration parameters (`macd_fast_period`, `macd_slow_period`, `macd_signal_period`) are validated, logged, and documented but **never actually used** in the calculation. The `calculate_macd()` function in `market_data.py` uses hardcoded values (12, 26, 9) instead.
+**Severity: BLOCKING** - This code will fail at runtime with a `NameError`.
 
-**Impact**: Users can set these environment variables, see them in logs, and believe they're working - but they have no effect on predictions.
+**Issue:**
+The PR replaces `datetime.utcnow()` with `datetime.now(timezone.utc)` in three files, but **only `market_data.py` imports `timezone`**. The other two files will crash at runtime:
 
-### Critical Issue 2: ValidationError Called with Incorrect Arguments (RESOLVED)
+**Files with the bug:**
 
-**Note:** This issue was identified in an earlier version where `ValidationError` was called with two arguments (field name, message) but the class only accepts one argument. This has been resolved in the current implementation.
+1. **`polymarket-bot/risk.py:15`** - Only imports `datetime`:
+   ```python
+   from datetime import datetime  # ❌ Missing timezone
+   ```
+   But uses `timezone.utc` at line 445:
+   ```python
+   "timestamp": datetime.now(timezone.utc).isoformat(),  # ❌ NameError
+   ```
 
-### Additional Non-Blocking Issues Found:
+2. **`polymarket-bot/test_risk.py:13`** - Only imports `datetime`:
+   ```python
+   from datetime import datetime  # ❌ Missing timezone
+   ```
+   But uses `timezone.utc` at line 543:
+   ```python
+   end_date=datetime.now(timezone.utc),  # ❌ NameError
+   ```
 
-1. **Deprecated API**: Uses `datetime.utcnow()` which is deprecated in Python 3.12+
-2. **Incomplete Documentation**: The HLD/LLD docs in `docs/concepts/polymarket-bot/` weren't updated
-3. **Test Inconsistency**: Mixed mocking patterns (`prediction.X` vs `polymarket_bot.prediction.X`)
-4. **Config Validation Logic**: Order book threshold validation may not align with semantic meaning
-5. **API Design**: Exported test helper calls private method
+**Working file for reference:**
 
-### Positive Aspects:
+3. **`polymarket-bot/market_data.py:27`** - ✅ Correct import:
+   ```python
+   from datetime import datetime, timezone  # ✅ Includes timezone
+   ```
 
-✅ Excellent test coverage (60+ test cases)
-✅ Comprehensive README documentation
-✅ Strong configuration validation
-✅ Clean code structure and error handling
-✅ Well-designed models and type hints
+**Impact:**
+- `risk.py:445` - The `get_risk_metrics()` method will crash when called, breaking risk monitoring
+- `test_risk.py:543` - The `test_standalone_approve_trade()` test will fail, breaking the test suite
 
-## Summary
+**Required Fix:**
+Change the imports in both files from:
+```python
+from datetime import datetime
+```
+To:
+```python
+from datetime import datetime, timezone
+```
 
-The MACD configuration issue is a functional defect that must be fixed before merge. The fix is straightforward - update `calculate_macd()` to accept period parameters and pass the config values through.
+---
 
-**Action Required**: Please address the blocking issue above before merging.
+### Additional Observations (Non-Blocking)
+
+**✅ Good:**
+- The approach of replacing `datetime.utcnow()` is correct for Python 3.12+ compatibility
+- `market_data.py` was updated correctly with proper imports
+- The PR description is thorough and well-documented
+- The changes align with addressing deprecation warnings
+
+**Code Quality:**
+- The implementation is otherwise sound
+- Consistent pattern used across all three files (just missing imports in 2 of them)
+
+**Testing:**
+- The test file itself has the bug, so the test suite should catch this immediately when run
+- This suggests tests may not have been executed before submitting the PR
+
+---
+
+## Required Actions
+
+**MUST FIX before merge:**
+
+1. Update `polymarket-bot/risk.py` line 15:
+   ```python
+   from datetime import datetime, timezone
+   ```
+
+2. Update `polymarket-bot/test_risk.py` line 13:
+   ```python
+   from datetime import datetime, timezone
+   ```
+
+3. Run the test suite to verify the fix:
+   ```bash
+   pytest polymarket-bot/test_risk.py -v
+   ```
+
+---
+
+**Review Decision:** ❌ **CHANGES REQUESTED**
+
+This is a critical runtime bug that will cause crashes. Once the imports are added, the PR will be ready to merge.
+
+**Action Required**: Please address the blocking issues above before merging.
 
 ---
 *Reviewed by code-reviewer agent*

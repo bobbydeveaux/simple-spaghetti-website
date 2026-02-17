@@ -138,6 +138,453 @@ polymarket-bot/
 └── README.md                   # This file
 ```
 
+## Architecture Overview
+
+The Polymarket Bot is designed as a **single-process event-driven trading system** with clear separation of concerns across functional modules. The architecture prioritizes **reliability, crash recovery, and deterministic behavior** through state persistence and atomic operations.
+
+### Core Architecture Principles
+
+1. **Event-Driven Loop**: The bot operates on a fixed-interval event loop (configurable, typically 5 minutes) that orchestrates the complete trading pipeline
+2. **Deterministic Signals**: All trading decisions are rule-based using configurable technical indicators—no probabilistic models
+3. **State Persistence**: All state is persisted to disk with atomic writes after each cycle for crash recovery
+4. **Risk-First Design**: Risk management checks occur before any trade execution
+5. **Graceful Degradation**: Fallback mechanisms for data sources and automatic reconnection logic
+
+### System Components
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Main Orchestrator                         │
+│  (Event Loop Coordinator - Not Yet Implemented)             │
+│  • Manages 5-minute interval timing                         │
+│  • Coordinates component execution sequence                 │
+│  • Handles graceful shutdown on completion or breach        │
+└────────────────┬────────────────────────────────────────────┘
+                 │
+    ┌────────────┴────────────┐
+    │                         │
+    ▼                         ▼
+┌─────────────────┐     ┌──────────────────┐
+│  Market Data    │     │   State Manager  │
+│    Service      │◄────┤   (state.py)     │
+│ (market_data.py)│     │                  │
+│                 │     │ • Loads state    │
+│ • Binance WS    │     │ • Tracks metrics │
+│ • Polymarket API│     │ • Persists logs  │
+│ • Indicators    │     └──────────────────┘
+└────────┬────────┘
+         │
+         ▼
+┌──────────────────┐
+│  Prediction      │
+│    Engine        │
+│ (prediction.py)  │
+│                  │
+│ • RSI/MACD logic │
+│ • Signal gen     │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│  Risk Manager    │
+│    (risk.py)     │
+│                  │
+│ • Drawdown check │
+│ • Volatility     │
+│ • Trade approval │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐     ┌──────────────────┐
+│  Capital         │────►│  Trade Execution │
+│  Allocator       │     │  (Not Yet Impl.) │
+│  (capital.py)    │     │                  │
+│                  │     │ • Order submit   │
+│ • Position sizing│     │ • Fill tracking  │
+│ • Win streak     │     └──────────────────┘
+└──────────────────┘
+```
+
+### Data Flow Pipeline
+
+Each event loop cycle follows this sequential pipeline:
+
+```
+1. LOAD STATE
+   ↓
+2. FETCH MARKET DATA (Binance BTC price, Polymarket odds, order book)
+   ↓
+3. CALCULATE INDICATORS (RSI, MACD using configured parameters)
+   ↓
+4. GENERATE PREDICTION (UP/DOWN/SKIP with confidence and reasoning)
+   ↓
+5. CHECK RISK CONTROLS (Drawdown, volatility, exposure limits)
+   ↓
+6. CALCULATE POSITION SIZE (Win-streak multiplier logic)
+   ↓
+7. EXECUTE TRADE (If approved by risk checks)
+   ↓
+8. UPDATE STATE & LOG (Atomic write to disk)
+   ↓
+9. WAIT FOR NEXT INTERVAL
+```
+
+## Event Loop Behavior
+
+### Orchestrator Design (Future Implementation)
+
+The main orchestrator (to be implemented in `main.py`) will manage the complete bot lifecycle:
+
+**Initialization Phase:**
+1. Load configuration from environment variables
+2. Validate all required API keys are present
+3. Initialize all service components (market data, prediction engine, risk manager, etc.)
+4. Attempt state recovery from disk (if previous session exists)
+5. Establish Binance WebSocket connection
+6. Wait for initial price data accumulation (recommended: 34+ data points for MACD)
+
+**Main Event Loop:**
+```python
+# Pseudocode for orchestrator event loop
+def run_event_loop(duration_minutes=90, interval_minutes=5):
+    """
+    Run the main trading loop for specified duration.
+
+    Args:
+        duration_minutes: Total runtime (default: 90 minutes = 18 cycles)
+        interval_minutes: Time between cycles (default: 5 minutes)
+    """
+    start_time = current_time()
+    cycle_number = 0
+    max_cycles = duration_minutes // interval_minutes
+
+    while cycle_number < max_cycles:
+        cycle_start = current_time()
+
+        try:
+            # 1. Load current state
+            bot_state = state_manager.load_state()
+
+            # 2. Fetch market data
+            market_data = market_data_service.get_market_data()
+            price_history = binance_client.get_price_series(limit=50)
+
+            # 3. Generate prediction
+            signal = prediction_engine.generate_signal(price_history)
+
+            # 4. Risk management check
+            risk_result = risk_manager.approve_trade(bot_state, price_history)
+
+            if not risk_result.approved:
+                log_skip(reason=risk_result.rejection_reasons)
+
+                # Check for terminal conditions
+                if "drawdown" in str(risk_result.rejection_reasons):
+                    log_shutdown("Max drawdown breached")
+                    break
+
+                # Continue to next cycle
+                cycle_number += 1
+                sleep_until_next_interval(cycle_start, interval_minutes)
+                continue
+
+            # 5. Calculate position size
+            position_size = capital_allocator.calculate_position_size(
+                bot_state.win_streak,
+                current_capital=bot_state.starting_capital + bot_state.total_pnl
+            )
+
+            # 6. Execute trade (if signal is actionable)
+            if signal.is_actionable():
+                trade = execute_trade(
+                    direction=signal.get_direction(),
+                    size=position_size,
+                    market_data=market_data
+                )
+
+                # 7. Update state
+                state_manager.log_trade(trade)
+                state_manager.update_metrics(
+                    trade_result="win" if trade.pnl > 0 else "loss",
+                    pnl=trade.pnl,
+                    current_equity=bot_state.starting_capital + bot_state.total_pnl + trade.pnl
+                )
+            else:
+                log_skip(reason=f"Signal is {signal.signal.value}, skipping")
+
+            # 8. Persist state
+            state_manager.save_state(bot_state)
+            state_manager.save_metrics()
+
+        except Exception as e:
+            logger.error(f"Cycle {cycle_number} error: {e}", exc_info=True)
+            # Continue to next cycle despite errors
+
+        cycle_number += 1
+        sleep_until_next_interval(cycle_start, interval_minutes)
+
+    # Graceful shutdown
+    logger.info(f"Completed {cycle_number} cycles. Shutting down.")
+    cleanup()
+```
+
+### Event Loop Timing
+
+- **Interval**: 5 minutes between cycles (configurable)
+- **Total Duration**: 90 minutes = 18 cycles (configurable)
+- **Cycle Execution Time**: Typically 1-3 seconds per cycle
+- **Sleep Calculation**: `sleep_time = interval - elapsed_cycle_time`
+
+**Timing Guarantees:**
+- Each cycle starts exactly `interval_minutes` after the previous cycle start
+- If a cycle takes longer than the interval, the next cycle starts immediately (no overlap)
+- Clock drift is corrected by using absolute timestamps, not cumulative sleep
+
+### State Transitions
+
+The bot progresses through these states during its lifecycle:
+
+```
+INITIALIZING → RUNNING → PAUSED (on non-terminal errors)
+                    ↓
+                STOPPED (on completion or max drawdown)
+                    ↓
+                ERROR (on fatal errors)
+```
+
+**State Persistence:**
+- State is saved to `data/bot_state.json` after every cycle
+- Metrics saved to `data/metrics.json` after every update
+- Trade log appended to `data/trades.log` (JSON Lines format)
+
+## Operational Procedures
+
+### Starting the Bot
+
+1. **Prerequisites:**
+   ```bash
+   # Ensure all dependencies are installed
+   pip install -r requirements.txt
+
+   # Verify TA-Lib system library is installed
+   python -c "import talib; print('TA-Lib OK')"
+   ```
+
+2. **Configure Environment:**
+   ```bash
+   # Copy template and edit with your API keys
+   cp .env.example .env
+   nano .env  # Add your API keys
+   ```
+
+3. **Validate Configuration:**
+   ```bash
+   # Test configuration loading
+   python -c "from polymarket_bot.config import get_config; c = get_config(); print('Config OK')"
+   ```
+
+4. **Run the Bot (when orchestrator is implemented):**
+   ```bash
+   # Standard run (90 minutes, 5-minute intervals)
+   python -m polymarket_bot.main
+
+   # Custom duration and interval
+   python -m polymarket_bot.main --duration 60 --interval 3
+
+   # Dry run mode (no actual trades)
+   python -m polymarket_bot.main --dry-run
+   ```
+
+### Monitoring During Operation
+
+**Log Files:**
+- **Application Log**: `polymarket_bot.log` (general bot operations)
+- **Trade Log**: `data/trades.log` (append-only trade records)
+- **State File**: `data/bot_state.json` (current bot state)
+- **Metrics File**: `data/metrics.json` (performance metrics)
+
+**Key Metrics to Monitor:**
+```bash
+# View current bot state
+cat data/bot_state.json | jq '.'
+
+# Monitor win rate and streak
+cat data/metrics.json | jq '{win_rate, win_streak, total_trades}'
+
+# View recent trades
+tail -n 10 data/trades.log | jq '.'
+
+# Monitor drawdown
+cat data/metrics.json | jq '{current_capital, peak_capital, max_drawdown}'
+```
+
+**Health Checks:**
+- WebSocket connection status (logged every cycle)
+- Time since last price update (should be < 60 seconds)
+- State file modification time (should update every cycle)
+- Drawdown percentage (should be < 30%)
+
+### Shutdown Procedures
+
+The bot has three shutdown modes:
+
+#### 1. Graceful Shutdown (Normal Completion)
+
+**Triggered by:**
+- Completing all configured cycles (e.g., 18 cycles in 90 minutes)
+- User interrupt (Ctrl+C)
+
+**Procedure:**
+```
+1. Finish current cycle execution
+2. Close any open positions (if position manager implemented)
+3. Save final state to disk
+4. Close WebSocket connections
+5. Flush all log buffers
+6. Exit with code 0
+```
+
+#### 2. Emergency Shutdown (Risk Breach)
+
+**Triggered by:**
+- Max drawdown threshold exceeded (30%)
+- Multiple consecutive errors (configurable threshold)
+
+**Procedure:**
+```
+1. Immediately halt new trade execution
+2. Log emergency shutdown reason
+3. Close open positions at market price (if any)
+4. Save emergency state snapshot
+5. Close all connections
+6. Exit with code 1
+```
+
+#### 3. Crash Recovery
+
+**If the bot crashes unexpectedly:**
+
+The bot is designed for automatic crash recovery:
+
+1. **State Recovery on Restart:**
+   ```bash
+   # The bot automatically recovers state on next start
+   python -m polymarket_bot.main
+   ```
+
+2. **Manual State Inspection:**
+   ```bash
+   # Check if state file exists and is valid
+   cat data/bot_state.json | jq '.'
+
+   # Check for temporary files (indicates unclean shutdown)
+   ls -la data/*.tmp
+
+   # Review last trade log entries
+   tail -n 5 data/trades.log
+   ```
+
+3. **State Recovery Process:**
+   ```python
+   # Automatic recovery performed by StateManager
+   from polymarket_bot.state import StateManager, recover_state
+
+   state_manager = StateManager(state_dir="data")
+
+   # Attempt recovery
+   recovered_state = recover_state(state_manager)
+
+   if recovered_state:
+       print(f"Recovered state: {recovered_state['bot_id']}")
+       print(f"Last update: {recovered_state.get('last_heartbeat')}")
+       print(f"Total trades: {recovered_state.get('total_trades', 0)}")
+   else:
+       print("No state to recover, starting fresh")
+   ```
+
+4. **Cleanup Temporary Files:**
+   ```bash
+   # Remove any temporary files from crash
+   rm -f data/*.tmp
+   ```
+
+5. **Verify Data Integrity:**
+   ```bash
+   # Ensure trade log is valid JSON Lines
+   cat data/trades.log | jq -s '.' > /dev/null && echo "Trade log OK"
+
+   # Check metrics file
+   cat data/metrics.json | jq '.' > /dev/null && echo "Metrics OK"
+   ```
+
+### Recovery from Common Failures
+
+| Failure Type | Detection | Recovery Action |
+|--------------|-----------|-----------------|
+| WebSocket disconnect | No price updates for 60s | Automatic reconnection with exponential backoff |
+| API rate limit | HTTP 429 response | Automatic retry with delay |
+| Polymarket API down | Connection timeout | Log skip, continue to next cycle |
+| Insufficient data | < 34 prices for MACD | Log skip, wait for more data |
+| Max drawdown breach | Drawdown >= 30% | Emergency shutdown, manual review required |
+| State file corruption | JSON parse error | Attempt recovery from backup, else start fresh |
+| Disk full | Write failure | Alert and emergency shutdown |
+
+### Manual Intervention Scenarios
+
+**When to manually intervene:**
+
+1. **Max Drawdown Breached:**
+   - Bot automatically stops trading
+   - Review trade log to understand losses
+   - Adjust strategy or risk parameters before restart
+   - Decision: Continue with same parameters or modify configuration
+
+2. **Extended API Downtime:**
+   - Bot will skip cycles and log warnings
+   - Monitor API status externally
+   - No action required—bot will resume when API recovers
+
+3. **Unexpected Trading Pattern:**
+   - Review prediction signals in logs
+   - Check if market conditions are unusual
+   - Consider pausing bot manually
+   - Adjust technical indicator thresholds if needed
+
+4. **State File Issues:**
+   - Backup current state file
+   - Manually edit or recreate if corrupted
+   - Restart bot with recovered/fresh state
+
+### Logging and Debugging
+
+**Log Levels:**
+```bash
+# Set in .env file
+LOG_LEVEL=DEBUG   # Verbose (development)
+LOG_LEVEL=INFO    # Standard (production)
+LOG_LEVEL=WARNING # Errors and warnings only
+```
+
+**Debug Mode:**
+```python
+# Enable detailed logging for specific modules
+import logging
+
+logging.getLogger('polymarket_bot.market_data').setLevel(logging.DEBUG)
+logging.getLogger('polymarket_bot.prediction').setLevel(logging.DEBUG)
+logging.getLogger('polymarket_bot.risk').setLevel(logging.DEBUG)
+```
+
+**Troubleshooting Common Issues:**
+
+| Issue | Symptom | Solution |
+|-------|---------|----------|
+| No price data | "Insufficient data" logs | Wait 2-3 minutes for WebSocket buffer |
+| MACD errors | "Need at least 34 prices" | Increase buffer size or wait longer |
+| Trade not executing | Signal UP/DOWN but no trade | Check risk approval logs |
+| High skip rate | Mostly SKIP signals | Review technical indicator thresholds |
+| WebSocket keeps reconnecting | Frequent disconnect logs | Check network stability |
+
 ## Installation
 
 1. Install Python dependencies:

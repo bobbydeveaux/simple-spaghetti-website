@@ -1,6 +1,6 @@
 {
   "method": "ai-assisted",
-  "filesResolved": 3,
-  "summary": "Resolved conflicts by choosing the more comprehensive origin/main implementation for risk management system. The main branch contained a complete RiskManager class with RiskApprovalResult, better error handling, and additional features like capital allocation and prediction modules. README.md was merged to preserve both feature descriptions while eliminating redundancy.",
-  "strategyUsed": "Chose origin/main for risk.py and tests/test_risk.py as it contains the more complete RiskManager implementation with detailed risk metrics, approval results, and comprehensive validation. For README.md, merged both versions to show all capabilities while removing redundant sections. Added module-level constants MAX_DRAWDOWN_PERCENT and MAX_VOLATILITY_PERCENT to risk.py to support test imports."
+  "filesResolved": 2,
+  "summary": "Successfully resolved merge conflicts in config.py and execution.py by preserving functionality from both branches. Combined execution and orchestrator configurations in config.py. Kept comprehensive ExecutionEngine implementation from HEAD in execution.py.",
+  "strategyUsed": "For config.py: merged both configuration sets (execution config from HEAD + orchestrator config from origin/main) along with their respective validations, as both serve different purposes and are complementary. For execution.py: kept the more comprehensive HEAD implementation (ExecutionEngine with full Trade objects, comprehensive error handling, settlement tracking, retry logic) as it was more mature and production-ready than the simpler SignalType-based implementation from origin/main."
 }

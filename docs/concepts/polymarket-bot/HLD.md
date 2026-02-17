@@ -11,7 +11,7 @@ Single-process monolithic application with event-driven loop architecture. The b
 
 ## 2. System Components
 
-**Main Orchestrator**: Event loop managing 5-minute interval timing, component coordination, and graceful shutdown on drawdown breach or completion.
+**Main Orchestrator**: Event loop managing 5-minute interval timing, component coordination, and graceful shutdown on drawdown breach or completion. Implements signal handlers for SIGINT/SIGTERM to enable graceful shutdown with state persistence. Maintains crash recovery through periodic state saves.
 
 **Market Data Service**: Fetches BTC price data from Binance WebSocket, calculates technical indicators (RSI, MACD), retrieves Polymarket odds via REST API.
 
@@ -57,9 +57,9 @@ Single-process monolithic application with event-driven loop architecture. The b
 
 **MarketData** (in-memory):
 - btc_price: float
-- rsi: float (calculated with configurable period)
-- macd_line: float (calculated with configurable fast/slow periods)
-- macd_signal: float (calculated with configurable signal period)
+- rsi: float (calculated with configurable RSI_PERIOD, default 14)
+- macd_line: float (calculated with configurable MACD_FAST_PERIOD, default 12, and MACD_SLOW_PERIOD, default 26)
+- macd_signal: float (calculated with configurable MACD_SIGNAL_PERIOD, default 9)
 - order_book_imbalance: float
 - polymarket_odds_up: float
 - polymarket_odds_down: float
@@ -308,8 +308,8 @@ Do not assume perfect foresight. Assume realistic market behavior.
 - FR-001: Connect to Polymarket API and authenticate using provided credentials
 - FR-002: Fetch BTC 5-minute directional market odds and settlement times via API
 - FR-003: Retrieve BTC price feed from external source (Binance/CoinGecko) with <5s latency
-- FR-004: Calculate RSI (14-period), MACD (12,26,9), and order book imbalance from data inputs
-- FR-005: Generate UP prediction if RSI<30 AND MACD bullish crossover, DOWN if RSI>70 AND MACD bearish crossover
+- FR-004: Calculate RSI (configurable period, default 14), MACD (configurable periods, defaults 12,26,9), and order book imbalance from data inputs
+- FR-005: Generate UP prediction if RSI<oversold_threshold (default 30) AND MACD bullish crossover, DOWN if RSI>overbought_threshold (default 70) AND MACD bearish crossover (all thresholds configurable)
 - FR-006: Submit market orders to Polymarket with calculated position size before interval closes
 - FR-007: Track open position status and settlement outcome for each 5-minute interval
 - FR-008: Implement base position $5, win-streak multiplier 1.5x, max exposure $25 per trade
