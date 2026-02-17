@@ -23,6 +23,14 @@ This package provides:
 - ✅ **Business Logic Methods**: Built-in helpers for common calculations (P&L, win rate, etc.)
 - ✅ **Test Coverage**: Comprehensive test suite with 100% model coverage
 
+### Market Data Integration
+- ✅ **Binance WebSocket**: Real-time BTC/USDT price streaming with automatic reconnection
+- ✅ **Technical Indicators**: RSI and MACD calculations for price analysis
+- ✅ **Order Book Analysis**: Real-time order book imbalance metrics
+- ✅ **Polymarket API**: Market discovery and odds retrieval
+- ✅ **Unified Service Interface**: Single interface for all market data needs
+- ✅ **Comprehensive Tests**: Integration tests verify complete data flow
+
 ### State Persistence & Logging
 - ✅ **Atomic Writes**: Crash-safe file operations using temp file + rename pattern
 - ✅ **Trade Audit Trail**: Append-only JSON Lines logging for complete trade history
