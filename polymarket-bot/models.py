@@ -46,6 +46,19 @@ class TradeStatus(str, Enum):
     FAILED = "failed"
 
 
+class OrderStatus(str, Enum):
+    """Order settlement status."""
+    PENDING = "PENDING"
+    SETTLED = "SETTLED"
+    CANCELLED = "CANCELLED"
+
+
+class TradeOutcome(str, Enum):
+    """Trade settlement outcome."""
+    WIN = "WIN"
+    LOSS = "LOSS"
+
+
 class PositionStatus(str, Enum):
     """Position status enumeration."""
     OPEN = "open"
