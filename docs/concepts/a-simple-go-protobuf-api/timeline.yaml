@@ -1,0 +1,23 @@
+# Project Timeline
+
+metadata:
+  generated: 2026-02-17T20:54:11Z
+  totalSprints: 1
+  totalDuration: 7 days
+
+sprints:
+  - number: 1
+    startDate: 2026-02-17
+    endDate: 2026-02-24
+    duration: 7 days
+    features:
+      - id: a-simple-go-protobuf-api-feat-protobuf-service
+        name: Protobuf Service Definition and Code Generation
+        type: enabler
+      - id: a-simple-go-protobuf-api-feat-http-server
+        name: HTTP Server with Greeter Handler
+        type: feature
+
+criticalPath:
+  - a-simple-go-protobuf-api-feat-protobuf-service
+  - a-simple-go-protobuf-api-feat-http-server
