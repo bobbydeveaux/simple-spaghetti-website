@@ -313,7 +313,7 @@ class PolymarketClient:
 
 def get_market_data() -> MarketData
 def calculate_rsi(prices: List[float], period: int = 14) -> float
-def calculate_macd(prices: List[float]) -> Tuple[float, float]
+def calculate_macd(prices: List[float], fast_period: int = 12, slow_period: int = 26, signal_period: int = 9) -> Tuple[float, float]
 def get_order_book_imbalance() -> float
 
 # prediction.py
