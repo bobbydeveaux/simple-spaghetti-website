@@ -85,19 +85,25 @@ class BinanceWebSocketClient:
         self.ws_thread = Thread(target=self.ws.run_forever, daemon=True)
         self.ws_thread.start()
 
-        # Wait for connection to establish
+        # Wait for connection to establish with proper synchronization
         timeout = 10
         start_time = time.time()
-        while not self.is_connected and time.time() - start_time < timeout:
+        while time.time() - start_time < timeout:
+            with self.lock:
+                if self.is_connected:
+                    return
             time.sleep(0.1)
 
-        if not self.is_connected:
-            raise ConnectionError("Failed to connect to Binance WebSocket within timeout")
+        # Check one final time after timeout
+        with self.lock:
+            if not self.is_connected:
+                raise ConnectionError("Failed to connect to Binance WebSocket within timeout")
 
     def _on_open(self, ws) -> None:
         """Handle WebSocket connection opened."""
-        self.is_connected = True
-        self.reconnect_attempts = 0
+        with self.lock:
+            self.is_connected = True
+            self.reconnect_attempts = 0
         logger.info("Binance WebSocket connection established")
 
     def _on_message(self, ws, message: str) -> None:
@@ -133,21 +139,31 @@ class BinanceWebSocketClient:
 
         Implements automatic reconnection logic with exponential backoff.
         """
-        self.is_connected = False
+        with self.lock:
+            self.is_connected = False
+            current_attempts = self.reconnect_attempts
+
         logger.warning(f"Binance WebSocket closed: {close_status_code} - {close_msg}")
 
         # Attempt reconnection if within retry limit
-        if self.reconnect_attempts < self.config.ws_max_reconnect_attempts:
-            self.reconnect_attempts += 1
-            delay = min(self.config.ws_reconnect_delay * (2 ** (self.reconnect_attempts - 1)), 60)
+        if current_attempts < self.config.ws_max_reconnect_attempts:
+            with self.lock:
+                self.reconnect_attempts += 1
+                next_attempt = self.reconnect_attempts
+            delay = min(self.config.ws_reconnect_delay * (2 ** (next_attempt - 1)), 60)
 
-            logger.info(f"Attempting reconnection {self.reconnect_attempts}/{self.config.ws_max_reconnect_attempts} in {delay}s")
-            time.sleep(delay)
+            logger.info(f"Attempting reconnection {next_attempt}/{self.config.ws_max_reconnect_attempts} in {delay}s")
 
-            try:
-                self.connect()
-            except Exception as e:
-                logger.error(f"Reconnection failed: {e}")
+            # Schedule reconnection in a separate thread to avoid blocking
+            def delayed_reconnect():
+                time.sleep(delay)
+                try:
+                    self.connect()
+                except Exception as e:
+                    logger.error(f"Reconnection failed: {e}")
+
+            reconnect_thread = Thread(target=delayed_reconnect, daemon=True)
+            reconnect_thread.start()
         else:
             logger.error(f"Max reconnection attempts ({self.config.ws_max_reconnect_attempts}) reached")
 
@@ -259,15 +275,16 @@ class PolymarketClient:
             logger.error(f"Error finding active market: {e}")
             return None
 
-    def get_market_odds(self, market_id: str) -> Tuple[float, float]:
+    def get_market_odds(self, market_id: str) -> Tuple[float, float, Dict[str, Any]]:
         """
-        Get current odds for a specific market.
+        Get current odds and metadata for a specific market.
 
         Args:
             market_id: Polymarket market identifier
 
         Returns:
-            Tuple of (yes_odds, no_odds) as probabilities (0-1)
+            Tuple of (yes_odds, no_odds, market_info) where market_info contains
+            additional data like end_date, question, etc.
 
         Raises:
             ValueError: If market not found or invalid response
@@ -284,9 +301,16 @@ class PolymarketClient:
             yes_odds = float(data.get('odds_yes', 0.5))
             no_odds = float(data.get('odds_no', 0.5))
 
+            # Extract additional market metadata
+            market_info = {
+                'end_date': data.get('end_date'),
+                'question': data.get('question', f"BTC 5-min prediction market {market_id}"),
+                'created_date': data.get('created_date'),
+            }
+
             logger.info(f"Market {market_id} odds - YES: {yes_odds:.4f}, NO: {no_odds:.4f}")
 
-            return yes_odds, no_odds
+            return yes_odds, no_odds, market_info
 
         except requests.exceptions.RequestException as e:
             logger.error(f"Error fetching market odds: {e}")
@@ -470,16 +494,27 @@ def get_market_data(
             raise ValueError("No active Polymarket markets found")
 
     try:
-        yes_odds, no_odds = polymarket_client.get_market_odds(market_id)
+        yes_odds, no_odds, market_info = polymarket_client.get_market_odds(market_id)
     except Exception as e:
         logger.error(f"Error fetching Polymarket odds: {e}")
         raise ValueError(f"Failed to fetch market odds: {e}")
 
+    # Parse end_date from market info
+    from datetime import datetime
+    end_date_str = market_info.get('end_date')
+    if end_date_str:
+        # Parse ISO format datetime string
+        end_date = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
+    else:
+        # Fallback: set end date to 5 minutes from now for 5-min markets
+        from datetime import timedelta
+        end_date = datetime.utcnow() + timedelta(minutes=5)
+
     # Create MarketData object
     market_data = MarketData(
         market_id=market_id,
-        question=f"BTC 5-min prediction market {market_id}",
-        end_date=None,  # Will be set by actual market data
+        question=market_info.get('question', f"BTC 5-min prediction market {market_id}"),
+        end_date=end_date,
         yes_price=Decimal(str(yes_odds)),
         no_price=Decimal(str(no_odds))
     )
