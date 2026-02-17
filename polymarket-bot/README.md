@@ -30,6 +30,14 @@ This package provides:
 - ✅ **Error Handling**: Comprehensive error handling for API interactions
 - ✅ **Multiple Response Formats**: Parse various API response structures
 
+### Binance WebSocket Integration
+- ✅ **Real-time BTC Price Feed**: Live BTC/USDT price updates via WebSocket
+- ✅ **Automatic Reconnection**: Exponential backoff reconnection logic
+- ✅ **Price History**: Configurable in-memory storage of recent price updates
+- ✅ **Health Monitoring**: Connection health checks and message age validation
+- ✅ **24h Statistics**: Volume, high, low, and price change tracking
+- ✅ **Callback Support**: Custom handlers for price updates
+
 ### Technical Capabilities
 - **Environment Configuration**: Secure API key management using `.env` files
 - **WebSocket Support**: Real-time market data streaming
@@ -42,18 +50,19 @@ This package provides:
 
 ```
 polymarket-bot/
-├── __init__.py            # Package initialization
-├── config.py              # Configuration management
-├── models.py              # Core data models (BotState, Trade, Position, MarketData)
-├── market_data.py         # Polymarket API client for market discovery and odds
-├── state.py               # State persistence and logging
-├── utils.py               # Utility functions (retry, validation, error handling)
-├── tests/                 # Comprehensive test suite
-│   ├── test_models.py     # Model validation tests
-│   ├── test_market_data.py # Polymarket API integration tests
-│   └── test_state.py      # State persistence tests
-├── test_config.py         # Configuration tests
-└── README.md              # This file
+├── __init__.py                 # Package initialization
+├── config.py                   # Configuration management
+├── models.py                   # Core data models (BotState, Trade, Position, MarketData, BTCPriceData)
+├── market_data.py              # Polymarket API client and Binance WebSocket for price feed
+├── state.py                    # State persistence and logging
+├── utils.py                    # Utility functions (retry, validation, error handling)
+├── tests/                      # Comprehensive test suite
+│   ├── test_models.py          # Model validation tests (including BTCPriceData)
+│   ├── test_market_data.py     # Polymarket API integration tests
+│   ├── test_binance_websocket.py # Binance WebSocket tests
+│   └── test_state.py           # State persistence tests
+├── test_config.py              # Configuration tests
+└── README.md                   # This file
 ```
 
 ## Installation
@@ -301,6 +310,48 @@ market_dict = market.to_dict()
 - Prices must be between 0 and 1
 - Helper method to validate prices sum to ~1.0
 
+### BTCPriceData
+
+Represents Bitcoin price data from Binance WebSocket feed.
+
+**Key Features:**
+- Real-time BTC/USDT price updates
+- 24-hour trading statistics (volume, high, low)
+- Price change tracking
+- Volatility calculations
+- Metadata storage for raw exchange data
+
+**Example:**
+```python
+from models import BTCPriceData
+from decimal import Decimal
+from datetime import datetime
+
+price_data = BTCPriceData(
+    symbol="BTCUSDT",
+    price=Decimal("45678.90"),
+    timestamp=datetime.utcnow(),
+    volume_24h=Decimal("123456789.50"),
+    high_24h=Decimal("46000.00"),
+    low_24h=Decimal("45000.00"),
+    price_change_24h=Decimal("678.90"),
+    price_change_percent_24h=Decimal("1.51")
+)
+
+# Calculate mid-range price
+mid_range = price_data.get_mid_range_price()  # 45500.00
+
+# Calculate volatility percentage
+volatility = price_data.get_volatility_percent()  # ~2.20%
+
+# Serialize
+price_dict = price_data.to_dict()
+```
+
+**Validations:**
+- Price must be greater than 0
+- Optional 24h statistics (volume, high, low) must be non-negative if provided
+
 ## Enumerations
 
 ### BotStatus
@@ -538,6 +589,181 @@ The client monitors rate limits when available:
 - Logs remaining rate limit from API headers
 - Respects rate limit restrictions
 - Provides warnings when approaching limits
+
+## Binance WebSocket Integration
+
+The `market_data.py` module includes a `BinanceWebSocket` client for real-time BTC/USDT price feed from Binance.
+
+### BinanceWebSocket
+
+WebSocket client for receiving real-time Bitcoin price updates from Binance with automatic reconnection and historical price tracking.
+
+**Features:**
+- Real-time BTC/USDT price updates via WebSocket
+- Automatic reconnection with exponential backoff
+- Configurable price history storage (default: 200 updates)
+- Message parsing and validation
+- Health monitoring
+- Callback support for custom price handlers
+- Context manager support
+
+**Example Usage:**
+
+```python
+from market_data import BinanceWebSocket
+from models import BTCPriceData
+
+# Initialize WebSocket with custom callback
+def on_price_update(price_data: BTCPriceData):
+    print(f"BTC Price: ${price_data.price}")
+    print(f"24h Change: {price_data.price_change_percent_24h}%")
+
+ws = BinanceWebSocket(
+    on_price_update=on_price_update,
+    history_size=200
+)
+
+# Connect to Binance WebSocket
+ws.connect()
+
+# Get latest price
+latest = ws.get_latest_price()
+if latest:
+    print(f"Current BTC: ${latest.price}")
+
+# Get price history
+history = ws.get_price_history(limit=50)
+print(f"Received {len(history)} price updates")
+
+# Get price series for technical analysis
+prices = ws.get_price_series(limit=100)
+
+# Check connection health
+if ws.is_healthy():
+    print("WebSocket connection is healthy")
+
+# Disconnect when done
+ws.disconnect()
+```
+
+**Using as Context Manager:**
+
+```python
+from market_data import BinanceWebSocket
+
+# Automatically connects and disconnects
+with BinanceWebSocket(history_size=100) as ws:
+    # Wait for some price updates
+    import time
+    time.sleep(5)
+
+    # Get latest price
+    latest = ws.get_latest_price()
+    if latest:
+        print(f"BTC: ${latest.price}")
+        print(f"Volatility: {latest.get_volatility_percent()}%")
+```
+
+### WebSocket Methods
+
+#### connect()
+Connect to Binance WebSocket and start receiving price updates in a background thread.
+
+```python
+ws = BinanceWebSocket()
+ws.connect()
+```
+
+#### disconnect()
+Gracefully disconnect from WebSocket and stop reconnection attempts.
+
+```python
+ws.disconnect()
+```
+
+#### get_latest_price()
+Get the most recent BTC price update.
+
+```python
+latest = ws.get_latest_price()
+if latest:
+    print(f"Price: ${latest.price}")
+    print(f"High 24h: ${latest.high_24h}")
+    print(f"Low 24h: ${latest.low_24h}")
+```
+
+#### get_price_history(limit)
+Get historical price data stored in memory.
+
+```python
+# Get all history
+all_history = ws.get_price_history()
+
+# Get last 50 updates
+recent = ws.get_price_history(limit=50)
+```
+
+#### get_price_series(limit)
+Get price values as a list of Decimal objects (useful for technical indicators).
+
+```python
+# Get last 100 prices
+prices = ws.get_price_series(limit=100)
+
+# Calculate simple moving average
+if len(prices) >= 20:
+    sma_20 = sum(prices[-20:]) / 20
+    print(f"SMA(20): ${sma_20}")
+```
+
+#### is_healthy(max_message_age_seconds)
+Check if WebSocket connection is healthy and receiving recent updates.
+
+```python
+# Check with default 60s timeout
+if ws.is_healthy():
+    print("Connection healthy")
+
+# Check with custom timeout
+if ws.is_healthy(max_message_age_seconds=120):
+    print("Received update in last 2 minutes")
+```
+
+### Automatic Reconnection
+
+The WebSocket client automatically handles disconnections:
+- **Exponential backoff**: Delays increase for successive failures (max 5 minutes)
+- **Infinite retries**: Continues reconnecting until manually stopped
+- **Connection tracking**: Monitors connection state and error count
+
+```python
+ws = BinanceWebSocket()
+ws.connect()
+
+# WebSocket will automatically reconnect if disconnected
+# To stop reconnection attempts:
+ws.disconnect()
+```
+
+### Message Format
+
+The WebSocket receives 24hr ticker data from Binance:
+
+```json
+{
+  "e": "24hrTicker",
+  "E": 1705318800000,
+  "s": "BTCUSDT",
+  "p": "678.90",
+  "P": "1.51",
+  "c": "45678.90",
+  "h": "46000.00",
+  "l": "45000.00",
+  "q": "123456789.50"
+}
+```
+
+This is automatically parsed into `BTCPriceData` model instances.
 
 ## State Persistence and Logging
 
