@@ -57,6 +57,14 @@ This package provides:
 - ✅ **24h Statistics**: Volume, high, low, and price change tracking
 - ✅ **Callback Support**: Custom handlers for price updates
 
+### Risk Management System
+- ✅ **Max Drawdown Monitoring**: Automatic tracking of 30% drawdown threshold from peak equity
+- ✅ **Volatility Circuit Breaker**: 3% 5-minute price range checks to prevent trading in unstable markets
+- ✅ **Pre-Trade Validation**: Comprehensive trade approval logic with detailed rejection reasons
+- ✅ **Risk Metrics**: Real-time risk metrics including drawdown, exposure, and win rate
+- ✅ **Configurable Thresholds**: Customizable risk parameters for different strategies
+- ✅ **Peak Tracking**: Automatic peak capital tracking for accurate drawdown calculations
+
 ### Technical Capabilities
 - **Environment Configuration**: Secure API key management using `.env` files
 - **WebSocket Streaming**: Real-time BTC/USDT price streaming from Binance with automatic reconnection
@@ -76,6 +84,7 @@ polymarket-bot/
 ├── config.py                   # Configuration management
 ├── models.py                   # Core data models (BotState, Trade, Position, MarketData, BTCPriceData)
 ├── market_data.py              # Market data service (Binance WebSocket, Polymarket API, technical indicators)
+├── risk.py                     # Risk management system (drawdown, volatility, trade approval)
 ├── state.py                    # State persistence and logging
 ├── utils.py                    # Utility functions (retry, validation, error handling)
 ├── tests/                      # Comprehensive test suite
@@ -84,6 +93,7 @@ polymarket-bot/
 │   ├── test_binance_websocket.py # Binance WebSocket tests
 │   └── test_state.py           # State persistence tests
 ├── test_config.py              # Configuration tests
+├── test_risk.py                # Risk management tests
 └── README.md                   # This file
 ```
 
@@ -1404,6 +1414,211 @@ pytest tests/test_models.py --cov=models --cov-report=html
 pytest tests/test_market_data.py --cov=market_data --cov-report=html
 pytest tests/test_state.py --cov=state --cov-report=html
 pytest test_config.py -v --cov=config --cov-report=html
+pytest test_risk.py -v --cov=risk --cov-report=html
+```
+
+## Risk Management System
+
+The `risk.py` module provides a comprehensive risk management system with max drawdown monitoring, volatility circuit breakers, and pre-trade validation logic.
+
+### RiskManager
+
+The main `RiskManager` class implements all risk control mechanisms for the trading bot.
+
+**Features:**
+- Max drawdown tracking (default: 30% threshold)
+- Volatility circuit breaker (default: 3% 5-minute range)
+- Pre-trade validation with detailed approval/rejection reasons
+- Peak capital tracking for accurate drawdown calculations
+- Risk metrics monitoring and reporting
+- Configurable thresholds for different strategies
+
+**Example Usage:**
+
+```python
+from risk import RiskManager
+from models import BotState, BotStatus
+from decimal import Decimal
+
+# Initialize risk manager with default thresholds
+rm = RiskManager(
+    max_drawdown_percent=Decimal("30.0"),  # 30% max drawdown
+    volatility_threshold_percent=Decimal("3.0"),  # 3% max volatility
+    starting_capital=Decimal("100.0")  # Starting capital
+)
+
+# Create bot state
+bot_state = BotState(
+    bot_id="my_bot",
+    strategy_name="momentum_v1",
+    max_position_size=Decimal("25.0"),
+    max_total_exposure=Decimal("100.0"),
+    risk_per_trade=Decimal("5.0"),
+    total_pnl=Decimal("-20.0"),  # Current P&L
+    status=BotStatus.RUNNING
+)
+
+# Check if trade should be approved
+recent_prices = [Decimal("45000"), Decimal("45500"), Decimal("45200")]
+result = rm.approve_trade(bot_state, recent_prices=recent_prices)
+
+if result.approved:
+    print("✓ Trade APPROVED")
+    if result.warnings:
+        for warning in result.warnings:
+            print(f"  ⚠ {warning}")
+else:
+    print("✗ Trade REJECTED")
+    for reason in result.rejection_reasons:
+        print(f"  - {reason}")
+
+# Get current risk metrics
+metrics = rm.get_risk_metrics(bot_state)
+print(f"Drawdown: {metrics['drawdown_percent']:.2f}%")
+print(f"Current capital: ${metrics['current_capital']:.2f}")
+print(f"Win rate: {metrics['win_rate']:.2f}%")
+```
+
+### Drawdown Monitoring
+
+Tracks drawdown from peak equity and prevents trading when threshold is exceeded.
+
+```python
+# Calculate current drawdown
+current_capital = Decimal("75.0")
+drawdown = rm.calculate_drawdown(current_capital)
+print(f"Current drawdown: {drawdown}%")  # 25%
+
+# Check if drawdown is within limits
+is_ok, drawdown_percent = rm.check_drawdown(current_capital)
+if not is_ok:
+    print(f"⚠ Drawdown {drawdown_percent}% exceeds limit!")
+
+# Update peak capital on profitable trades
+rm.update_peak_capital(Decimal("150.0"))  # New peak
+```
+
+**Drawdown Calculation:**
+- Formula: `((peak_capital - current_capital) / peak_capital) * 100`
+- Peak capital is automatically tracked (highest value seen)
+- Default threshold: 30% (configurable)
+- Trade is rejected if drawdown >= threshold
+
+### Volatility Circuit Breaker
+
+Prevents trading during high volatility periods by checking 5-minute price range.
+
+```python
+# Recent prices over 5-minute window
+prices = [
+    Decimal("45000"),
+    Decimal("45200"),
+    Decimal("45100"),
+    Decimal("45300"),
+    Decimal("44900")
+]
+
+# Calculate volatility
+volatility = rm.calculate_volatility(prices)
+print(f"Current volatility: {volatility:.2f}%")
+
+# Check if volatility is within limits
+is_ok, volatility_percent = rm.check_volatility(prices)
+if not is_ok:
+    print(f"⚠ Volatility {volatility_percent}% exceeds limit!")
+```
+
+**Volatility Calculation:**
+- Formula: `((max_price - min_price) / min_price) * 100`
+- Default threshold: 3% (configurable)
+- Trade is rejected if volatility >= threshold
+- Protects against trading in unstable market conditions
+
+### Pre-Trade Validation
+
+Comprehensive validation combining all risk checks before executing a trade.
+
+```python
+# Perform full pre-trade validation
+result = rm.approve_trade(
+    bot_state=bot_state,
+    market_data=market_data,  # Optional
+    recent_prices=recent_prices  # Optional
+)
+
+# Check result
+if result:  # RiskApprovalResult acts as boolean
+    print("Trade approved!")
+else:
+    print("Trade rejected:")
+    for reason in result.rejection_reasons:
+        print(f"  - {reason}")
+
+# Access detailed information
+print(f"Drawdown: {result.details['drawdown_percent']}%")
+print(f"Current capital: ${result.details['current_capital']}")
+
+# Check for warnings
+for warning in result.warnings:
+    print(f"⚠ {warning}")
+```
+
+**Validation Checks:**
+1. **Drawdown**: Current drawdown must be below threshold
+2. **Volatility**: Recent price volatility must be below threshold (if prices provided)
+3. **Capital**: Must have sufficient capital for minimum trade ($5)
+4. **Exposure**: Current exposure must be below maximum allowed
+5. **Bot Status**: Bot must be in 'running' or 'initializing' status
+
+**Approval Result:**
+- `approved`: Boolean indicating if trade is approved
+- `rejection_reasons`: List of reasons if rejected
+- `warnings`: Non-blocking warnings (e.g., approaching limits)
+- `details`: Detailed metrics (drawdown, capital, volatility, etc.)
+
+### Standalone Functions
+
+Convenience functions for simpler use cases:
+
+```python
+from risk import check_drawdown, check_volatility, approve_trade
+from decimal import Decimal
+
+# Simple drawdown check
+is_ok = check_drawdown(
+    current_capital=Decimal("75.0"),
+    starting_capital=Decimal("100.0")
+)
+
+# Simple volatility check
+prices = [Decimal("45000"), Decimal("45500")]
+is_ok = check_volatility(prices)
+
+# Simple trade approval (backward compatible)
+approved = approve_trade(
+    signal="UP",
+    market_data=market_data,
+    bot_state=bot_state,
+    recent_prices=recent_prices
+)
+```
+
+### Risk Metrics
+
+Monitor comprehensive risk metrics:
+
+```python
+metrics = rm.get_risk_metrics(bot_state)
+
+# Available metrics:
+print(f"Timestamp: {metrics['timestamp']}")
+print(f"Starting capital: ${metrics['starting_capital']}")
+print(f"Peak capital: ${metrics['peak_capital']}")
+print(f"Current capital: ${metrics['current_capital']}")
+print(f"Drawdown: {metrics['drawdown_percent']:.2f}%")
+print(f"Drawdown limit: {metrics['drawdown_limit']:.2f}%")
+print(f"Drawdown remaining: {metrics['drawdown_remaining']:.2f}%")
+print(f"Win rate: {metrics['win_rate']:.2f}%")
 ```
 
 ## Dependencies
