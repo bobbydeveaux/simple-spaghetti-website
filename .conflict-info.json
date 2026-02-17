@@ -1,11 +1,9 @@
 {
-  "prNumber": 290,
+  "prNumber": 295,
   "baseBranch": "main",
-  "headBranch": "feature/256-polymarket-bot-sprint-4-issue-256",
+  "headBranch": "feature/259-polymarket-bot-sprint-4-issue-259",
   "conflictedFiles": [
-    "polymarket-bot/README.md",
-    "polymarket-bot/execution.py",
-    "polymarket-bot/tests/test_execution.py"
+    ".review-feedback.txt"
   ],
-  "conflictCount": 3
+  "conflictCount": 1
 }

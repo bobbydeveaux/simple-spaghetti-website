@@ -2,14 +2,15 @@
 
 ## ❌ BLOCKING ISSUES FOUND
 
-### 🔴 CRITICAL BUG: Missing `timezone` Import
+### 🔴 CRITICAL: Missing `timezone` Import in Multiple Files
 
-**Severity: BLOCKING** - This code will fail at runtime with a `NameError`.
+**Severity: BLOCKING** - The code will fail at runtime with `NameError`.
 
-**Issue:**
-The PR replaces `datetime.utcnow()` with `datetime.now(timezone.utc)` in three files, but **only `market_data.py` imports `timezone`**. The other two files will crash at runtime:
+The PR replaces `datetime.utcnow()` with `datetime.now(timezone.utc)` across multiple files, but several files use `timezone.utc` without importing `timezone` from the datetime module. This will cause immediate `NameError` failures at runtime.
 
-**Files with the bug:**
+#### Affected Files:
+
+**Production Code:**
 
 1. **`polymarket-bot/risk.py:15`** - Only imports `datetime`:
    ```python
@@ -19,6 +20,9 @@ The PR replaces `datetime.utcnow()` with `datetime.now(timezone.utc)` in three f
    ```python
    "timestamp": datetime.now(timezone.utc).isoformat(),  # ❌ NameError
    ```
+   **Required:** `from datetime import datetime, timezone`
+
+**Test Files:**
 
 2. **`polymarket-bot/test_risk.py:13`** - Only imports `datetime`:
    ```python
@@ -28,45 +32,33 @@ The PR replaces `datetime.utcnow()` with `datetime.now(timezone.utc)` in three f
    ```python
    end_date=datetime.now(timezone.utc),  # ❌ NameError
    ```
+   **Required:** `from datetime import datetime, timezone`
+
+3. **polymarket-bot/tests/test_binance_websocket.py** (line 14)
+   - Current: `from datetime import datetime`
+   - Uses `timezone.utc` at: lines 382, 493, 507, 519, 535
+   - Required: `from datetime import datetime, timezone`
+
+4. **polymarket-bot/tests/test_market_data.py** (line 19)
+   - Current: `from datetime import datetime, timedelta`
+   - Uses `timezone.utc` at: lines 91, 100, 109, 436, 450, 467, 485, 510, 702
+   - Required: `from datetime import datetime, timedelta, timezone`
+
+5. **polymarket-bot/tests/test_models.py** (line 14)
+   - Current: `from datetime import datetime, timedelta`
+   - Uses `timezone.utc` at: lines 391, 407, 420, 435, 448, 472, 491, 597, 611, 621+
+   - Required: `from datetime import datetime, timedelta, timezone`
 
 **Working file for reference:**
 
-3. **`polymarket-bot/market_data.py:27`** - ✅ Correct import:
+6. **`polymarket-bot/market_data.py:27`** - ✅ Correct import:
    ```python
    from datetime import datetime, timezone  # ✅ Includes timezone
    ```
 
-**Impact:**
-- `risk.py:445` - The `get_risk_metrics()` method will crash when called, breaking risk monitoring
-- `test_risk.py:543` - The `test_standalone_approve_trade()` test will fail, breaking the test suite
-
-**Required Fix:**
-Change the imports in both files from:
-```python
-from datetime import datetime
-```
-To:
-```python
-from datetime import datetime, timezone
-```
-
----
-
-### Additional Observations (Non-Blocking)
-
-**✅ Good:**
-- The approach of replacing `datetime.utcnow()` is correct for Python 3.12+ compatibility
-- `market_data.py` was updated correctly with proper imports
-- The PR description is thorough and well-documented
-- The changes align with addressing deprecation warnings
-
-**Code Quality:**
-- The implementation is otherwise sound
-- Consistent pattern used across all three files (just missing imports in 2 of them)
-
-**Testing:**
-- The test file itself has the bug, so the test suite should catch this immediately when run
-- This suggests tests may not have been executed before submitting the PR
+#### Impact:
+- **Production Risk**: `risk.py:445` - The `get_risk_metrics()` method will crash when called, breaking risk monitoring
+- **Test Suite Failures**: All five test files will fail with `NameError: name 'timezone' is not defined` when executing tests that use `datetime.now(timezone.utc)`
 
 ---
 
@@ -84,16 +76,55 @@ from datetime import datetime, timezone
    from datetime import datetime, timezone
    ```
 
-3. Run the test suite to verify the fix:
+3. Update `polymarket-bot/tests/test_binance_websocket.py` line 14:
+   ```python
+   from datetime import datetime, timezone
+   ```
+
+4. Update `polymarket-bot/tests/test_market_data.py` line 19:
+   ```python
+   from datetime import datetime, timedelta, timezone
+   ```
+
+5. Update `polymarket-bot/tests/test_models.py` line 14:
+   ```python
+   from datetime import datetime, timedelta, timezone
+   ```
+
+6. Run the test suite to verify the fix:
    ```bash
-   pytest polymarket-bot/test_risk.py -v
+   pytest polymarket-bot/ -v
    ```
 
 ---
 
-**Review Decision:** ❌ **CHANGES REQUESTED**
+### Additional Observations (Non-Blocking)
 
-This is a critical runtime bug that will cause crashes. Once the imports are added, the PR will be ready to merge.
+#### ✅ Positive Aspects:
+
+1. **Correct Deprecation Fix**: The replacement of `datetime.utcnow()` with `datetime.now(timezone.utc)` is the correct approach for Python 3.12+ compatibility.
+
+2. **Documentation Accuracy**: The LLD.md update correctly reflects the actual function signature in market_data.py:1019-1074, which does accept configurable MACD period parameters.
+
+3. **Comprehensive Coverage**: The changes systematically address all instances of the deprecated API across multiple files.
+
+4. **MACD Configuration Verified**: As stated in the PR description, the MACD configuration parameters are correctly passed through the call chain (config → PredictionEngine:148-153 → calculate_macd:1019-1074).
+
+5. **Consistent Pattern**: All datetime replacements follow the same pattern consistently, which is good for maintainability.
+
+#### 📝 Code Quality Notes (Non-critical):
+
+1. **Test Coverage**: While the MACD tests exist (test_market_data.py:779-807), there don't appear to be specific tests verifying that custom MACD periods are correctly applied through the configuration chain.
+
+2. **Testing Before Submission**: The presence of import bugs in test files suggests tests may not have been executed before submitting the PR.
+
+---
+
+## Verdict
+
+**CHANGES REQUESTED** - The missing `timezone` imports are critical bugs that will cause both production code and the test suite to fail at runtime. This must be fixed before the PR can be merged.
+
+Once the import statements are corrected in all five files, the PR will be ready for approval.
 
 **Action Required**: Please address the blocking issues above before merging.
 
