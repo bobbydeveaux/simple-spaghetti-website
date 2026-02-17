@@ -15,6 +15,7 @@ from .models import (
     Trade,
     Position,
     MarketData,
+    PredictionSignal,
     # Enums
     BotStatus,
     OrderSide,
@@ -22,6 +23,7 @@ from .models import (
     TradeStatus,
     PositionStatus,
     OutcomeType,
+    SignalType,
 )
 
 # Market Data
@@ -30,6 +32,14 @@ from .market_data import (
     PolymarketAPIError,
     get_active_btc_markets,
     get_market_odds_by_id,
+)
+
+# Prediction Engine
+from .prediction import (
+    PredictionEngine,
+    PredictionError,
+    generate_signal_from_market_data,
+    validate_signal_conditions,
 )
 
 __version__ = "0.2.0"
@@ -45,6 +55,7 @@ __all__ = [
     "Trade",
     "Position",
     "MarketData",
+    "PredictionSignal",
     # Enums
     "BotStatus",
     "OrderSide",
@@ -52,9 +63,15 @@ __all__ = [
     "TradeStatus",
     "PositionStatus",
     "OutcomeType",
+    "SignalType",
     # Market Data
     "MarketDataService",
     "PolymarketAPIError",
     "get_active_btc_markets",
     "get_market_odds_by_id",
+    # Prediction Engine
+    "PredictionEngine",
+    "PredictionError",
+    "generate_signal_from_market_data",
+    "validate_signal_conditions",
 ]

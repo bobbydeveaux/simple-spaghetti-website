@@ -7,18 +7,23 @@ and edge cases.
 """
 
 import pytest
+import sys
+from pathlib import Path
 from decimal import Decimal
 from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime
 
-from polymarket_bot.prediction import (
+# Add parent directory to path to allow imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from prediction import (
     PredictionEngine,
     PredictionError,
     generate_signal_from_market_data,
     validate_signal_conditions
 )
-from polymarket_bot.models import PredictionSignal, SignalType
-from polymarket_bot.config import Config
+from models import PredictionSignal, SignalType
+from config import Config
 
 
 @pytest.fixture
@@ -68,7 +73,7 @@ class TestPredictionEngine:
 
     def test_initialization_without_config(self):
         """Test initialization without explicit config (uses get_config)."""
-        with patch('polymarket_bot.prediction.get_config') as mock_get_config:
+        with patch('prediction.get_config') as mock_get_config:
             mock_cfg = Mock(spec=Config)
             mock_cfg.rsi_period = 14
             mock_cfg.rsi_oversold_threshold = 30.0
@@ -106,9 +111,9 @@ class TestPredictionEngine:
 class TestSignalGeneration:
     """Test suite for signal generation logic."""
 
-    @patch('polymarket_bot.prediction.calculate_rsi')
-    @patch('polymarket_bot.prediction.calculate_macd')
-    @patch('polymarket_bot.prediction.get_order_book_imbalance')
+    @patch('prediction.calculate_rsi')
+    @patch('prediction.calculate_macd')
+    @patch('prediction.get_order_book_imbalance')
     def test_generate_up_signal(
         self,
         mock_order_book,
@@ -137,9 +142,9 @@ class TestSignalGeneration:
         assert signal.is_actionable() is True
         assert signal.get_direction() == "UP"
 
-    @patch('polymarket_bot.prediction.calculate_rsi')
-    @patch('polymarket_bot.prediction.calculate_macd')
-    @patch('polymarket_bot.prediction.get_order_book_imbalance')
+    @patch('prediction.calculate_rsi')
+    @patch('prediction.calculate_macd')
+    @patch('prediction.get_order_book_imbalance')
     def test_generate_down_signal(
         self,
         mock_order_book,
@@ -167,9 +172,9 @@ class TestSignalGeneration:
         assert signal.is_actionable() is True
         assert signal.get_direction() == "DOWN"
 
-    @patch('polymarket_bot.prediction.calculate_rsi')
-    @patch('polymarket_bot.prediction.calculate_macd')
-    @patch('polymarket_bot.prediction.get_order_book_imbalance')
+    @patch('prediction.calculate_rsi')
+    @patch('prediction.calculate_macd')
+    @patch('prediction.get_order_book_imbalance')
     def test_generate_skip_signal(
         self,
         mock_order_book,
@@ -193,9 +198,9 @@ class TestSignalGeneration:
         assert signal.is_actionable() is False
         assert signal.get_direction() is None
 
-    @patch('polymarket_bot.prediction.calculate_rsi')
-    @patch('polymarket_bot.prediction.calculate_macd')
-    @patch('polymarket_bot.prediction.get_order_book_imbalance')
+    @patch('prediction.calculate_rsi')
+    @patch('prediction.calculate_macd')
+    @patch('prediction.get_order_book_imbalance')
     def test_generate_signal_without_btc_price(
         self,
         mock_order_book,
@@ -243,9 +248,9 @@ class TestSignalGeneration:
         with pytest.raises(PredictionError, match="Failed to generate signal"):
             prediction_engine.generate_signal(sample_prices)
 
-    @patch('polymarket_bot.prediction.calculate_rsi')
-    @patch('polymarket_bot.prediction.calculate_macd')
-    @patch('polymarket_bot.prediction.get_order_book_imbalance')
+    @patch('prediction.calculate_rsi')
+    @patch('prediction.calculate_macd')
+    @patch('prediction.get_order_book_imbalance')
     def test_generate_signal_order_book_error(
         self,
         mock_order_book,
@@ -368,7 +373,7 @@ class TestConditionEvaluation:
 class TestConvenienceFunctions:
     """Test suite for convenience functions."""
 
-    @patch('polymarket_bot.prediction.PredictionEngine')
+    @patch('prediction.PredictionEngine')
     def test_generate_signal_from_market_data(self, mock_engine_class, sample_prices, mock_config):
         """Test convenience function for signal generation."""
         mock_engine = Mock()
@@ -389,7 +394,7 @@ class TestConvenienceFunctions:
             btc_price=45000.0
         )
 
-    @patch('polymarket_bot.prediction.get_config')
+    @patch('prediction.get_config')
     def test_validate_signal_conditions_up(self, mock_get_config, mock_config):
         """Test validate_signal_conditions for UP signal."""
         mock_get_config.return_value = mock_config
@@ -404,7 +409,7 @@ class TestConvenienceFunctions:
 
         assert signal == SignalType.UP
 
-    @patch('polymarket_bot.prediction.get_config')
+    @patch('prediction.get_config')
     def test_validate_signal_conditions_down(self, mock_get_config, mock_config):
         """Test validate_signal_conditions for DOWN signal."""
         mock_get_config.return_value = mock_config
@@ -419,7 +424,7 @@ class TestConvenienceFunctions:
 
         assert signal == SignalType.DOWN
 
-    @patch('polymarket_bot.prediction.get_config')
+    @patch('prediction.get_config')
     def test_validate_signal_conditions_skip(self, mock_get_config, mock_config):
         """Test validate_signal_conditions for SKIP signal."""
         mock_get_config.return_value = mock_config
@@ -514,9 +519,9 @@ class TestPredictionSignalModel:
 class TestEdgeCases:
     """Test suite for edge cases and error conditions."""
 
-    @patch('polymarket_bot.prediction.calculate_rsi')
-    @patch('polymarket_bot.prediction.calculate_macd')
-    @patch('polymarket_bot.prediction.get_order_book_imbalance')
+    @patch('prediction.calculate_rsi')
+    @patch('prediction.calculate_macd')
+    @patch('prediction.get_order_book_imbalance')
     def test_extreme_rsi_values(
         self,
         mock_order_book,
@@ -533,9 +538,9 @@ class TestEdgeCases:
         signal = prediction_engine.generate_signal(sample_prices)
         assert signal.signal == SignalType.UP
 
-    @patch('polymarket_bot.prediction.calculate_rsi')
-    @patch('polymarket_bot.prediction.calculate_macd')
-    @patch('polymarket_bot.prediction.get_order_book_imbalance')
+    @patch('prediction.calculate_rsi')
+    @patch('prediction.calculate_macd')
+    @patch('prediction.get_order_book_imbalance')
     def test_extreme_order_book_imbalance(
         self,
         mock_order_book,
@@ -552,9 +557,9 @@ class TestEdgeCases:
         signal = prediction_engine.generate_signal(sample_prices)
         assert signal.signal == SignalType.UP
 
-    @patch('polymarket_bot.prediction.calculate_rsi')
-    @patch('polymarket_bot.prediction.calculate_macd')
-    @patch('polymarket_bot.prediction.get_order_book_imbalance')
+    @patch('prediction.calculate_rsi')
+    @patch('prediction.calculate_macd')
+    @patch('prediction.get_order_book_imbalance')
     def test_macd_zero_values(
         self,
         mock_order_book,
@@ -572,9 +577,9 @@ class TestEdgeCases:
         # With MACD at 0,0 (neither > nor <), should be SKIP
         assert signal.signal == SignalType.SKIP
 
-    @patch('polymarket_bot.prediction.calculate_rsi')
-    @patch('polymarket_bot.prediction.calculate_macd')
-    @patch('polymarket_bot.prediction.get_order_book_imbalance')
+    @patch('prediction.calculate_rsi')
+    @patch('prediction.calculate_macd')
+    @patch('prediction.get_order_book_imbalance')
     def test_conflicting_indicators(
         self,
         mock_order_book,
