@@ -24,6 +24,14 @@ This package provides:
 - ✅ **Business Logic Methods**: Built-in helpers for common calculations (P&L, win rate, etc.)
 - ✅ **Test Coverage**: Comprehensive test suite with 100% model coverage
 
+### Prediction Engine
+- ✅ **Rule-Based Signals**: Deterministic UP/DOWN/SKIP signal generation
+- ✅ **Technical Indicators**: RSI (overbought/oversold) and MACD (momentum) analysis
+- ✅ **Order Book Analysis**: Bid/ask imbalance for market pressure assessment
+- ✅ **Confidence Scoring**: 0-100 confidence based on indicator agreement
+- ✅ **Edge Case Handling**: Graceful handling of insufficient data and invalid inputs
+- ✅ **Comprehensive Tests**: 40+ test cases covering all scenarios
+
 ### Market Data Integration
 - ✅ **Binance WebSocket**: Real-time BTC/USDT price streaming with automatic reconnection
 - ✅ **Technical Indicators**: RSI and MACD calculations for price analysis
@@ -76,12 +84,14 @@ polymarket-bot/
 ├── config.py                   # Configuration management
 ├── models.py                   # Core data models (BotState, Trade, Position, MarketData, BTCPriceData)
 ├── market_data.py              # Market data service (Binance WebSocket, Polymarket API, technical indicators)
+├── prediction.py               # Prediction engine with RSI/MACD signal generation
 ├── state.py                    # State persistence and logging
 ├── utils.py                    # Utility functions (retry, validation, error handling)
 ├── tests/                      # Comprehensive test suite
 │   ├── test_models.py          # Model validation tests (including BTCPriceData)
 │   ├── test_market_data.py     # Market data service and Polymarket API tests
 │   ├── test_binance_websocket.py # Binance WebSocket tests
+│   ├── test_prediction.py      # Prediction engine tests (40+ test cases)
 │   └── test_state.py           # State persistence tests
 ├── test_config.py              # Configuration tests
 └── README.md                   # This file
@@ -789,6 +799,153 @@ The WebSocket receives 24hr ticker data from Binance:
 ```
 
 This is automatically parsed into `BTCPriceData` model instances.
+
+## Prediction Engine
+
+The `prediction.py` module implements a deterministic rule-based signal generator that produces trading signals based on technical indicators and market analysis.
+
+### Features
+
+- **Technical Indicator Analysis**: RSI (Relative Strength Index) and MACD (Moving Average Convergence Divergence)
+- **Order Book Analysis**: Bid/Ask imbalance for market pressure assessment
+- **Confidence Scoring**: 0-100 confidence scores based on indicator agreement
+- **Voting Mechanism**: Combines multiple signals to produce final prediction
+- **Edge Case Handling**: Graceful handling of insufficient data, invalid inputs, and conflicting signals
+- **Deterministic**: Same inputs always produce same outputs (no randomness)
+
+### Signal Types
+
+The prediction engine generates three types of signals:
+
+- **UP**: Bullish signal indicating price expected to rise
+- **DOWN**: Bearish signal indicating price expected to fall
+- **SKIP**: No clear signal or conflicting indicators
+
+### Confidence Levels
+
+Confidence scores are calculated based on how many indicators agree:
+
+- **75 (High)**: All 3 indicators agree
+- **60 (Medium)**: 2 indicators agree
+- **45 (Low)**: Only 1 indicator suggests the signal
+- **0 (None)**: SKIP signal or no clear consensus
+
+### Usage Example
+
+```python
+from prediction import generate_signal, SIGNAL_UP, SIGNAL_DOWN, SIGNAL_SKIP
+
+# Generate signal from technical indicators
+signal, confidence = generate_signal(
+    rsi=35.0,                    # RSI indicating oversold (bullish)
+    macd_line=0.02,              # MACD line
+    macd_signal=0.01,            # MACD signal (bullish crossover)
+    order_book_imbalance=1.3,    # Strong buying pressure (bid/ask > 1.1)
+    btc_price=50000.0            # Current BTC price (optional, for validation)
+)
+
+print(f"Signal: {signal}")           # "UP"
+print(f"Confidence: {confidence}%")  # 75 (all 3 indicators agree)
+
+# Act on the signal
+if signal == SIGNAL_UP and confidence >= 60:
+    print("Strong bullish signal - consider buying")
+elif signal == SIGNAL_DOWN and confidence >= 60:
+    print("Strong bearish signal - consider selling")
+else:
+    print("No clear signal - skip this opportunity")
+```
+
+### Indicator Thresholds
+
+**RSI (Relative Strength Index)**
+- **Oversold** (< 30): Generates UP signal (strong buy opportunity)
+- **Moderate Oversold** (30-40): Generates UP signal (moderate buy)
+- **Neutral** (40-60): No signal
+- **Moderate Overbought** (60-70): Generates DOWN signal (moderate sell)
+- **Overbought** (> 70): Generates DOWN signal (strong sell opportunity)
+
+**MACD (Moving Average Convergence Divergence)**
+- **Bullish** (MACD line > signal line): Generates UP signal
+- **Bearish** (MACD line < signal line): Generates DOWN signal
+- **Neutral** (MACD line ≈ signal line): No signal
+
+**Order Book Imbalance**
+- **Strong Buying** (bid/ask > 1.2): Strong UP signal
+- **Moderate Buying** (bid/ask > 1.1): Moderate UP signal
+- **Balanced** (0.9 ≤ bid/ask ≤ 1.1): No signal
+- **Moderate Selling** (bid/ask < 0.9): Moderate DOWN signal
+- **Strong Selling** (bid/ask < 0.8): Strong DOWN signal
+
+### Edge Cases
+
+The prediction engine handles various edge cases:
+
+```python
+# Insufficient data
+try:
+    signal, conf = generate_signal()  # No indicators provided
+except InsufficientDataError:
+    print("Need at least one indicator")
+
+# Invalid RSI
+try:
+    signal, conf = generate_signal(rsi=150.0)  # RSI must be 0-100
+except ValidationError as e:
+    print(f"Validation error: {e}")
+
+# Conflicting signals
+signal, conf = generate_signal(
+    rsi=25.0,         # Says UP (oversold)
+    macd_line=-0.05,
+    macd_signal=0.02  # Says DOWN (bearish)
+)
+# Returns: SIGNAL_SKIP with 0 confidence (no consensus)
+
+# Partial data (only some indicators available)
+signal, conf = generate_signal(rsi=30.0, btc_price=50000.0)
+# Returns: SIGNAL_UP with low confidence (45)
+```
+
+### Integration with MarketData
+
+The prediction engine can work directly with `MarketData` objects (when extended with technical indicator fields):
+
+```python
+from prediction import generate_signal_from_market_data
+from models import MarketData
+
+# Assuming MarketData has been extended with indicator fields
+market_data = MarketData(
+    market_id="btc_5min_001",
+    question="Will BTC go up in next 5 minutes?",
+    # ... other required fields ...
+)
+
+# Add technical indicators to market_data
+market_data.rsi_14 = 35.0
+market_data.macd_line = 0.02
+market_data.macd_signal = 0.01
+market_data.order_book_imbalance = 1.3
+
+# Generate signal
+signal, confidence = generate_signal_from_market_data(market_data)
+```
+
+### Testing
+
+The prediction engine includes 40+ comprehensive test cases covering:
+
+- Individual indicator signal generation
+- Confidence score calculation
+- Edge cases (invalid inputs, insufficient data)
+- Realistic trading scenarios
+- Signal consistency and determinism
+
+Run tests:
+```bash
+pytest tests/test_prediction.py -v
+```
 
 ## State Persistence and Logging
 
