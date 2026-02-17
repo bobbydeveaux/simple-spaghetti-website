@@ -744,3 +744,114 @@ class MarketData(BaseModel):
         total = self.yes_price + self.no_price
         # Allow small tolerance for rounding
         return abs(total - Decimal("1.0")) < Decimal("0.01")
+
+
+class BTCPriceData(BaseModel):
+    """
+    Bitcoin price data from Binance WebSocket.
+
+    Represents a single BTC/USDT price update from the Binance WebSocket feed,
+    including price, volume, and timestamp information.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "symbol": "BTCUSDT",
+                "price": 45678.90,
+                "timestamp": "2024-01-15T10:30:00Z",
+                "volume_24h": 123456789.50,
+                "high_24h": 46000.00,
+                "low_24h": 45000.00,
+                "price_change_24h": 678.90,
+                "price_change_percent_24h": 1.51
+            }
+        }
+    )
+
+    # Symbol
+    symbol: str = Field(
+        default="BTCUSDT",
+        description="Trading pair symbol",
+        min_length=1
+    )
+
+    # Price Data
+    price: Decimal = Field(
+        ...,
+        description="Current BTC price in USDT",
+        gt=0
+    )
+
+    # Timestamp
+    timestamp: datetime = Field(
+        ...,
+        description="Price update timestamp"
+    )
+
+    # 24-Hour Statistics
+    volume_24h: Optional[Decimal] = Field(
+        default=None,
+        description="24-hour trading volume in USDT",
+        ge=0
+    )
+
+    high_24h: Optional[Decimal] = Field(
+        default=None,
+        description="24-hour high price",
+        gt=0
+    )
+
+    low_24h: Optional[Decimal] = Field(
+        default=None,
+        description="24-hour low price",
+        gt=0
+    )
+
+    price_change_24h: Optional[Decimal] = Field(
+        default=None,
+        description="24-hour price change in USDT"
+    )
+
+    price_change_percent_24h: Optional[Decimal] = Field(
+        default=None,
+        description="24-hour price change percentage"
+    )
+
+    # Metadata
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional price data metadata"
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Serialize BTC price data to dictionary.
+
+        Returns:
+            Dictionary representation of the price data
+        """
+        return {
+            "symbol": self.symbol,
+            "price": float(self.price),
+            "timestamp": self.timestamp.isoformat(),
+            "volume_24h": float(self.volume_24h) if self.volume_24h else None,
+            "high_24h": float(self.high_24h) if self.high_24h else None,
+            "low_24h": float(self.low_24h) if self.low_24h else None,
+            "price_change_24h": float(self.price_change_24h) if self.price_change_24h else None,
+            "price_change_percent_24h": float(self.price_change_percent_24h) if self.price_change_percent_24h else None,
+            "metadata": self.metadata
+        }
+
+    def get_mid_range_price(self) -> Optional[Decimal]:
+        """Calculate the mid-range price from 24h high and low."""
+        if self.high_24h and self.low_24h:
+            return (self.high_24h + self.low_24h) / Decimal("2.0")
+        return None
+
+    def get_volatility_percent(self) -> Optional[Decimal]:
+        """Calculate volatility as percentage of price range to mid-range."""
+        if self.high_24h and self.low_24h and self.price:
+            price_range = self.high_24h - self.low_24h
+            return (price_range / self.price) * Decimal("100.0")
+        return None
