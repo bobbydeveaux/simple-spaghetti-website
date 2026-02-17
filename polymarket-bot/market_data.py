@@ -13,11 +13,15 @@ All API calls include retry logic with exponential backoff for reliability.
 import json
 import logging
 import time
+import hmac
+import hashlib
 from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional, Tuple, Dict, Any
 import requests
 from websocket import WebSocketApp, WebSocketException
+import threading
+from collections import deque
 
 from .models import MarketData, OutcomeType
 from .utils import retry_with_backoff, validate_probability, validate_non_empty, RetryError
@@ -54,7 +58,7 @@ class PolymarketClient:
 
         Args:
             api_key: Polymarket API key for authentication
-            api_secret: Polymarket API secret for signing requests
+            api_secret: Polymarket API secret for signing requests with HMAC-SHA256
             base_url: Base URL for Polymarket API (default: https://api.polymarket.com)
 
         Raises:
@@ -70,12 +74,61 @@ class PolymarketClient:
         # Create a session for connection pooling
         self.session = requests.Session()
         self.session.headers.update({
-            "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
             "User-Agent": "PolymarketBot/1.0"
         })
 
         logger.info(f"PolymarketClient initialized with base_url: {self.base_url}")
+
+    def _generate_signature(self, timestamp: str, method: str, path: str, body: str = "") -> str:
+        """
+        Generate HMAC-SHA256 signature for request authentication.
+
+        Args:
+            timestamp: Request timestamp in milliseconds
+            method: HTTP method (GET, POST, etc.)
+            path: Request path (e.g., "/markets")
+            body: Request body as JSON string (empty for GET requests)
+
+        Returns:
+            Hexadecimal signature string
+        """
+        # Create the message to sign: timestamp + method + path + body
+        message = f"{timestamp}{method}{path}{body}"
+
+        # Generate HMAC-SHA256 signature
+        signature = hmac.new(
+            self.api_secret.encode('utf-8'),
+            message.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
+
+        return signature
+
+    def _prepare_authenticated_headers(self, method: str, path: str, body: str = "") -> Dict[str, str]:
+        """
+        Prepare headers with HMAC-SHA256 authentication.
+
+        Args:
+            method: HTTP method (GET, POST, etc.)
+            path: Request path
+            body: Request body as JSON string
+
+        Returns:
+            Dictionary of headers including authentication
+        """
+        # Generate timestamp in milliseconds
+        timestamp = str(int(time.time() * 1000))
+
+        # Generate signature
+        signature = self._generate_signature(timestamp, method, path, body)
+
+        # Return headers with authentication
+        return {
+            "X-API-KEY": self.api_key,
+            "X-SIGNATURE": signature,
+            "X-TIMESTAMP": timestamp
+        }
 
     @retry_with_backoff(
         max_attempts=3,
@@ -107,7 +160,8 @@ class PolymarketClient:
             if market_id:
                 print(f"Found active market: {market_id}")
         """
-        endpoint = f"{self.base_url}/markets"
+        path = "/markets"
+        endpoint = f"{self.base_url}{path}"
         params = {
             "asset": asset,
             "status": "active",
@@ -116,7 +170,9 @@ class PolymarketClient:
 
         try:
             logger.debug(f"Searching for active {asset} markets")
-            response = self.session.get(endpoint, params=params, timeout=10)
+            # Prepare authenticated headers
+            auth_headers = self._prepare_authenticated_headers("GET", path)
+            response = self.session.get(endpoint, params=params, headers=auth_headers, timeout=10)
             response.raise_for_status()
 
             data = response.json()
@@ -176,11 +232,14 @@ class PolymarketClient:
         """
         validate_non_empty(market_id, "market_id")
 
-        endpoint = f"{self.base_url}/markets/{market_id}"
+        path = f"/markets/{market_id}"
+        endpoint = f"{self.base_url}{path}"
 
         try:
             logger.debug(f"Fetching odds for market: {market_id}")
-            response = self.session.get(endpoint, timeout=10)
+            # Prepare authenticated headers
+            auth_headers = self._prepare_authenticated_headers("GET", path)
+            response = self.session.get(endpoint, headers=auth_headers, timeout=10)
             response.raise_for_status()
 
             data = response.json()
@@ -250,11 +309,14 @@ class PolymarketClient:
         """
         validate_non_empty(market_id, "market_id")
 
-        endpoint = f"{self.base_url}/markets/{market_id}"
+        path = f"/markets/{market_id}"
+        endpoint = f"{self.base_url}{path}"
 
         try:
             logger.debug(f"Fetching market details for: {market_id}")
-            response = self.session.get(endpoint, timeout=10)
+            # Prepare authenticated headers
+            auth_headers = self._prepare_authenticated_headers("GET", path)
+            response = self.session.get(endpoint, headers=auth_headers, timeout=10)
             response.raise_for_status()
 
             data = response.json()
@@ -306,11 +368,16 @@ class PolymarketClient:
             # Extract timestamps
             end_date_str = api_response.get("end_date", api_response.get("closing_time"))
             if end_date_str:
-                end_date = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
+                try:
+                    end_date = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"Invalid timestamp format for end_date: {end_date_str}, error: {e}")
+                    from datetime import timedelta, timezone
+                    end_date = datetime.now(timezone.utc) + timedelta(hours=1)
             else:
                 # Default to 1 hour from now if not provided
-                from datetime import timedelta
-                end_date = datetime.utcnow() + timedelta(hours=1)
+                from datetime import timedelta, timezone
+                end_date = datetime.now(timezone.utc) + timedelta(hours=1)
 
             # Extract status
             is_active = api_response.get("is_active", True)
@@ -368,9 +435,12 @@ class BinanceWebSocketClient:
         """
         self.symbol = symbol.lower()
         self.buffer_size = buffer_size
-        self.price_buffer: List[float] = []
+        # Use thread-safe deque for price buffer
+        self.price_buffer: deque = deque(maxlen=buffer_size)
         self.ws_app: Optional[WebSocketApp] = None
+        self.ws_thread: Optional[threading.Thread] = None
         self.is_connected = False
+        self.buffer_lock = threading.Lock()
 
         # WebSocket endpoint for 1-minute klines
         self.ws_url = f"wss://stream.binance.com:9443/ws/{self.symbol}@kline_1m"
@@ -381,8 +451,8 @@ class BinanceWebSocketClient:
         """
         Establish WebSocket connection to Binance.
 
-        Creates and starts the WebSocket connection. This method is non-blocking
-        and returns immediately after starting the connection.
+        Creates and starts the WebSocket connection in a background thread.
+        This method is non-blocking and returns immediately after starting the thread.
 
         Raises:
             BinanceAPIError: If connection fails
@@ -397,8 +467,16 @@ class BinanceWebSocketClient:
             )
 
             logger.info(f"Connecting to Binance WebSocket: {self.ws_url}")
-            # Note: In production, this should run in a separate thread
-            # For now, we'll use a simpler approach
+
+            # Start WebSocket in a background thread
+            self.ws_thread = threading.Thread(
+                target=self.ws_app.run_forever,
+                daemon=True,
+                name=f"BinanceWS-{self.symbol}"
+            )
+            self.ws_thread.start()
+
+            logger.info(f"WebSocket thread started for {self.symbol}")
 
         except Exception as e:
             raise BinanceAPIError(f"Failed to create WebSocket connection: {e}")
@@ -424,12 +502,9 @@ class BinanceWebSocketClient:
             close_price = float(kline.get('c', 0))
 
             if close_price > 0:
-                # Add to buffer
-                self.price_buffer.append(close_price)
-
-                # Maintain buffer size
-                if len(self.price_buffer) > self.buffer_size:
-                    self.price_buffer.pop(0)
+                # Thread-safe append to deque (maxlen handles size automatically)
+                with self.buffer_lock:
+                    self.price_buffer.append(close_price)
 
                 logger.debug(f"BTC price updated: {close_price}")
 
@@ -460,9 +535,11 @@ class BinanceWebSocketClient:
             prices = client.get_latest_prices(50)
             latest_price = prices[-1] if prices else None
         """
-        if count > len(self.price_buffer):
-            return self.price_buffer.copy()
-        return self.price_buffer[-count:]
+        with self.buffer_lock:
+            buffer_list = list(self.price_buffer)
+            if count > len(buffer_list):
+                return buffer_list
+            return buffer_list[-count:]
 
     def get_latest_price(self) -> Optional[float]:
         """
@@ -471,7 +548,8 @@ class BinanceWebSocketClient:
         Returns:
             Latest price or None if no prices available
         """
-        return self.price_buffer[-1] if self.price_buffer else None
+        with self.buffer_lock:
+            return self.price_buffer[-1] if self.price_buffer else None
 
     def close(self) -> None:
         """Close the WebSocket connection."""
@@ -564,28 +642,50 @@ def calculate_macd(
         return None
 
     try:
-        # Calculate EMAs
-        def calculate_ema(data: List[float], period: int) -> float:
-            """Calculate exponential moving average."""
-            multiplier = 2 / (period + 1)
-            ema = sum(data[:period]) / period
+        def calculate_ema_series(data: List[float], period: int) -> List[float]:
+            """Calculate exponential moving average series."""
+            if len(data) < period:
+                return []
 
+            multiplier = 2 / (period + 1)
+            ema_values = []
+
+            # Initial SMA
+            ema = sum(data[:period]) / period
+            ema_values.append(ema)
+
+            # Calculate EMA for remaining values
             for price in data[period:]:
                 ema = (price * multiplier) + (ema * (1 - multiplier))
+                ema_values.append(ema)
 
-            return ema
+            return ema_values
 
-        # Calculate fast and slow EMAs
-        fast_ema = calculate_ema(prices, fast_period)
-        slow_ema = calculate_ema(prices, slow_period)
+        # Calculate fast and slow EMA series
+        fast_ema_series = calculate_ema_series(prices, fast_period)
+        slow_ema_series = calculate_ema_series(prices, slow_period)
 
-        # MACD line
-        macd_line = fast_ema - slow_ema
+        # We need to align the series - slow EMA starts later
+        offset = slow_period - fast_period
+        fast_ema_aligned = fast_ema_series[offset:]
 
-        # Calculate signal line (EMA of MACD line)
-        # For simplicity, we'll use a simple moving average approach
-        # In production, you'd want to maintain a history of MACD values
-        signal_line = macd_line  # Simplified for this implementation
+        # Calculate MACD line series
+        macd_series = [fast - slow for fast, slow in zip(fast_ema_aligned, slow_ema_series)]
+
+        if len(macd_series) < signal_period:
+            logger.warning(f"Insufficient MACD values for signal line: need {signal_period}, got {len(macd_series)}")
+            return None
+
+        # Calculate signal line (EMA of MACD values)
+        multiplier = 2 / (signal_period + 1)
+        signal = sum(macd_series[:signal_period]) / signal_period
+
+        for macd_val in macd_series[signal_period:]:
+            signal = (macd_val * multiplier) + (signal * (1 - multiplier))
+
+        # Return the latest MACD and signal values
+        macd_line = macd_series[-1]
+        signal_line = signal
 
         logger.debug(f"MACD calculated - Line: {macd_line:.2f}, Signal: {signal_line:.2f}")
         return macd_line, signal_line
