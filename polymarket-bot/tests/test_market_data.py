@@ -16,7 +16,7 @@ import json
 import time
 from unittest.mock import Mock, patch, MagicMock
 from decimal import Decimal
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import numpy as np
 import requests
 

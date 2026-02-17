@@ -11,7 +11,7 @@ This module contains comprehensive tests for all data models including:
 import pytest
 import sys
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pydantic import ValidationError
 

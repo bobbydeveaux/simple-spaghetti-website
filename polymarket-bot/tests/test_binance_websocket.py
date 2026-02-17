@@ -11,7 +11,7 @@ This module tests the Binance WebSocket client including:
 import pytest
 from unittest.mock import Mock, patch, MagicMock, call
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import time
 
