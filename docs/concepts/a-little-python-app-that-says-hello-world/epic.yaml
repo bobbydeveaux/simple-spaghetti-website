@@ -1,6 +1,7 @@
 Epic: a-little-python-app-that-says-hello-world
 Features:
-- dependencies: []
+- Sprint: 1
+  dependencies: []
   description: Create a Python script that prints 'Hello World' to stdout
   estimatedComplexity: low
   files:

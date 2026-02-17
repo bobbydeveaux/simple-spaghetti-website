@@ -1,0 +1,9 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: a-little-python-app-that-says-hello-world-feat-hello-script
+        name: Hello World Script
+        type: feature
+        files: [hello.py]
