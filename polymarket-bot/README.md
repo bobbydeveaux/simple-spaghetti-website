@@ -9,7 +9,8 @@ This package provides:
 - **Configuration Management**: Secure API key management and environment-based configuration
 - **Utility Functions**: Retry logic, validation, error handling, and helper functions
 - **Multi-Exchange Support**: Integration with Polymarket, Binance, and CoinGecko APIs
-- **Technical Analysis**: Built-in TA-Lib support for technical indicators
+- **Real-Time Market Data**: WebSocket streaming from Binance with automatic reconnection
+- **Technical Analysis**: RSI, MACD indicators, and order book imbalance calculations using TA-Lib
 
 ## Features
 
@@ -22,9 +23,12 @@ This package provides:
 
 ### Technical Capabilities
 - **Environment Configuration**: Secure API key management using `.env` files
-- **WebSocket Support**: Real-time market data streaming
+- **WebSocket Streaming**: Real-time BTC/USDT price streaming from Binance with automatic reconnection
+- **Technical Indicators**: RSI(14) and MACD calculations using TA-Lib for momentum analysis
+- **Order Book Analysis**: Real-time bid/ask imbalance calculations for market pressure detection
+- **Multi-Source Data**: Aggregates data from Binance, Polymarket, with CoinGecko fallback
 - **Configurable Risk Management**: Customizable position sizing and stop-loss parameters
-- **Retry Logic**: Exponential backoff for resilient API calls
+- **Retry Logic**: Exponential backoff for resilient API calls and WebSocket reconnection
 - **Validation Functions**: Type checking, range validation, and data validation
 - **Error Handling**: Consistent error logging and handling across the bot
 
@@ -32,14 +36,16 @@ This package provides:
 
 ```
 polymarket-bot/
-├── __init__.py         # Package initialization
-├── config.py           # Configuration management
-├── models.py           # Core data models (BotState, Trade, Position, MarketData)
-├── utils.py            # Utility functions (retry, validation, error handling)
-├── tests/              # Comprehensive test suite
-│   └── test_models.py  # Model validation tests
-├── test_config.py      # Configuration tests
-└── README.md           # This file
+├── __init__.py            # Package initialization
+├── config.py              # Configuration management
+├── models.py              # Core data models (BotState, Trade, Position, MarketData)
+├── market_data.py         # Market data service (Binance WebSocket, technical indicators)
+├── utils.py               # Utility functions (retry, validation, error handling)
+├── tests/                 # Comprehensive test suite
+│   ├── test_models.py     # Model validation tests
+│   └── test_market_data.py # Market data service tests
+├── test_config.py         # Configuration tests
+└── README.md              # This file
 ```
 
 ## Installation
@@ -407,6 +413,235 @@ bet_size = clamp(calculated_size, min_bet=10, max_bet=1000)
 
 # Format currency
 display_amount = format_currency(123.456, "USDC", 2)  # "123.46 USDC"
+```
+
+## Market Data Service
+
+The `market_data.py` module provides real-time market data integration with WebSocket streaming, technical indicators, and multi-exchange support.
+
+### BinanceWebSocketClient
+
+Real-time BTC/USDT price streaming via WebSocket with automatic reconnection.
+
+**Features:**
+- WebSocket connection to Binance with automatic reconnection
+- Rolling price buffer for technical indicator calculations
+- Thread-safe price retrieval
+- Configurable reconnection attempts and delays
+- Exponential backoff for connection failures
+
+**Example:**
+
+```python
+from market_data import BinanceWebSocketClient
+
+# Initialize and connect
+client = BinanceWebSocketClient(buffer_size=100)
+client.connect()
+
+# Wait for price data to accumulate
+import time
+time.sleep(5)
+
+# Get latest prices for indicator calculations
+prices = client.get_latest_prices(count=50)
+print(f"Collected {len(prices)} prices")
+
+# Get single latest price
+latest_price = client.get_latest_price()
+print(f"Current BTC price: ${latest_price:.2f}")
+
+# Close connection when done
+client.close()
+```
+
+**Configuration:**
+- `WS_RECONNECT_DELAY`: Seconds between reconnection attempts (default: 5)
+- `WS_MAX_RECONNECT_ATTEMPTS`: Maximum reconnection attempts (default: 10)
+
+### PolymarketClient
+
+REST API client for Polymarket market discovery and odds retrieval.
+
+**Features:**
+- Market search and discovery
+- Real-time odds retrieval
+- Authenticated API access
+- Error handling with retries
+
+**Example:**
+
+```python
+from market_data import PolymarketClient
+from config import get_config
+
+config = get_config()
+client = PolymarketClient(
+    api_key=config.polymarket_api_key,
+    api_secret=config.polymarket_api_secret
+)
+
+# Find active BTC markets
+market_id = client.find_active_market()
+if market_id:
+    print(f"Found active market: {market_id}")
+
+    # Get current odds
+    yes_odds, no_odds = client.get_market_odds(market_id)
+    print(f"YES: {yes_odds:.4f}, NO: {no_odds:.4f}")
+```
+
+### Technical Indicators
+
+Calculate RSI and MACD indicators using TA-Lib for technical analysis.
+
+**RSI (Relative Strength Index):**
+
+```python
+from market_data import calculate_rsi
+
+# Calculate RSI from price data
+prices = [45000, 45100, 45050, ...]  # List of prices
+rsi = calculate_rsi(prices, period=14)
+
+print(f"RSI(14): {rsi:.2f}")
+
+# Interpret RSI
+if rsi > 70:
+    print("Overbought condition")
+elif rsi < 30:
+    print("Oversold condition")
+```
+
+**MACD (Moving Average Convergence Divergence):**
+
+```python
+from market_data import calculate_macd
+
+# Calculate MACD
+prices = [45000, 45100, 45050, ...]  # Need at least 34 prices
+macd_line, signal_line = calculate_macd(prices)
+
+print(f"MACD: {macd_line:.2f}, Signal: {signal_line:.2f}")
+
+# Interpret MACD
+if macd_line > signal_line:
+    print("Bullish crossover - potential buy signal")
+else:
+    print("Bearish crossover - potential sell signal")
+```
+
+### Order Book Imbalance
+
+Calculate bid/ask volume ratio to measure market pressure.
+
+**Example:**
+
+```python
+from market_data import get_order_book_imbalance
+
+# Get current order book imbalance
+imbalance = get_order_book_imbalance()
+
+print(f"Order book imbalance: {imbalance:.4f}")
+
+# Interpret imbalance
+if imbalance > 1.1:
+    print("Strong buying pressure")
+elif imbalance < 0.9:
+    print("Strong selling pressure")
+else:
+    print("Neutral market")
+```
+
+### Market Data Aggregation
+
+Combine all data sources into a single MarketData object.
+
+**Example:**
+
+```python
+from market_data import (
+    BinanceWebSocketClient,
+    PolymarketClient,
+    get_market_data
+)
+from config import get_config
+
+# Initialize clients
+config = get_config()
+binance_client = BinanceWebSocketClient()
+binance_client.connect()
+
+polymarket_client = PolymarketClient(
+    api_key=config.polymarket_api_key,
+    api_secret=config.polymarket_api_secret
+)
+
+# Wait for price data to accumulate
+import time
+time.sleep(10)
+
+# Aggregate all market data
+market_data = get_market_data(
+    binance_client=binance_client,
+    polymarket_client=polymarket_client,
+    market_id="market_123"  # Optional - will search if not provided
+)
+
+# Access aggregated data
+print(f"Market: {market_data.market_id}")
+print(f"YES odds: {market_data.yes_price}")
+print(f"NO odds: {market_data.no_price}")
+
+# Access technical indicators from metadata
+print(f"BTC Price: ${market_data.metadata['btc_price']:.2f}")
+print(f"RSI(14): {market_data.metadata['rsi_14']:.2f}")
+print(f"MACD: {market_data.metadata['macd_line']:.2f}")
+print(f"Signal: {market_data.metadata['macd_signal']:.2f}")
+print(f"Order Book Imbalance: {market_data.metadata['order_book_imbalance']:.4f}")
+
+# Clean up
+binance_client.close()
+```
+
+### Fallback Price Retrieval
+
+CoinGecko fallback when Binance is unavailable.
+
+**Example:**
+
+```python
+from market_data import get_fallback_btc_price
+
+try:
+    # Use as fallback when WebSocket fails
+    btc_price = get_fallback_btc_price()
+    print(f"BTC price from CoinGecko: ${btc_price:.2f}")
+except ConnectionError as e:
+    print(f"Fallback failed: {e}")
+```
+
+### Error Handling
+
+The market_data module implements robust error handling:
+
+- **WebSocket disconnections**: Automatic reconnection with exponential backoff
+- **API failures**: Retry logic with configurable attempts
+- **Insufficient data**: Clear error messages for indicator calculations
+- **Zero division**: Safe handling of edge cases in calculations
+
+**Example:**
+
+```python
+from market_data import calculate_rsi
+
+try:
+    prices = [100, 101, 102]  # Too few prices
+    rsi = calculate_rsi(prices, period=14)
+except ValueError as e:
+    print(f"Error: {e}")
+    # Output: "Insufficient price data for RSI calculation. Need at least 15 prices, got 3"
 ```
 
 ## Usage Example - Complete Trading Bot
