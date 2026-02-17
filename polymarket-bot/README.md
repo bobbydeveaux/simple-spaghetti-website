@@ -331,6 +331,7 @@ The `market_data` module provides comprehensive market data integration with Pol
 REST API client for discovering active markets and retrieving odds.
 
 **Key Features:**
+- Secure HMAC-SHA256 request signing for API authentication
 - Market discovery with BTC asset filtering
 - Current odds retrieval for Yes/No positions
 - Automatic retry logic with exponential backoff
@@ -370,6 +371,11 @@ client.close()
 - `get_market_odds(market_id)`: Retrieve current YES/NO odds
 - `get_market_details(market_id)`: Get complete market information as MarketData object
 
+**Security & Authentication:**
+- All API requests are authenticated using HMAC-SHA256 signatures
+- API secret is used for request signing, never sent in request headers
+- Each request includes timestamp, method, path, and body in the signature
+
 **Error Handling:**
 - Automatic retry on transient failures (3 attempts with exponential backoff)
 - Graceful handling of rate limits (429 responses)
@@ -383,7 +389,8 @@ WebSocket client for real-time BTC price streaming from Binance.
 - Real-time 1-minute kline (candlestick) data
 - Price buffer for technical indicator calculations
 - Automatic reconnection handling
-- Thread-safe price access
+- Thread-safe price access with mutex locks protecting the buffer
+- WebSocket runs in background daemon thread
 
 **Example:**
 ```python

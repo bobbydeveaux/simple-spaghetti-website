@@ -51,8 +51,8 @@ class TestPolymarketClient:
         assert client.api_key == "test_api_key"
         assert client.api_secret == "test_api_secret"
         assert client.base_url == "https://api.polymarket.com"
-        assert "Authorization" in client.session.headers
-        assert client.session.headers["Authorization"] == "Bearer test_api_key"
+        assert "Content-Type" in client.session.headers
+        assert client.session.headers["Content-Type"] == "application/json"
 
     def test_client_initialization_empty_api_key(self):
         """Test that client raises ValueError with empty API key."""
@@ -63,6 +63,40 @@ class TestPolymarketClient:
         """Test that client raises ValueError with empty API secret."""
         with pytest.raises(Exception):  # ValidationError from utils
             PolymarketClient(api_key="key", api_secret="")
+
+    def test_generate_signature(self, client):
+        """Test HMAC-SHA256 signature generation."""
+        timestamp = "1234567890000"
+        method = "GET"
+        path = "/markets"
+        body = ""
+
+        signature = client._generate_signature(timestamp, method, path, body)
+
+        # Signature should be a hexadecimal string
+        assert isinstance(signature, str)
+        assert len(signature) == 64  # SHA256 produces 64 hex characters
+        assert all(c in '0123456789abcdef' for c in signature)
+
+        # Same inputs should produce same signature (deterministic)
+        signature2 = client._generate_signature(timestamp, method, path, body)
+        assert signature == signature2
+
+    def test_prepare_authenticated_headers(self, client):
+        """Test authenticated headers preparation."""
+        method = "GET"
+        path = "/markets"
+        body = ""
+
+        headers = client._prepare_authenticated_headers(method, path, body)
+
+        # Should contain required authentication headers
+        assert "X-API-KEY" in headers
+        assert "X-SIGNATURE" in headers
+        assert "X-TIMESTAMP" in headers
+        assert headers["X-API-KEY"] == "test_api_key"
+        assert len(headers["X-SIGNATURE"]) == 64
+        assert headers["X-TIMESTAMP"].isdigit()
 
     @patch('market_data.requests.Session.get')
     def test_find_active_market_success(self, mock_get, client):
@@ -554,8 +588,8 @@ class TestOrderBookImbalance:
 
         imbalance = get_order_book_imbalance("BTCUSDT")
 
-        # Should handle gracefully
-        assert imbalance == 0 or imbalance is None
+        # Should return None for invalid response
+        assert imbalance is None
 
 
 if __name__ == "__main__":
