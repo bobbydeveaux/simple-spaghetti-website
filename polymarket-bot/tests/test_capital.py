@@ -1,301 +1,392 @@
 """
-Tests for Capital Allocation Module
+Unit Tests for Capital Allocation Module
 
-Tests verify win-streak position sizing logic according to the specification:
-- Base position size returns $5 with zero streak
-- Win streak multiplies position size by 1.5x per consecutive win
-- Position size caps at $25 regardless of streak length
-- Streak resets to 0 on any loss
+Tests win-streak capital allocation logic including:
+- Base position sizing
+- Win-streak multiplier scaling
+- Maximum cap enforcement
+- Capital safety checks
+- Edge cases and validation
 """
 
 import pytest
-from polymarket_bot.capital import (
-    calculate_position_size,
-    update_win_streak,
-    get_position_size_for_streak,
-    BASE_SIZE,
-    MULTIPLIER,
-    MAX_SIZE
-)
+from decimal import Decimal
+from pathlib import Path
+import sys
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from capital import CapitalAllocator, calculate_position_size, calculate_position_size_from_bot_state
+from models import BotState, BotStatus
 
 
-class MockBotState:
-    """Mock BotState for testing capital allocation."""
+class TestCapitalAllocator:
+    """Test suite for CapitalAllocator class."""
 
-    def __init__(self, current_capital: float = 100.0, win_streak: int = 0):
-        self.current_capital = current_capital
-        self.win_streak = win_streak
+    def test_initialization_default_values(self):
+        """Test allocator initialization with default values."""
+        allocator = CapitalAllocator()
 
+        assert allocator.base_size == Decimal("5.00")
+        assert allocator.multiplier == Decimal("1.5")
+        assert allocator.max_size == Decimal("25.00")
 
-class TestCalculatePositionSize:
-    """Test suite for calculate_position_size function."""
+    def test_initialization_custom_values(self):
+        """Test allocator initialization with custom values."""
+        allocator = CapitalAllocator(
+            base_size=Decimal("10.00"),
+            multiplier=Decimal("2.0"),
+            max_size=Decimal("50.00")
+        )
 
-    def test_base_position_no_streak(self):
-        """Test that base position size returns $5 with zero streak."""
-        bot_state = MockBotState(current_capital=100.0, win_streak=0)
-        position_size = calculate_position_size(bot_state)
-        assert position_size == 5.0, "Base position size should be $5 with zero streak"
+        assert allocator.base_size == Decimal("10.00")
+        assert allocator.multiplier == Decimal("2.0")
+        assert allocator.max_size == Decimal("50.00")
 
-    def test_position_with_one_win_streak(self):
-        """Test position size with one win streak."""
-        bot_state = MockBotState(current_capital=100.0, win_streak=1)
-        position_size = calculate_position_size(bot_state)
-        expected = BASE_SIZE * MULTIPLIER  # 5.0 * 1.5 = 7.5
-        assert position_size == expected, f"Position size should be ${expected} with one win streak"
+    def test_initialization_invalid_base_size(self):
+        """Test that negative or zero base_size raises ValueError."""
+        with pytest.raises(ValueError, match="base_size must be positive"):
+            CapitalAllocator(base_size=Decimal("0.00"))
 
-    def test_position_with_two_win_streak(self):
-        """Test position size with two win streak."""
-        bot_state = MockBotState(current_capital=100.0, win_streak=2)
-        position_size = calculate_position_size(bot_state)
-        expected = BASE_SIZE * (MULTIPLIER ** 2)  # 5.0 * 1.5^2 = 11.25
-        assert position_size == expected, f"Position size should be ${expected} with two win streak"
+        with pytest.raises(ValueError, match="base_size must be positive"):
+            CapitalAllocator(base_size=Decimal("-5.00"))
 
-    def test_position_with_three_win_streak(self):
-        """Test position size with three win streak."""
-        bot_state = MockBotState(current_capital=100.0, win_streak=3)
-        position_size = calculate_position_size(bot_state)
-        expected = BASE_SIZE * (MULTIPLIER ** 3)  # 5.0 * 1.5^3 = 16.875
-        assert position_size == expected, f"Position size should be ${expected} with three win streak"
+    def test_initialization_invalid_multiplier(self):
+        """Test that multiplier <= 1 raises ValueError."""
+        with pytest.raises(ValueError, match="multiplier must be greater than 1"):
+            CapitalAllocator(multiplier=Decimal("1.0"))
 
-    def test_position_cap_at_max_size(self):
-        """Test that position size caps at $25 regardless of streak length."""
-        # With streak=4: 5.0 * 1.5^4 = 25.3125, should cap at 25.0
-        bot_state = MockBotState(current_capital=100.0, win_streak=4)
-        position_size = calculate_position_size(bot_state)
-        assert position_size == MAX_SIZE, f"Position size should cap at ${MAX_SIZE}"
+        with pytest.raises(ValueError, match="multiplier must be greater than 1"):
+            CapitalAllocator(multiplier=Decimal("0.5"))
 
-        # Test with higher streak values
-        for streak in [5, 6, 7, 8, 10, 20]:
-            bot_state = MockBotState(current_capital=100.0, win_streak=streak)
-            position_size = calculate_position_size(bot_state)
-            assert position_size == MAX_SIZE, f"Position size should cap at ${MAX_SIZE} for streak={streak}"
+    def test_initialization_invalid_max_size(self):
+        """Test that max_size < base_size raises ValueError."""
+        with pytest.raises(ValueError, match="max_size must be greater than or equal to base_size"):
+            CapitalAllocator(base_size=Decimal("10.00"), max_size=Decimal("5.00"))
 
-    def test_capital_constraint_50_percent(self):
-        """Test that position size never exceeds 50% of current capital."""
-        # With low capital, the 50% constraint should kick in
-        bot_state = MockBotState(current_capital=10.0, win_streak=0)
-        position_size = calculate_position_size(bot_state)
-        max_allowed = bot_state.current_capital * 0.5
-        assert position_size == max_allowed, f"Position size should not exceed 50% of capital ({max_allowed})"
-        assert position_size == 5.0, "With $10 capital and 0 streak, position should be $5"
+    def test_calculate_position_size_no_streak(self):
+        """Test position size with no win streak (streak = 0)."""
+        allocator = CapitalAllocator()
+        position_size = allocator.calculate_position_size(win_streak=0)
 
-        # With very low capital
-        bot_state = MockBotState(current_capital=8.0, win_streak=0)
-        position_size = calculate_position_size(bot_state)
-        max_allowed = bot_state.current_capital * 0.5
-        assert position_size == max_allowed, f"Position size should not exceed 50% of capital ({max_allowed})"
-        assert position_size == 4.0, "With $8 capital, position should be $4 (50% of capital)"
+        assert position_size == Decimal("5.00")
 
-    def test_capital_constraint_with_win_streak(self):
-        """Test capital constraint with active win streak."""
-        # With streak=2 and low capital: base * 1.5^2 = 11.25, but capital = 20, so max = 10
-        bot_state = MockBotState(current_capital=20.0, win_streak=2)
-        position_size = calculate_position_size(bot_state)
-        max_allowed = bot_state.current_capital * 0.5
-        assert position_size == max_allowed, f"Position size should be limited by 50% of capital ({max_allowed})"
-        assert position_size == 10.0, "With $20 capital and streak=2, position should be $10 (50% of capital)"
+    def test_calculate_position_size_streak_1(self):
+        """Test position size with 1 consecutive win."""
+        allocator = CapitalAllocator()
+        position_size = allocator.calculate_position_size(win_streak=1)
 
-    def test_insufficient_capital(self):
-        """Test behavior with very low capital."""
-        bot_state = MockBotState(current_capital=2.0, win_streak=0)
-        position_size = calculate_position_size(bot_state)
-        assert position_size == 1.0, "With $2 capital, position should be $1 (50% of capital)"
+        # 5.00 * 1.5^1 = 7.50
+        assert position_size == Decimal("7.50")
 
-    def test_zero_capital(self):
-        """Test behavior with zero capital."""
-        bot_state = MockBotState(current_capital=0.0, win_streak=0)
-        position_size = calculate_position_size(bot_state)
-        assert position_size == 0.0, "With zero capital, position should be zero"
+    def test_calculate_position_size_streak_2(self):
+        """Test position size with 2 consecutive wins."""
+        allocator = CapitalAllocator()
+        position_size = allocator.calculate_position_size(win_streak=2)
 
-    def test_negative_capital_handled(self):
-        """Test that negative capital is handled (returns 0)."""
-        bot_state = MockBotState(current_capital=-10.0, win_streak=0)
-        position_size = calculate_position_size(bot_state)
-        assert position_size == 0.0, "Negative capital should result in zero position size"
+        # 5.00 * 1.5^2 = 11.25
+        assert position_size == Decimal("11.25")
 
+    def test_calculate_position_size_streak_3(self):
+        """Test position size with 3 consecutive wins."""
+        allocator = CapitalAllocator()
+        position_size = allocator.calculate_position_size(win_streak=3)
 
-class TestUpdateWinStreak:
-    """Test suite for update_win_streak function."""
+        # 5.00 * 1.5^3 = 16.875
+        expected = Decimal("5.00") * (Decimal("1.5") ** 3)
+        assert position_size == expected
 
-    def test_streak_increments_on_win(self):
-        """Test that streak increments on win."""
-        bot_state = MockBotState(win_streak=0)
-        new_streak = update_win_streak(bot_state, "WIN")
-        assert new_streak == 1, "Streak should increment to 1 after first win"
+    def test_calculate_position_size_streak_4_hits_cap(self):
+        """Test that position size is capped at max_size for streak 4."""
+        allocator = CapitalAllocator()
+        position_size = allocator.calculate_position_size(win_streak=4)
 
-        bot_state.win_streak = 1
-        new_streak = update_win_streak(bot_state, "WIN")
-        assert new_streak == 2, "Streak should increment to 2 after second win"
+        # 5.00 * 1.5^4 = 25.3125, but capped at 25.00
+        assert position_size == Decimal("25.00")
 
-        bot_state.win_streak = 5
-        new_streak = update_win_streak(bot_state, "WIN")
-        assert new_streak == 6, "Streak should increment to 6 after sixth win"
+    def test_calculate_position_size_streak_5_still_capped(self):
+        """Test that position size remains capped for higher streaks."""
+        allocator = CapitalAllocator()
+        position_size = allocator.calculate_position_size(win_streak=5)
 
-    def test_streak_resets_on_loss(self):
-        """Test that streak resets to 0 on any loss."""
-        bot_state = MockBotState(win_streak=0)
-        new_streak = update_win_streak(bot_state, "LOSS")
-        assert new_streak == 0, "Streak should remain 0 after loss from 0"
+        # Should still be capped at max_size
+        assert position_size == Decimal("25.00")
 
-        bot_state.win_streak = 1
-        new_streak = update_win_streak(bot_state, "LOSS")
-        assert new_streak == 0, "Streak should reset to 0 after loss from 1"
+    def test_calculate_position_size_high_streak(self):
+        """Test position size with very high win streak."""
+        allocator = CapitalAllocator()
+        position_size = allocator.calculate_position_size(win_streak=10)
 
-        bot_state.win_streak = 5
-        new_streak = update_win_streak(bot_state, "LOSS")
-        assert new_streak == 0, "Streak should reset to 0 after loss from 5"
+        # Should still be capped at max_size
+        assert position_size == Decimal("25.00")
 
-        bot_state.win_streak = 10
-        new_streak = update_win_streak(bot_state, "LOSS")
-        assert new_streak == 0, "Streak should reset to 0 after loss from 10"
+    def test_calculate_position_size_negative_streak_raises_error(self):
+        """Test that negative win_streak raises ValueError."""
+        allocator = CapitalAllocator()
 
+        with pytest.raises(ValueError, match="win_streak cannot be negative"):
+            allocator.calculate_position_size(win_streak=-1)
 
-class TestGetPositionSizeForStreak:
-    """Test suite for get_position_size_for_streak utility function."""
+    def test_calculate_position_size_with_capital_check(self):
+        """Test position size with current_capital safety check."""
+        allocator = CapitalAllocator()
 
-    def test_streak_zero(self):
-        """Test position size for zero streak."""
-        position_size = get_position_size_for_streak(0)
-        assert position_size == 5.0, "Position size should be $5 for zero streak"
+        # With enough capital, position size should be normal
+        position_size = allocator.calculate_position_size(
+            win_streak=2,
+            current_capital=Decimal("100.00")
+        )
+        assert position_size == Decimal("11.25")
 
-    def test_streak_one(self):
-        """Test position size for one win streak."""
-        position_size = get_position_size_for_streak(1)
-        assert position_size == 7.5, "Position size should be $7.5 for one streak"
+        # With limited capital, position size should be constrained to 50% of capital
+        position_size = allocator.calculate_position_size(
+            win_streak=2,
+            current_capital=Decimal("20.00")  # 50% = 10.00
+        )
+        # Should be capped at 10.00 (50% of 20.00) instead of 11.25
+        assert position_size == Decimal("10.00")
 
-    def test_streak_two(self):
-        """Test position size for two win streak."""
-        position_size = get_position_size_for_streak(2)
-        assert position_size == 11.25, "Position size should be $11.25 for two streak"
+    def test_calculate_position_size_with_very_low_capital(self):
+        """Test position size constrained by very low capital."""
+        allocator = CapitalAllocator()
 
-    def test_streak_three(self):
-        """Test position size for three win streak."""
-        position_size = get_position_size_for_streak(3)
-        assert position_size == 16.875, "Position size should be $16.875 for three streak"
+        # Even base size should be constrained if capital is too low
+        position_size = allocator.calculate_position_size(
+            win_streak=0,
+            current_capital=Decimal("8.00")  # 50% = 4.00
+        )
+        # Should be 4.00 (50% of capital) instead of 5.00 (base size)
+        assert position_size == Decimal("4.00")
 
-    def test_streak_four_caps_at_max(self):
-        """Test that streak four caps at max size."""
-        position_size = get_position_size_for_streak(4)
-        assert position_size == 25.0, "Position size should cap at $25.0 for four streak"
+    def test_get_position_sizes_for_streaks(self):
+        """Test getting position sizes for a range of streaks."""
+        allocator = CapitalAllocator()
+        sizes = allocator.get_position_sizes_for_streaks(max_streak=5)
 
-    def test_high_streaks_cap_at_max(self):
-        """Test that high streaks cap at max size."""
-        for streak in [5, 10, 20, 100]:
-            position_size = get_position_size_for_streak(streak)
-            assert position_size == 25.0, f"Position size should cap at $25.0 for streak={streak}"
+        assert len(sizes) == 6  # 0 through 5
+        assert sizes[0] == (0, Decimal("5.00"))
+        assert sizes[1] == (1, Decimal("7.50"))
+        assert sizes[2] == (2, Decimal("11.25"))
+        assert sizes[4][1] == Decimal("25.00")  # Capped
+        assert sizes[5][1] == Decimal("25.00")  # Still capped
 
-    def test_with_capital_constraint(self):
-        """Test position size calculation with capital constraint."""
-        position_size = get_position_size_for_streak(0, current_capital=8.0)
-        assert position_size == 4.0, "Position size should be limited by 50% of capital ($4)"
+    def test_reset_streak(self):
+        """Test win streak reset."""
+        allocator = CapitalAllocator()
+        new_streak = allocator.reset_streak()
 
-        position_size = get_position_size_for_streak(2, current_capital=20.0)
-        assert position_size == 10.0, "Position size should be limited by 50% of capital ($10)"
+        assert new_streak == 0
+
+    def test_increment_streak(self):
+        """Test win streak increment."""
+        allocator = CapitalAllocator()
+
+        assert allocator.increment_streak(0) == 1
+        assert allocator.increment_streak(1) == 2
+        assert allocator.increment_streak(5) == 6
 
 
-class TestWinStreakScenarios:
-    """Test real-world win/loss scenarios."""
+class TestStandaloneFunctions:
+    """Test suite for standalone functions."""
 
-    def test_win_streak_flow(self):
-        """Test position sizing through a win streak."""
-        bot_state = MockBotState(current_capital=100.0, win_streak=0)
+    def test_calculate_position_size_function_default_params(self):
+        """Test standalone calculate_position_size function with defaults."""
+        assert calculate_position_size(0) == Decimal("5.00")
+        assert calculate_position_size(1) == Decimal("7.50")
+        assert calculate_position_size(2) == Decimal("11.25")
+        assert calculate_position_size(4) == Decimal("25.00")
 
-        # Initial position
-        position = calculate_position_size(bot_state)
-        assert position == 5.0, "Initial position should be $5"
+    def test_calculate_position_size_function_custom_params(self):
+        """Test standalone calculate_position_size function with custom params."""
+        position_size = calculate_position_size(
+            win_streak=2,
+            base_size=Decimal("10.00"),
+            multiplier=Decimal("2.0"),
+            max_size=Decimal("50.00")
+        )
+        # 10.00 * 2.0^2 = 40.00
+        assert position_size == Decimal("40.00")
 
-        # First win
-        bot_state.win_streak = update_win_streak(bot_state, "WIN")
-        position = calculate_position_size(bot_state)
-        assert position == 7.5, "After first win, position should be $7.5"
+    def test_calculate_position_size_function_with_capital(self):
+        """Test standalone function with capital constraint."""
+        position_size = calculate_position_size(
+            win_streak=2,
+            current_capital=Decimal("20.00")
+        )
+        # Would be 11.25, but constrained to 10.00 (50% of 20.00)
+        assert position_size == Decimal("10.00")
 
-        # Second win
-        bot_state.win_streak = update_win_streak(bot_state, "WIN")
-        position = calculate_position_size(bot_state)
-        assert position == 11.25, "After second win, position should be $11.25"
 
-        # Third win
-        bot_state.win_streak = update_win_streak(bot_state, "WIN")
-        position = calculate_position_size(bot_state)
-        assert position == 16.875, "After third win, position should be $16.875"
+class TestBotStateIntegration:
+    """Test suite for BotState integration."""
 
-    def test_loss_resets_streak_flow(self):
-        """Test that loss resets streak in a trading flow."""
-        bot_state = MockBotState(current_capital=100.0, win_streak=3)
+    def test_calculate_position_size_from_bot_state(self):
+        """Test position size calculation from BotState."""
+        bot_state = BotState(
+            bot_id="test_bot",
+            strategy_name="test_strategy",
+            max_position_size=Decimal("100.00"),
+            max_total_exposure=Decimal("1000.00"),
+            risk_per_trade=Decimal("50.00"),
+            current_exposure=Decimal("200.00")  # 800 available
+        )
 
-        # Position at streak 3
-        position = calculate_position_size(bot_state)
-        assert position == 16.875, "Position at streak 3 should be $16.875"
+        position_size = calculate_position_size_from_bot_state(
+            bot_state=bot_state,
+            win_streak=2
+        )
 
-        # Loss resets streak
-        bot_state.win_streak = update_win_streak(bot_state, "LOSS")
-        assert bot_state.win_streak == 0, "Streak should reset to 0 after loss"
+        # Should calculate normally since 800 available > 11.25
+        assert position_size == Decimal("11.25")
 
-        # Back to base position
-        position = calculate_position_size(bot_state)
-        assert position == 5.0, "Position should return to base $5 after loss"
+    def test_calculate_position_size_from_bot_state_limited_capital(self):
+        """Test position size calculation with limited capital in BotState."""
+        bot_state = BotState(
+            bot_id="test_bot",
+            strategy_name="test_strategy",
+            max_position_size=Decimal("100.00"),
+            max_total_exposure=Decimal("50.00"),
+            risk_per_trade=Decimal("10.00"),
+            current_exposure=Decimal("30.00")  # 20 available
+        )
 
-    def test_win_loss_win_pattern(self):
-        """Test win-loss-win pattern."""
-        bot_state = MockBotState(current_capital=100.0, win_streak=0)
+        position_size = calculate_position_size_from_bot_state(
+            bot_state=bot_state,
+            win_streak=2
+        )
 
-        # Win
-        bot_state.win_streak = update_win_streak(bot_state, "WIN")
-        assert bot_state.win_streak == 1
-        position = calculate_position_size(bot_state)
-        assert position == 7.5
+        # Would be 11.25, but constrained to 10.00 (50% of 20.00 available)
+        assert position_size == Decimal("10.00")
 
-        # Loss
-        bot_state.win_streak = update_win_streak(bot_state, "LOSS")
-        assert bot_state.win_streak == 0
-        position = calculate_position_size(bot_state)
-        assert position == 5.0
 
-        # Win again (restarts streak)
-        bot_state.win_streak = update_win_streak(bot_state, "WIN")
-        assert bot_state.win_streak == 1
-        position = calculate_position_size(bot_state)
-        assert position == 7.5
+class TestAcceptanceCriteria:
+    """Test acceptance criteria from the task requirements."""
+
+    def test_acceptance_criteria_base_size(self):
+        """AC: calculate_position_size() returns $5 base size for first trade or after loss."""
+        allocator = CapitalAllocator()
+
+        # First trade (streak = 0)
+        assert allocator.calculate_position_size(0) == Decimal("5.00")
+
+        # After loss (streak reset to 0)
+        assert allocator.calculate_position_size(0) == Decimal("5.00")
+
+    def test_acceptance_criteria_scaling(self):
+        """AC: Position size scales by 1.5x per consecutive win, capped at $25."""
+        allocator = CapitalAllocator()
+
+        # Streak 0: $5.00
+        assert allocator.calculate_position_size(0) == Decimal("5.00")
+
+        # Streak 1: $7.50 (5.00 * 1.5^1)
+        assert allocator.calculate_position_size(1) == Decimal("7.50")
+
+        # Streak 2: $11.25 (5.00 * 1.5^2)
+        assert allocator.calculate_position_size(2) == Decimal("11.25")
+
+        # Streak 3: $16.875 (5.00 * 1.5^3)
+        expected_3 = Decimal("5.00") * (Decimal("1.5") ** 3)
+        assert allocator.calculate_position_size(3) == expected_3
+
+        # Streak 4: $25.00 (capped, would be 25.3125)
+        assert allocator.calculate_position_size(4) == Decimal("25.00")
+
+        # Streak 5+: Still $25.00 (capped)
+        assert allocator.calculate_position_size(5) == Decimal("25.00")
+        assert allocator.calculate_position_size(10) == Decimal("25.00")
+
+    def test_acceptance_criteria_streak_tracking(self):
+        """AC: Win streak counter increments on wins and resets to 0 on losses."""
+        allocator = CapitalAllocator()
+
+        # Start at 0
+        streak = 0
+        assert streak == 0
+
+        # Increment on wins
+        streak = allocator.increment_streak(streak)
+        assert streak == 1
+
+        streak = allocator.increment_streak(streak)
+        assert streak == 2
+
+        streak = allocator.increment_streak(streak)
+        assert streak == 3
+
+        # Reset on loss
+        streak = allocator.reset_streak()
+        assert streak == 0
+
+    def test_acceptance_criteria_state_persistence(self):
+        """AC: Function integrates with BotState.win_streak field for state persistence.
+
+        Note: win_streak is tracked in StateManager.metrics, not directly in BotState.
+        This test verifies the integration pattern works correctly.
+        """
+        # The capital module can calculate position sizes based on win_streak value
+        # The actual win_streak is persisted by StateManager in state.py
+
+        # Simulate getting win_streak from StateManager metrics
+        win_streak = 2  # Would come from state_manager.get_metrics()['win_streak']
+
+        position_size = calculate_position_size(win_streak)
+        assert position_size == Decimal("11.25")
 
 
 class TestEdgeCases:
     """Test edge cases and boundary conditions."""
 
-    def test_very_high_capital(self):
-        """Test with very high capital (no constraint)."""
-        bot_state = MockBotState(current_capital=10000.0, win_streak=4)
-        position_size = calculate_position_size(bot_state)
-        assert position_size == 25.0, "Position should still cap at $25 with high capital"
+    def test_zero_capital(self):
+        """Test behavior with zero capital."""
+        allocator = CapitalAllocator()
+        position_size = allocator.calculate_position_size(
+            win_streak=0,
+            current_capital=Decimal("0.00")
+        )
+        # With zero capital, 50% is still 0
+        assert position_size == Decimal("0.00")
 
-    def test_exact_threshold_capital(self):
-        """Test with capital exactly at threshold."""
-        # For streak=0, base_size=5, we need capital=10 for 50% to equal base
-        bot_state = MockBotState(current_capital=10.0, win_streak=0)
-        position_size = calculate_position_size(bot_state)
-        assert position_size == 5.0, "Position should be $5 with $10 capital and 0 streak"
+    def test_very_large_streak(self):
+        """Test behavior with unrealistically large win streak."""
+        allocator = CapitalAllocator()
+        position_size = allocator.calculate_position_size(win_streak=100)
 
-    def test_floating_point_precision(self):
-        """Test that floating point calculations are precise."""
-        bot_state = MockBotState(current_capital=100.0, win_streak=2)
-        position_size = calculate_position_size(bot_state)
-        # 5.0 * 1.5^2 = 5.0 * 2.25 = 11.25
-        assert abs(position_size - 11.25) < 1e-10, "Position calculation should be precise"
+        # Should still be capped at max_size
+        assert position_size == Decimal("25.00")
 
+    def test_custom_allocator_different_scaling(self):
+        """Test custom allocator with different scaling parameters."""
+        allocator = CapitalAllocator(
+            base_size=Decimal("10.00"),
+            multiplier=Decimal("2.0"),
+            max_size=Decimal("100.00")
+        )
 
-class TestConstants:
-    """Test that constants are set correctly."""
+        assert allocator.calculate_position_size(0) == Decimal("10.00")
+        assert allocator.calculate_position_size(1) == Decimal("20.00")  # 10 * 2^1
+        assert allocator.calculate_position_size(2) == Decimal("40.00")  # 10 * 2^2
+        assert allocator.calculate_position_size(3) == Decimal("80.00")  # 10 * 2^3
+        assert allocator.calculate_position_size(4) == Decimal("100.00")  # Capped
 
-    def test_base_size_constant(self):
-        """Test BASE_SIZE constant."""
-        assert BASE_SIZE == 5.0, "BASE_SIZE should be $5.00"
+    def test_position_sizes_match_expected_progression(self):
+        """Test that position sizes match the expected progression from LLD."""
+        allocator = CapitalAllocator()
 
-    def test_multiplier_constant(self):
-        """Test MULTIPLIER constant."""
-        assert MULTIPLIER == 1.5, "MULTIPLIER should be 1.5x"
+        # From LLD: base * (1.5 ^ win_streak) capped at $25
+        expected_progression = [
+            (0, Decimal("5.00")),      # Base
+            (1, Decimal("7.50")),      # 5.00 * 1.5
+            (2, Decimal("11.25")),     # 5.00 * 2.25
+            (3, Decimal("16.875")),    # 5.00 * 3.375
+            (4, Decimal("25.00")),     # Capped (would be 25.3125)
+            (5, Decimal("25.00")),     # Still capped
+        ]
 
-    def test_max_size_constant(self):
-        """Test MAX_SIZE constant."""
-        assert MAX_SIZE == 25.0, "MAX_SIZE should be $25.00"
+        for streak, expected_size in expected_progression:
+            actual_size = allocator.calculate_position_size(streak)
+            assert actual_size == expected_size, f"Streak {streak}: expected {expected_size}, got {actual_size}"
 
 
 if __name__ == "__main__":

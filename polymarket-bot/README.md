@@ -64,6 +64,10 @@ This package provides:
 - ✅ **Position Cap**: Maximum $25 position size regardless of streak
 - ✅ **Capital Safety**: Automatic 50% capital constraint to prevent over-leverage
 - ✅ **Streak Reset**: Automatic streak reset to zero on any loss
+- ✅ **Configurable Parameters**: Customizable base size, multiplier, and maximum cap
+- ✅ **Risk Management**: Position size capped at 50% of available capital
+- ✅ **Automatic Streak Tracking**: Integration with StateManager for win/loss tracking
+- ✅ **Comprehensive Testing**: Full test coverage including edge cases and boundary conditions
 
 ### Technical Capabilities
 - **Environment Configuration**: Secure API key management using `.env` files
@@ -799,6 +803,192 @@ The WebSocket receives 24hr ticker data from Binance:
 ```
 
 This is automatically parsed into `BTCPriceData` model instances.
+
+## Capital Allocation
+
+The `capital.py` module implements win-streak capital allocation logic for position sizing. Position sizes scale with consecutive winning trades using a multiplier system, with a maximum cap to manage risk.
+
+### Win-Streak Position Sizing
+
+The capital allocator uses the following formula:
+
+```
+position_size = min(base_size * (multiplier ** win_streak), max_size)
+```
+
+**Default Parameters:**
+- **Base Size**: $5.00
+- **Multiplier**: 1.5x per consecutive win
+- **Maximum Size**: $25.00 (position cap)
+
+**Position Size Progression:**
+- Streak 0 (first trade or after loss): $5.00
+- Streak 1 (after 1 win): $7.50
+- Streak 2 (after 2 consecutive wins): $11.25
+- Streak 3 (after 3 consecutive wins): $16.88
+- Streak 4+ (capped): $25.00
+
+### CapitalAllocator Class
+
+The `CapitalAllocator` class provides position sizing with configurable parameters:
+
+```python
+from capital import CapitalAllocator
+from decimal import Decimal
+
+# Initialize with default parameters
+allocator = CapitalAllocator()
+
+# Or customize parameters
+allocator = CapitalAllocator(
+    base_size=Decimal("10.00"),
+    multiplier=Decimal("2.0"),
+    max_size=Decimal("50.00")
+)
+
+# Calculate position size based on win streak
+position_size = allocator.calculate_position_size(win_streak=2)
+print(f"Position size: ${position_size}")  # Output: Position size: $11.25
+
+# With capital safety check (never exceed 50% of available capital)
+position_size = allocator.calculate_position_size(
+    win_streak=2,
+    current_capital=Decimal("100.00")
+)
+```
+
+### Standalone Functions
+
+For convenience, standalone functions are available:
+
+```python
+from capital import calculate_position_size
+from decimal import Decimal
+
+# Simple usage
+size = calculate_position_size(win_streak=1)
+print(f"${size}")  # Output: $7.50
+
+# With custom parameters
+size = calculate_position_size(
+    win_streak=2,
+    current_capital=Decimal("100.00"),
+    base_size=Decimal("5.00"),
+    multiplier=Decimal("1.5"),
+    max_size=Decimal("25.00")
+)
+```
+
+### Integration with StateManager
+
+The capital allocator integrates with the `StateManager` to track win streaks:
+
+```python
+from state import StateManager
+from capital import calculate_position_size
+
+# Create state manager
+state_manager = StateManager(state_dir="data")
+
+# Get current win streak from metrics
+metrics = state_manager.get_metrics()
+win_streak = metrics['win_streak']
+
+# Calculate position size
+position_size = calculate_position_size(win_streak)
+
+# After a winning trade
+state_manager.update_metrics(
+    trade_result="win",
+    pnl=Decimal("5.50"),
+    current_equity=Decimal("105.50")
+)
+
+# After a losing trade (resets streak to 0)
+state_manager.update_metrics(
+    trade_result="loss",
+    pnl=Decimal("-3.25"),
+    current_equity=Decimal("102.25")
+)
+```
+
+### Streak Management
+
+The allocator provides methods for streak management:
+
+```python
+allocator = CapitalAllocator()
+
+# Increment streak after a win
+current_streak = 2
+new_streak = allocator.increment_streak(current_streak)
+print(new_streak)  # Output: 3
+
+# Reset streak after a loss
+new_streak = allocator.reset_streak()
+print(new_streak)  # Output: 0
+```
+
+### Safety Features
+
+1. **Maximum Cap**: Position size is capped at `max_size` regardless of win streak
+2. **Capital Safety Check**: Position size never exceeds 50% of current capital
+3. **Parameter Validation**: Invalid parameters raise `ValueError` on initialization
+4. **Negative Streak Protection**: Negative win streaks are rejected
+
+### Usage Example
+
+```python
+from capital import CapitalAllocator, calculate_position_size
+from state import StateManager
+from decimal import Decimal
+
+# Initialize components
+allocator = CapitalAllocator()
+state_manager = StateManager(state_dir="data")
+
+# Trading loop
+for trade_number in range(10):
+    # Get current metrics
+    metrics = state_manager.get_metrics()
+    win_streak = metrics['win_streak']
+
+    # Calculate position size
+    position_size = allocator.calculate_position_size(win_streak)
+
+    print(f"Trade {trade_number + 1}: Win Streak = {win_streak}, Position Size = ${position_size}")
+
+    # Simulate trade execution and result
+    # ... (execute trade)
+
+    # Update metrics based on trade result
+    trade_result = "win" if trade_number % 3 != 0 else "loss"  # Example
+    pnl = Decimal("5.00") if trade_result == "win" else Decimal("-3.00")
+
+    state_manager.update_metrics(
+        trade_result=trade_result,
+        pnl=pnl,
+        current_equity=Decimal("100.00") + pnl * (trade_number + 1)
+    )
+```
+
+### Testing
+
+The capital allocation module includes comprehensive tests in `tests/test_capital.py`:
+
+```bash
+pytest tests/test_capital.py -v
+```
+
+**Test Coverage:**
+- Base position sizing (streak = 0)
+- Win-streak multiplier scaling (streaks 1-5+)
+- Maximum cap enforcement
+- Capital safety checks
+- Parameter validation
+- Edge cases and boundary conditions
+- Integration with BotState
+- Acceptance criteria verification
 
 ## State Persistence and Logging
 

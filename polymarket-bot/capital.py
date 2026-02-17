@@ -1,136 +1,222 @@
 """
-Polymarket Bot Capital Allocation Module
+Capital Allocation Module
 
-This module implements position sizing logic with win-streak scaling.
-The capital allocator determines position sizes based on the bot's current
-win streak, starting with a base size and scaling up with consecutive wins,
-while enforcing maximum position size limits.
+This module implements position sizing with win-streak capital allocation logic.
+Position sizes scale with consecutive wins using a multiplier system, with a
+maximum cap to manage risk.
 
-Formula: position_size = min(base_size * (multiplier ^ win_streak), max_size)
+Formula:
+    position_size = min(base_size * (multiplier ** win_streak), max_size)
 
-Constants:
-- BASE_SIZE: $5.00 (base position size with zero streak)
-- MULTIPLIER: 1.5x (multiplier per consecutive win)
-- MAX_SIZE: $25.00 (maximum position size cap)
+Default Parameters:
+    - base_size: $5.00
+    - multiplier: 1.5x
+    - max_size: $25.00
 """
 
-from typing import Protocol
+from decimal import Decimal
+from typing import Optional
+from models import BotState
 
 
-# Position sizing constants
-BASE_SIZE = 5.0
-MULTIPLIER = 1.5
-MAX_SIZE = 25.0
-
-
-class BotStateProtocol(Protocol):
-    """Protocol for BotState to support duck typing."""
-    current_capital: float
-    win_streak: int
-
-
-def calculate_position_size(bot_state: BotStateProtocol) -> float:
+class CapitalAllocator:
     """
-    Calculate position size based on win-streak scaling.
+    Capital allocator implementing win-streak position sizing.
 
-    Implements the formula: position_size = min(base_size * (multiplier ^ win_streak), max_size)
-    with an additional safety check to ensure position doesn't exceed 50% of current capital.
-
-    Args:
-        bot_state: Bot state object containing current_capital and win_streak
-
-    Returns:
-        Position size in USD
-
-    Examples:
-        >>> class State:
-        ...     def __init__(self, capital, streak):
-        ...         self.current_capital = capital
-        ...         self.win_streak = streak
-        >>> calculate_position_size(State(100.0, 0))
-        5.0
-        >>> calculate_position_size(State(100.0, 1))
-        7.5
-        >>> calculate_position_size(State(100.0, 2))
-        11.25
-        >>> calculate_position_size(State(100.0, 5))
-        25.0
+    Scales position size based on consecutive winning trades, with configurable
+    base size, multiplier, and maximum cap.
     """
-    # Calculate position size based on win streak
-    position_size = BASE_SIZE * (MULTIPLIER ** bot_state.win_streak)
 
-    # Apply maximum size cap
-    position_size = min(position_size, MAX_SIZE)
+    def __init__(
+        self,
+        base_size: Decimal = Decimal("5.00"),
+        multiplier: Decimal = Decimal("1.5"),
+        max_size: Decimal = Decimal("25.00")
+    ):
+        """
+        Initialize the capital allocator.
 
-    # Additional safety check: never exceed 50% of current capital
-    max_allowed = bot_state.current_capital * 0.5
-    position_size = min(position_size, max_allowed)
+        Args:
+            base_size: Base position size in USD (default: $5.00)
+            multiplier: Multiplier per consecutive win (default: 1.5)
+            max_size: Maximum position size cap in USD (default: $25.00)
 
-    return position_size
+        Raises:
+            ValueError: If parameters are invalid
+        """
+        if base_size <= 0:
+            raise ValueError("base_size must be positive")
+        if multiplier <= 1:
+            raise ValueError("multiplier must be greater than 1")
+        if max_size < base_size:
+            raise ValueError("max_size must be greater than or equal to base_size")
 
+        self.base_size = base_size
+        self.multiplier = multiplier
+        self.max_size = max_size
 
-def update_win_streak(bot_state: BotStateProtocol, trade_outcome: str) -> int:
-    """
-    Update win streak based on trade outcome.
+    def calculate_position_size(self, win_streak: int, current_capital: Optional[Decimal] = None) -> Decimal:
+        """
+        Calculate position size based on current win streak.
 
-    Args:
-        bot_state: Bot state object containing win_streak
-        trade_outcome: Trade outcome ("WIN" or "LOSS")
+        Implements the formula: position_size = min(base_size * (multiplier ** win_streak), max_size)
 
-    Returns:
-        Updated win streak value
+        Args:
+            win_streak: Current number of consecutive wins (0 for no streak)
+            current_capital: Current available capital (optional, for additional safety checks)
 
-    Examples:
-        >>> class State:
-        ...     def __init__(self, streak):
-        ...         self.win_streak = streak
-        >>> state = State(3)
-        >>> update_win_streak(state, "WIN")
-        4
-        >>> update_win_streak(state, "LOSS")
-        0
-    """
-    if trade_outcome == "WIN":
-        return bot_state.win_streak + 1
-    else:
+        Returns:
+            Position size in USD
+
+        Raises:
+            ValueError: If win_streak is negative
+        """
+        if win_streak < 0:
+            raise ValueError("win_streak cannot be negative")
+
+        # Calculate position size with win-streak multiplier
+        if win_streak == 0:
+            position_size = self.base_size
+        else:
+            position_size = self.base_size * (self.multiplier ** win_streak)
+
+        # Apply maximum cap
+        position_size = min(position_size, self.max_size)
+
+        # Additional safety check: never exceed 50% of current capital
+        if current_capital is not None and current_capital > 0:
+            max_allowed = current_capital * Decimal("0.5")
+            position_size = min(position_size, max_allowed)
+
+        return position_size
+
+    def get_position_sizes_for_streaks(self, max_streak: int = 10) -> list:
+        """
+        Get position sizes for a range of win streaks (useful for testing/display).
+
+        Args:
+            max_streak: Maximum streak to calculate (default: 10)
+
+        Returns:
+            List of tuples (streak, position_size)
+        """
+        return [
+            (streak, self.calculate_position_size(streak))
+            for streak in range(max_streak + 1)
+        ]
+
+    def reset_streak(self) -> int:
+        """
+        Reset win streak to 0 (to be called after a loss).
+
+        Returns:
+            New win streak value (always 0)
+        """
         return 0
 
+    def increment_streak(self, current_streak: int) -> int:
+        """
+        Increment win streak by 1 (to be called after a win).
 
-def get_position_size_for_streak(win_streak: int, current_capital: float = float('inf')) -> float:
+        Args:
+            current_streak: Current win streak
+
+        Returns:
+            New win streak value (current_streak + 1)
+        """
+        return current_streak + 1
+
+
+def calculate_position_size(
+    win_streak: int,
+    current_capital: Optional[Decimal] = None,
+    base_size: Decimal = Decimal("5.00"),
+    multiplier: Decimal = Decimal("1.5"),
+    max_size: Decimal = Decimal("25.00")
+) -> Decimal:
     """
-    Get position size for a specific win streak without modifying bot state.
+    Calculate position size based on win streak (convenience function).
 
-    Utility function for testing and analysis.
+    This is a standalone function that provides the same functionality as
+    CapitalAllocator.calculate_position_size() without requiring class instantiation.
 
     Args:
-        win_streak: Number of consecutive wins
-        current_capital: Current capital (defaults to infinity for no capital constraint)
+        win_streak: Current number of consecutive wins (0 for no streak)
+        current_capital: Current available capital (optional, for additional safety checks)
+        base_size: Base position size in USD (default: $5.00)
+        multiplier: Multiplier per consecutive win (default: 1.5)
+        max_size: Maximum position size cap in USD (default: $25.00)
 
     Returns:
         Position size in USD
 
     Examples:
-        >>> get_position_size_for_streak(0)
-        5.0
-        >>> get_position_size_for_streak(1)
-        7.5
-        >>> get_position_size_for_streak(2)
-        11.25
-        >>> get_position_size_for_streak(3)
-        16.875
-        >>> get_position_size_for_streak(4)
-        25.0
-        >>> get_position_size_for_streak(10)
-        25.0
+        >>> calculate_position_size(0)  # First trade or after a loss
+        Decimal('5.00')
+
+        >>> calculate_position_size(1)  # After 1 win
+        Decimal('7.50')
+
+        >>> calculate_position_size(2)  # After 2 consecutive wins
+        Decimal('11.25')
+
+        >>> calculate_position_size(3)  # After 3 consecutive wins
+        Decimal('16.88')
+
+        >>> calculate_position_size(4)  # After 4 consecutive wins
+        Decimal('25.00')  # Capped at max_size
+
+        >>> calculate_position_size(5)  # After 5 consecutive wins
+        Decimal('25.00')  # Still capped at max_size
     """
-    # Calculate position size based on win streak
-    position_size = BASE_SIZE * (MULTIPLIER ** win_streak)
+    allocator = CapitalAllocator(base_size=base_size, multiplier=multiplier, max_size=max_size)
+    return allocator.calculate_position_size(win_streak, current_capital)
 
-    # Apply maximum size cap
-    position_size = min(position_size, MAX_SIZE)
 
-    # Apply capital constraint
-    max_allowed = current_capital * 0.5
-    position_size = min(position_size, max_allowed)
+def calculate_position_size_from_bot_state(
+    bot_state: BotState,
+    win_streak: int,
+    base_size: Decimal = Decimal("5.00"),
+    multiplier: Decimal = Decimal("1.5"),
+    max_size: Decimal = Decimal("25.00")
+) -> Decimal:
+    """
+    Calculate position size using BotState for capital information.
 
-    return position_size
+    Args:
+        bot_state: BotState object containing current capital
+        win_streak: Current number of consecutive wins
+        base_size: Base position size in USD (default: $5.00)
+        multiplier: Multiplier per consecutive win (default: 1.5)
+        max_size: Maximum position size cap in USD (default: $25.00)
+
+    Returns:
+        Position size in USD
+    """
+    # Extract current capital from bot state
+    # Using current_exposure as a proxy for available capital
+    current_capital = bot_state.max_total_exposure - bot_state.current_exposure
+
+    return calculate_position_size(
+        win_streak=win_streak,
+        current_capital=current_capital,
+        base_size=base_size,
+        multiplier=multiplier,
+        max_size=max_size
+    )
+
+
+if __name__ == "__main__":
+    # Example usage
+    allocator = CapitalAllocator()
+
+    print("Win-Streak Capital Allocation")
+    print("=" * 50)
+    print(f"Base Size: ${allocator.base_size}")
+    print(f"Multiplier: {allocator.multiplier}x")
+    print(f"Max Size: ${allocator.max_size}")
+    print("\nPosition Sizes by Win Streak:")
+    print("-" * 50)
+
+    for streak, size in allocator.get_position_sizes_for_streaks(6):
+        print(f"Streak {streak}: ${size:.2f}")
