@@ -1,429 +1,621 @@
 """
 Trade Execution Module for Polymarket Bot.
 
-This module handles order submission and settlement polling for the Polymarket API.
-It implements retry logic with exponential backoff for transient failures and
-distinguishes between retryable and terminal errors.
+This module handles order submission to the Polymarket API, including:
+- Market and limit order placement
+- Order status polling
+- Settlement tracking
+- Retry logic with exponential backoff
+- Error handling and logging
+
+All API calls use retry logic to handle transient failures gracefully.
 """
 
 import logging
 import time
-from typing import Optional, Dict, Any
+from datetime import datetime, timezone
 from decimal import Decimal
-import requests
+from typing import Optional, Dict, Any, List
+from enum import Enum
 
-from .config import get_config
-from .utils import retry_with_backoff, RetryError, ValidationError
-from .models import OrderStatus, TradeOutcome
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+from polymarket_bot.models import (
+    Trade,
+    OrderSide,
+    OrderType,
+    OutcomeType,
+    TradeStatus
+)
+from polymarket_bot.config import Config, get_config
+from polymarket_bot.utils import (
+    retry_with_backoff,
+    validate_non_empty,
+    validate_range,
+    validate_type,
+    RetryError
+)
 
 # Configure module logger
 logger = logging.getLogger(__name__)
 
 
-class ExecutionError(Exception):
-    """Base exception for execution-related errors."""
+class OrderExecutionError(Exception):
+    """Exception raised when order execution fails."""
     pass
 
 
-class TerminalExecutionError(ExecutionError):
-    """Exception raised for terminal errors that should not be retried."""
+class OrderSettlementError(Exception):
+    """Exception raised when order settlement tracking fails."""
     pass
 
 
-class RetryableExecutionError(ExecutionError):
-    """Exception raised for transient errors that can be retried."""
-    pass
+class PolymarketAPIError(Exception):
+    """Exception raised when Polymarket API returns an error."""
+    def __init__(self, message: str, status_code: Optional[int] = None, response_data: Optional[Dict] = None):
+        super().__init__(message)
+        self.status_code = status_code
+        self.response_data = response_data or {}
 
 
-def _is_retryable_error(error: Exception) -> bool:
+class OrderStatus(str, Enum):
+    """Order status from Polymarket API."""
+    PENDING = "pending"
+    OPEN = "open"
+    MATCHED = "matched"
+    SETTLED = "settled"
+    CANCELLED = "cancelled"
+    FAILED = "failed"
+
+
+class ExecutionEngine:
     """
-    Determine if an error is retryable or terminal.
+    Execution engine for submitting and tracking orders on Polymarket.
 
-    Args:
-        error: The exception to classify
-
-    Returns:
-        True if the error is retryable, False if terminal
+    Features:
+    - Submit market and limit orders
+    - Poll order status with configurable timeout
+    - Track settlement and outcomes
+    - Retry logic for transient failures
+    - Comprehensive error handling and logging
     """
-    # Network-related errors are retryable
-    if isinstance(error, (requests.ConnectionError, requests.Timeout)):
-        return True
 
-    # HTTP errors
-    if isinstance(error, requests.HTTPError):
-        response = getattr(error, 'response', None)
-        if response is not None:
-            status_code = response.status_code
+    def __init__(self, config: Optional[Config] = None):
+        """
+        Initialize the execution engine.
 
-            # Rate limiting (429) and server errors (5xx) are retryable
-            if status_code == 429 or 500 <= status_code < 600:
-                return True
+        Args:
+            config: Configuration object. If None, loads from environment.
+        """
+        self.config = config or get_config()
+        self.base_url = self.config.polymarket_base_url
+        self.api_key = self.config.polymarket_api_key
+        self.api_secret = self.config.polymarket_api_secret
 
-            # Client errors (4xx except 429) are terminal
-            if 400 <= status_code < 500:
-                return False
+        # Configure session with connection pooling and retries at transport level
+        self.session = self._create_session()
 
-    # By default, consider errors retryable
-    return True
+        # Execution settings from config or defaults
+        self.max_retries = getattr(self.config, 'execution_max_retries', 3)
+        self.retry_base_delay = getattr(self.config, 'execution_retry_base_delay', 2.0)
+        self.settlement_poll_interval = getattr(self.config, 'execution_settlement_poll_interval', 10)
+        self.settlement_timeout = getattr(self.config, 'execution_settlement_timeout', 300)
 
-
-def submit_order(
-    market_id: str,
-    direction: str,
-    size: float,
-    config: Optional[Any] = None
-) -> str:
-    """
-    Submit a market order to the Polymarket API with retry logic.
-
-    This function places a market order for a prediction market position.
-    It automatically retries failed submissions using exponential backoff
-    for transient failures (network errors, rate limits, server errors).
-
-    Args:
-        market_id: The Polymarket market identifier
-        direction: Order direction, either "YES" or "NO"
-        size: Position size in USDC
-        config: Optional configuration instance (uses global config if None)
-
-    Returns:
-        Order ID string returned by the Polymarket API
-
-    Raises:
-        ValidationError: If input parameters are invalid
-        TerminalExecutionError: For non-retryable API errors (e.g., insufficient funds)
-        RetryError: If all retry attempts are exhausted
-
-    Example:
-        order_id = submit_order(
-            market_id="0x123abc",
-            direction="YES",
-            size=50.0
+        logger.info(
+            f"ExecutionEngine initialized with base_url={self.base_url}, "
+            f"max_retries={self.max_retries}, retry_base_delay={self.retry_base_delay}s"
         )
-    """
-    # Load configuration
-    if config is None:
-        config = get_config()
 
-    # Validate inputs
-    if not market_id or not isinstance(market_id, str):
-        raise ValidationError("market_id must be a non-empty string")
+    def _create_session(self) -> requests.Session:
+        """
+        Create a requests session with retry logic and connection pooling.
 
-    if direction not in ["YES", "NO"]:
-        raise ValidationError(f"direction must be 'YES' or 'NO', got: {direction}")
+        Returns:
+            Configured requests.Session instance
+        """
+        session = requests.Session()
 
-    if not isinstance(size, (int, float, Decimal)) or size <= 0:
-        raise ValidationError(f"size must be a positive number, got: {size}")
+        # Configure retry strategy for transport-level errors (connection, timeout)
+        # Note: Application-level retries (4xx, 5xx) are handled by @retry_with_backoff
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[500, 502, 503, 504],  # Retry on server errors
+            allowed_methods=["GET", "POST", "PUT", "DELETE"]
+        )
 
-    # Create retry decorator with configured parameters
-    @retry_with_backoff(
-        max_attempts=config.max_retries,
-        base_delay=config.initial_delay,
-        max_delay=config.max_delay,
-        exponential_base=config.backoff_multiplier,
-        exceptions=(RetryableExecutionError, requests.RequestException),
-        logger_name=__name__
-    )
-    def _submit_with_retry():
-        """Internal function that performs the actual API call."""
+        adapter = HTTPAdapter(max_retries=retry_strategy, pool_connections=10, pool_maxsize=20)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+
+        # Set default headers
+        session.headers.update({
+            "Content-Type": "application/json",
+            "User-Agent": "PolymarketBot/1.0",
+            "Authorization": f"Bearer {self.api_key}"
+        })
+
+        return session
+
+    def _make_request(
+        self,
+        method: str,
+        endpoint: str,
+        data: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Make an HTTP request to the Polymarket API.
+
+        Args:
+            method: HTTP method (GET, POST, PUT, DELETE)
+            endpoint: API endpoint path (e.g., "/orders")
+            data: Request body data (for POST/PUT)
+            params: Query parameters (for GET)
+
+        Returns:
+            Response data as dictionary
+
+        Raises:
+            PolymarketAPIError: If the API returns an error
+        """
+        url = f"{self.base_url}{endpoint}"
+
         try:
-            # Prepare request
-            url = f"{config.polymarket_base_url}/orders"
-            headers = {
-                "Authorization": f"Bearer {config.polymarket_api_key}",
-                "Content-Type": "application/json"
-            }
-            payload = {
-                "market_id": market_id,
-                "side": direction,
-                "amount": float(size),
-                "type": "MARKET"
-            }
+            response = self.session.request(
+                method=method.upper(),
+                url=url,
+                json=data,
+                params=params,
+                timeout=30
+            )
+
+            # Log request details
+            logger.debug(
+                f"API Request: {method.upper()} {url} "
+                f"(params={params}, data={data})"
+            )
+
+            # Check for HTTP errors
+            if not response.ok:
+                error_data = {}
+                try:
+                    error_data = response.json()
+                except Exception:
+                    error_data = {"detail": response.text}
+
+                error_msg = (
+                    f"Polymarket API error: {response.status_code} - "
+                    f"{error_data.get('detail', 'Unknown error')}"
+                )
+
+                logger.error(
+                    f"{error_msg} (endpoint={endpoint}, "
+                    f"response_data={error_data})"
+                )
+
+                raise PolymarketAPIError(
+                    error_msg,
+                    status_code=response.status_code,
+                    response_data=error_data
+                )
+
+            # Parse response
+            response_data = response.json()
+            logger.debug(f"API Response: {response.status_code} - {response_data}")
+
+            return response_data
+
+        except requests.exceptions.Timeout as e:
+            raise PolymarketAPIError(f"Request timeout: {str(e)}") from e
+        except requests.exceptions.ConnectionError as e:
+            raise PolymarketAPIError(f"Connection error: {str(e)}") from e
+        except requests.exceptions.RequestException as e:
+            raise PolymarketAPIError(f"Request error: {str(e)}") from e
+
+    @retry_with_backoff(
+        max_attempts=3,
+        base_delay=2.0,
+        exponential_base=2.0,
+        exceptions=(PolymarketAPIError, requests.exceptions.RequestException)
+    )
+    def submit_order(
+        self,
+        market_id: str,
+        side: OrderSide,
+        outcome: OutcomeType,
+        quantity: Decimal,
+        order_type: OrderType = OrderType.MARKET,
+        price: Optional[Decimal] = None,
+        trade_id: Optional[str] = None
+    ) -> Trade:
+        """
+        Submit an order to Polymarket with retry logic.
+
+        This method uses exponential backoff retry logic (3 attempts max) to handle
+        transient API failures. Each retry has increasing delays: 2s, 4s, 8s.
+
+        Args:
+            market_id: Polymarket market identifier
+            side: Order side (BUY or SELL)
+            outcome: Market outcome to trade (YES or NO)
+            quantity: Number of shares to trade
+            order_type: Order type (MARKET or LIMIT)
+            price: Limit price (required for LIMIT orders)
+            trade_id: Optional trade identifier (generated if not provided)
+
+        Returns:
+            Trade object with order details and status
+
+        Raises:
+            OrderExecutionError: If order submission fails after all retries
+            RetryError: If retries are exhausted
+        """
+        # Validate inputs
+        validate_non_empty(market_id, "market_id")
+        validate_type(side, OrderSide, "side")
+        validate_type(outcome, OutcomeType, "outcome")
+        validate_range(quantity, Decimal("0.01"), None, "quantity")
+
+        if order_type == OrderType.LIMIT:
+            if price is None:
+                raise OrderExecutionError("price is required for LIMIT orders")
+            validate_range(price, Decimal("0.01"), Decimal("0.99"), "price")
+
+        # Generate trade_id if not provided
+        if not trade_id:
+            trade_id = f"trade_{int(datetime.now(timezone.utc).timestamp() * 1000)}"
+
+        # Prepare order payload
+        order_data = {
+            "market_id": market_id,
+            "side": side.value.upper(),  # API expects uppercase
+            "outcome": outcome.value.upper(),  # YES or NO
+            "amount": float(quantity),
+            "type": order_type.value.upper()
+        }
+
+        # Add price for limit orders
+        if order_type == OrderType.LIMIT and price is not None:
+            order_data["price"] = float(price)
+
+        logger.info(
+            f"Submitting order: trade_id={trade_id}, market={market_id}, "
+            f"side={side.value}, outcome={outcome.value}, qty={quantity}, "
+            f"type={order_type.value}, price={price}"
+        )
+
+        try:
+            # Submit order to Polymarket API
+            response_data = self._make_request("POST", "/orders", data=order_data)
+
+            # Extract order details from response
+            order_id = response_data.get("order_id") or response_data.get("id")
+            if not order_id:
+                raise OrderExecutionError("No order_id in API response")
+
+            # Determine initial filled quantity and status
+            filled_qty = Decimal(str(response_data.get("filled_amount", 0)))
+            status_str = response_data.get("status", "pending").lower()
+
+            # Map API status to our TradeStatus
+            status = TradeStatus.PENDING
+            if status_str in ["matched", "filled", "executed"]:
+                status = TradeStatus.EXECUTED
+            elif status_str in ["cancelled", "canceled"]:
+                status = TradeStatus.CANCELLED
+            elif status_str == "failed":
+                status = TradeStatus.FAILED
+
+            # Create Trade object
+            trade = Trade(
+                trade_id=trade_id,
+                market_id=market_id,
+                order_id=order_id,
+                side=side,
+                order_type=order_type,
+                outcome=outcome,
+                price=price or Decimal("0"),  # Market orders have no price initially
+                quantity=quantity,
+                filled_quantity=filled_qty,
+                status=status,
+                created_at=datetime.now(timezone.utc),
+                executed_at=datetime.now(timezone.utc) if status == TradeStatus.EXECUTED else None,
+                fee=Decimal(str(response_data.get("fee", 0))),
+                metadata={
+                    "api_response": response_data,
+                    "submitted_at": datetime.now(timezone.utc).isoformat()
+                }
+            )
 
             logger.info(
-                f"Submitting order: market={market_id}, "
-                f"direction={direction}, size={size}"
+                f"Order submitted successfully: trade_id={trade_id}, "
+                f"order_id={order_id}, status={status.value}, "
+                f"filled_qty={filled_qty}/{quantity}"
             )
 
-            # Make API request
-            response = requests.post(
-                url,
-                json=payload,
-                headers=headers,
-                timeout=30.0
+            return trade
+
+        except PolymarketAPIError as e:
+            logger.error(
+                f"Order submission failed: trade_id={trade_id}, "
+                f"error={str(e)}, status_code={e.status_code}"
             )
+            raise OrderExecutionError(f"Failed to submit order: {str(e)}") from e
+        except Exception as e:
+            logger.error(f"Unexpected error during order submission: {str(e)}")
+            raise OrderExecutionError(f"Order submission error: {str(e)}") from e
 
-            # Check for HTTP errors
-            response.raise_for_status()
+    @retry_with_backoff(
+        max_attempts=3,
+        base_delay=1.0,
+        exponential_base=2.0,
+        exceptions=(PolymarketAPIError, requests.exceptions.RequestException)
+    )
+    def get_order_status(self, order_id: str) -> Dict[str, Any]:
+        """
+        Get current status of an order from Polymarket API.
 
-            # Parse response
-            data = response.json()
-            order_id = data.get('order_id')
+        Args:
+            order_id: Order identifier
 
-            if not order_id:
-                raise ExecutionError(
-                    f"API response missing order_id: {data}"
+        Returns:
+            Order status data from API
+
+        Raises:
+            PolymarketAPIError: If API request fails
+        """
+        validate_non_empty(order_id, "order_id")
+
+        logger.debug(f"Fetching order status for order_id={order_id}")
+
+        try:
+            response_data = self._make_request("GET", f"/orders/{order_id}")
+            return response_data
+        except PolymarketAPIError as e:
+            logger.error(f"Failed to get order status: order_id={order_id}, error={str(e)}")
+            raise
+
+    def poll_settlement(
+        self,
+        order_id: str,
+        timeout: Optional[int] = None,
+        poll_interval: Optional[int] = None
+    ) -> str:
+        """
+        Poll order status until settlement is complete.
+
+        Continuously polls the order status at regular intervals until the order
+        is settled or the timeout is reached.
+
+        Args:
+            order_id: Order identifier to poll
+            timeout: Maximum time to wait in seconds (default: from config)
+            poll_interval: Seconds between polls (default: from config)
+
+        Returns:
+            Settlement outcome: "WIN", "LOSS", or "CANCELLED"
+
+        Raises:
+            OrderSettlementError: If settlement times out or fails
+        """
+        validate_non_empty(order_id, "order_id")
+
+        timeout = timeout or self.settlement_timeout
+        poll_interval = poll_interval or self.settlement_poll_interval
+
+        logger.info(
+            f"Polling settlement for order_id={order_id}, "
+            f"timeout={timeout}s, interval={poll_interval}s"
+        )
+
+        start_time = time.time()
+        attempts = 0
+
+        while True:
+            attempts += 1
+            elapsed = time.time() - start_time
+
+            # Check timeout
+            if elapsed >= timeout:
+                logger.error(
+                    f"Settlement polling timeout after {elapsed:.1f}s "
+                    f"({attempts} attempts) for order_id={order_id}"
+                )
+                raise OrderSettlementError(
+                    f"Settlement polling timeout after {timeout}s for order {order_id}"
                 )
 
-            logger.info(f"Order submitted successfully: order_id={order_id}")
-            return order_id
+            try:
+                # Get current order status
+                order_data = self.get_order_status(order_id)
+                status = order_data.get("status", "").lower()
 
-        except requests.HTTPError as e:
-            # Classify HTTP errors as retryable or terminal
-            if _is_retryable_error(e):
-                logger.warning(f"Retryable HTTP error: {e}")
-                raise RetryableExecutionError(f"HTTP error: {e}") from e
-            else:
-                logger.error(f"Terminal HTTP error: {e}")
-                raise TerminalExecutionError(f"HTTP error: {e}") from e
+                logger.debug(
+                    f"Poll #{attempts} (elapsed={elapsed:.1f}s): "
+                    f"order_id={order_id}, status={status}"
+                )
 
-        except requests.RequestException as e:
-            # Network errors are retryable
-            logger.warning(f"Retryable network error: {e}")
-            raise RetryableExecutionError(f"Network error: {e}") from e
+                # Check if settled
+                if status == "settled":
+                    outcome = order_data.get("outcome", "").upper()
 
-        except Exception as e:
-            # Unexpected errors are terminal
-            logger.error(f"Unexpected error in submit_order: {e}")
-            raise TerminalExecutionError(f"Unexpected error: {e}") from e
+                    if outcome not in ["WIN", "LOSS"]:
+                        logger.warning(
+                            f"Unexpected settlement outcome '{outcome}' for "
+                            f"order_id={order_id}, defaulting to LOSS"
+                        )
+                        outcome = "LOSS"
 
-    # Execute with retry
-    try:
-        return _submit_with_retry()
-    except RetryError as e:
-        logger.error(f"Order submission failed after all retries: {e}")
-        raise
-    except TerminalExecutionError:
-        # Re-raise terminal errors without wrapping
-        raise
-
-
-def poll_settlement(
-    order_id: str,
-    timeout: int = 300,
-    poll_interval: int = 10,
-    config: Optional[Any] = None
-) -> str:
-    """
-    Poll the Polymarket API to check order settlement status.
-
-    This function repeatedly polls the order status endpoint until the order
-    is settled or the timeout is reached. It uses retry logic with exponential
-    backoff for transient API failures during polling.
-
-    Args:
-        order_id: The order ID to poll
-        timeout: Maximum time to wait for settlement in seconds (default: 300)
-        poll_interval: Time between polling attempts in seconds (default: 10)
-        config: Optional configuration instance (uses global config if None)
-
-    Returns:
-        Settlement outcome: "WIN" or "LOSS"
-
-    Raises:
-        ValidationError: If input parameters are invalid
-        ExecutionError: If settlement fails or times out
-        RetryError: If all retry attempts are exhausted during polling
-
-    Example:
-        outcome = poll_settlement(
-            order_id="order_123",
-            timeout=300
-        )
-        if outcome == "WIN":
-            print("Position won!")
-    """
-    # Load configuration
-    if config is None:
-        config = get_config()
-
-    # Validate inputs
-    if not order_id or not isinstance(order_id, str):
-        raise ValidationError("order_id must be a non-empty string")
-
-    if timeout <= 0:
-        raise ValidationError(f"timeout must be positive, got: {timeout}")
-
-    if poll_interval <= 0:
-        raise ValidationError(f"poll_interval must be positive, got: {poll_interval}")
-
-    # Create retry decorator for individual poll attempts
-    @retry_with_backoff(
-        max_attempts=config.max_retries,
-        base_delay=config.initial_delay,
-        max_delay=config.max_delay,
-        exponential_base=config.backoff_multiplier,
-        exceptions=(RetryableExecutionError, requests.RequestException),
-        logger_name=__name__
-    )
-    def _poll_once():
-        """Poll the order status once with retry logic."""
-        try:
-            url = f"{config.polymarket_base_url}/orders/{order_id}"
-            headers = {
-                "Authorization": f"Bearer {config.polymarket_api_key}",
-                "Content-Type": "application/json"
-            }
-
-            response = requests.get(
-                url,
-                headers=headers,
-                timeout=30.0
-            )
-
-            # Check for HTTP errors
-            response.raise_for_status()
-
-            # Parse response
-            data = response.json()
-            return data
-
-        except requests.HTTPError as e:
-            # Classify HTTP errors
-            if _is_retryable_error(e):
-                raise RetryableExecutionError(f"HTTP error: {e}") from e
-            else:
-                raise TerminalExecutionError(f"HTTP error: {e}") from e
-
-        except requests.RequestException as e:
-            raise RetryableExecutionError(f"Network error: {e}") from e
-
-        except Exception as e:
-            raise TerminalExecutionError(f"Unexpected error: {e}") from e
-
-    # Poll until settled or timeout
-    logger.info(f"Starting settlement polling for order_id={order_id}")
-    start_time = time.time()
-    elapsed = 0
-
-    while elapsed < timeout:
-        try:
-            # Poll order status with retry
-            data = _poll_once()
-
-            status = data.get('status')
-
-            if status == 'SETTLED':
-                # Order is settled, get outcome
-                outcome = data.get('outcome')
-
-                if outcome not in ['WIN', 'LOSS']:
-                    raise ExecutionError(
-                        f"Invalid outcome value: {outcome}"
+                    logger.info(
+                        f"Order settled: order_id={order_id}, outcome={outcome}, "
+                        f"elapsed={elapsed:.1f}s, attempts={attempts}"
                     )
 
-                logger.info(
-                    f"Order settled: order_id={order_id}, "
-                    f"outcome={outcome}, elapsed={elapsed:.1f}s"
+                    return outcome
+
+                # Check for terminal states
+                if status in ["cancelled", "canceled"]:
+                    logger.warning(f"Order cancelled: order_id={order_id}")
+                    return "CANCELLED"
+
+                if status == "failed":
+                    logger.error(f"Order failed: order_id={order_id}")
+                    raise OrderSettlementError(f"Order {order_id} failed")
+
+                # Not settled yet, wait before next poll
+                logger.debug(f"Order not settled yet, waiting {poll_interval}s...")
+                time.sleep(poll_interval)
+
+            except PolymarketAPIError as e:
+                # Log API error but continue polling (might be transient)
+                logger.warning(
+                    f"API error during settlement polling (attempt #{attempts}): {str(e)}, "
+                    f"continuing..."
                 )
-                return outcome
+                time.sleep(poll_interval)
+            except Exception as e:
+                logger.error(f"Unexpected error during settlement polling: {str(e)}")
+                raise OrderSettlementError(f"Settlement polling error: {str(e)}") from e
 
-            elif status == 'PENDING':
-                # Still pending, continue polling
-                logger.debug(
-                    f"Order still pending: order_id={order_id}, "
-                    f"elapsed={elapsed:.1f}s"
-                )
+    def update_trade_status(self, trade: Trade) -> Trade:
+        """
+        Update a trade object with current status from API.
 
-            else:
-                # Unexpected status
-                raise ExecutionError(
-                    f"Unexpected order status: {status}"
-                )
+        Args:
+            trade: Trade object to update
 
-        except (RetryError, TerminalExecutionError) as e:
-            # Fatal error during polling
-            logger.error(f"Fatal error during polling: {e}")
-            raise ExecutionError(f"Polling failed: {e}") from e
+        Returns:
+            Updated Trade object
 
-        # Wait before next poll
-        time.sleep(poll_interval)
-        elapsed = time.time() - start_time
+        Raises:
+            PolymarketAPIError: If API request fails
+        """
+        logger.debug(f"Updating trade status: trade_id={trade.trade_id}, order_id={trade.order_id}")
 
-    # Timeout reached
-    raise ExecutionError(
-        f"Settlement polling timed out after {timeout}s for order_id={order_id}"
-    )
-
-
-def get_order_status(
-    order_id: str,
-    config: Optional[Any] = None
-) -> Dict[str, Any]:
-    """
-    Get the current status of an order from the Polymarket API.
-
-    This is a simple wrapper around a single status check without polling logic.
-    Use poll_settlement() if you need to wait for settlement.
-
-    Args:
-        order_id: The order ID to check
-        config: Optional configuration instance (uses global config if None)
-
-    Returns:
-        Dictionary containing order status information
-
-    Raises:
-        ValidationError: If order_id is invalid
-        ExecutionError: If the API request fails
-        RetryError: If all retry attempts are exhausted
-
-    Example:
-        status = get_order_status("order_123")
-        print(f"Order status: {status['status']}")
-    """
-    # Load configuration
-    if config is None:
-        config = get_config()
-
-    # Validate inputs
-    if not order_id or not isinstance(order_id, str):
-        raise ValidationError("order_id must be a non-empty string")
-
-    # Create retry decorator
-    @retry_with_backoff(
-        max_attempts=config.max_retries,
-        base_delay=config.initial_delay,
-        max_delay=config.max_delay,
-        exponential_base=config.backoff_multiplier,
-        exceptions=(RetryableExecutionError, requests.RequestException),
-        logger_name=__name__
-    )
-    def _get_status_with_retry():
-        """Internal function that performs the actual API call."""
         try:
-            url = f"{config.polymarket_base_url}/orders/{order_id}"
-            headers = {
-                "Authorization": f"Bearer {config.polymarket_api_key}",
-                "Content-Type": "application/json"
-            }
+            order_data = self.get_order_status(trade.order_id)
 
-            response = requests.get(
-                url,
-                headers=headers,
-                timeout=30.0
+            # Update filled quantity
+            filled_qty = Decimal(str(order_data.get("filled_amount", 0)))
+            trade.filled_quantity = filled_qty
+
+            # Update status
+            status_str = order_data.get("status", "").lower()
+            if status_str in ["matched", "filled", "executed"]:
+                trade.status = TradeStatus.EXECUTED
+                if not trade.executed_at:
+                    trade.executed_at = datetime.now(timezone.utc)
+            elif status_str in ["cancelled", "canceled"]:
+                trade.status = TradeStatus.CANCELLED
+            elif status_str == "failed":
+                trade.status = TradeStatus.FAILED
+
+            # Update fee
+            trade.fee = Decimal(str(order_data.get("fee", trade.fee)))
+
+            # Update metadata
+            trade.metadata["last_status_update"] = datetime.now(timezone.utc).isoformat()
+            trade.metadata["latest_api_response"] = order_data
+
+            logger.info(
+                f"Trade status updated: trade_id={trade.trade_id}, "
+                f"status={trade.status.value}, filled_qty={filled_qty}"
             )
 
-            response.raise_for_status()
-            return response.json()
-
-        except requests.HTTPError as e:
-            if _is_retryable_error(e):
-                raise RetryableExecutionError(f"HTTP error: {e}") from e
-            else:
-                raise TerminalExecutionError(f"HTTP error: {e}") from e
-
-        except requests.RequestException as e:
-            raise RetryableExecutionError(f"Network error: {e}") from e
+            return trade
 
         except Exception as e:
-            raise TerminalExecutionError(f"Unexpected error: {e}") from e
+            logger.error(f"Failed to update trade status: {str(e)}")
+            raise
 
-    # Execute with retry
+    def close(self):
+        """Close the session and cleanup resources."""
+        if self.session:
+            self.session.close()
+            logger.info("ExecutionEngine session closed")
+
+
+# Convenience functions for common operations
+
+def submit_market_order(
+    market_id: str,
+    side: OrderSide,
+    outcome: OutcomeType,
+    quantity: Decimal,
+    config: Optional[Config] = None
+) -> Trade:
+    """
+    Submit a market order to Polymarket.
+
+    Convenience function that creates an ExecutionEngine instance and submits
+    a market order with default retry logic.
+
+    Args:
+        market_id: Polymarket market identifier
+        side: Order side (BUY or SELL)
+        outcome: Market outcome (YES or NO)
+        quantity: Number of shares to trade
+        config: Optional configuration object
+
+    Returns:
+        Trade object with order details
+
+    Raises:
+        OrderExecutionError: If order submission fails
+    """
+    engine = ExecutionEngine(config)
     try:
-        return _get_status_with_retry()
-    except RetryError as e:
-        logger.error(f"Failed to get order status after all retries: {e}")
-        raise ExecutionError(f"Failed to get order status: {e}") from e
-    except TerminalExecutionError as e:
-        raise ExecutionError(f"Failed to get order status: {e}") from e
+        return engine.submit_order(
+            market_id=market_id,
+            side=side,
+            outcome=outcome,
+            quantity=quantity,
+            order_type=OrderType.MARKET
+        )
+    finally:
+        engine.close()
+
+
+def submit_limit_order(
+    market_id: str,
+    side: OrderSide,
+    outcome: OutcomeType,
+    quantity: Decimal,
+    price: Decimal,
+    config: Optional[Config] = None
+) -> Trade:
+    """
+    Submit a limit order to Polymarket.
+
+    Convenience function that creates an ExecutionEngine instance and submits
+    a limit order with default retry logic.
+
+    Args:
+        market_id: Polymarket market identifier
+        side: Order side (BUY or SELL)
+        outcome: Market outcome (YES or NO)
+        quantity: Number of shares to trade
+        price: Limit price (0.01 to 0.99)
+        config: Optional configuration object
+
+    Returns:
+        Trade object with order details
+
+    Raises:
+        OrderExecutionError: If order submission fails
+    """
+    engine = ExecutionEngine(config)
+    try:
+        return engine.submit_order(
+            market_id=market_id,
+            side=side,
+            outcome=outcome,
+            quantity=quantity,
+            order_type=OrderType.LIMIT,
+            price=price
+        )
+    finally:
+        engine.close()

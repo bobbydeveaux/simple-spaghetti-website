@@ -11,7 +11,7 @@ This module tests the Binance WebSocket client including:
 import pytest
 from unittest.mock import Mock, patch, MagicMock, call
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import time
 
@@ -379,7 +379,7 @@ class TestHealthCheck:
     def test_is_healthy_true_when_recent_message(self, binance_ws):
         """Test is_healthy returns True when recent message received."""
         binance_ws.is_connected = True
-        binance_ws.last_message_time = datetime.utcnow()
+        binance_ws.last_message_time = datetime.now(timezone.utc)
 
         assert binance_ws.is_healthy() is True
 
@@ -490,7 +490,7 @@ class TestBTCPriceDataModel:
         price_data = BTCPriceData(
             symbol="BTCUSDT",
             price=Decimal("45500.00"),
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             high_24h=Decimal("46000.00"),
             low_24h=Decimal("45000.00")
         )
@@ -504,7 +504,7 @@ class TestBTCPriceDataModel:
         price_data = BTCPriceData(
             symbol="BTCUSDT",
             price=Decimal("45500.00"),
-            timestamp=datetime.utcnow()
+            timestamp=datetime.now(timezone.utc)
         )
 
         mid_range = price_data.get_mid_range_price()
@@ -516,7 +516,7 @@ class TestBTCPriceDataModel:
         price_data = BTCPriceData(
             symbol="BTCUSDT",
             price=Decimal("45500.00"),
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             high_24h=Decimal("46000.00"),
             low_24h=Decimal("45000.00")
         )
@@ -532,7 +532,7 @@ class TestBTCPriceDataModel:
         price_data = BTCPriceData(
             symbol="BTCUSDT",
             price=Decimal("45500.00"),
-            timestamp=datetime.utcnow()
+            timestamp=datetime.now(timezone.utc)
         )
 
         volatility = price_data.get_volatility_percent()
