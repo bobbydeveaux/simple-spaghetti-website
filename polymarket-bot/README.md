@@ -11,7 +11,8 @@ This package provides:
 - **State Persistence**: Atomic file operations with crash recovery and audit logging
 - **Utility Functions**: Retry logic, validation, error handling, and helper functions
 - **Multi-Exchange Support**: Integration with Polymarket, Binance, and CoinGecko APIs
-- **Technical Analysis**: Built-in TA-Lib support for technical indicators
+- **Real-Time Market Data**: WebSocket streaming from Binance with automatic reconnection
+- **Technical Analysis**: RSI, MACD indicators, and order book imbalance calculations using TA-Lib
 
 ## Features
 
@@ -41,9 +42,12 @@ This package provides:
 
 ### Technical Capabilities
 - **Environment Configuration**: Secure API key management using `.env` files
-- **WebSocket Support**: Real-time market data streaming
+- **WebSocket Streaming**: Real-time BTC/USDT price streaming from Binance with automatic reconnection
+- **Technical Indicators**: RSI(14) and MACD calculations using TA-Lib for momentum analysis
+- **Order Book Analysis**: Real-time bid/ask imbalance calculations for market pressure detection
+- **Multi-Source Data**: Aggregates data from Binance, Polymarket, with CoinGecko fallback
 - **Configurable Risk Management**: Customizable position sizing and stop-loss parameters
-- **Retry Logic**: Exponential backoff for resilient API calls
+- **Retry Logic**: Exponential backoff for resilient API calls and WebSocket reconnection
 - **Validation Functions**: Type checking, range validation, and data validation
 - **Error Handling**: Consistent error logging and handling across the bot
 
@@ -54,12 +58,12 @@ polymarket-bot/
 ├── __init__.py            # Package initialization
 ├── config.py              # Configuration management
 ├── models.py              # Core data models (BotState, Trade, Position, MarketData)
-├── market_data.py         # Polymarket API client for market discovery and odds
+├── market_data.py         # Market data service (Binance WebSocket, Polymarket API, technical indicators)
 ├── state.py               # State persistence and logging
 ├── utils.py               # Utility functions (retry, validation, error handling)
 ├── tests/                 # Comprehensive test suite
 │   ├── test_models.py     # Model validation tests
-│   ├── test_market_data.py # Polymarket API integration tests
+│   ├── test_market_data.py # Market data service and Polymarket API tests
 │   └── test_state.py      # State persistence tests
 ├── test_config.py         # Configuration tests
 └── README.md              # This file
@@ -757,233 +761,275 @@ display_amount = format_currency(123.456, "USDC", 2)  # "123.46 USDC"
 
 ## Market Data Service
 
-### Overview
+The `market_data.py` module provides real-time market data integration with WebSocket streaming, technical indicators, Polymarket API integration, and multi-exchange support.
 
-The Market Data Service (`market_data.py`) provides a complete integration with the Polymarket API for discovering active prediction markets and fetching current odds. It includes retry logic, error handling, and support for multiple API response formats.
+### BinanceWebSocketClient
 
-### Features
+Real-time BTC/USDT price streaming via WebSocket with automatic reconnection.
 
-- **Market Discovery**: Search for active BTC-related markets
-- **Odds Fetching**: Get real-time Yes/No outcome prices
-- **Market Filtering**: Filter by liquidity, volume, and activity status
-- **Retry Logic**: Automatic retries with exponential backoff
-- **Error Handling**: Comprehensive error handling and logging
-- **Rate Limiting**: Built-in rate limit management
-
-### Quick Start
-
-```python
-from market_data import MarketDataService, get_active_btc_markets
-from decimal import Decimal
-
-# Create service instance (uses config automatically)
-service = MarketDataService()
-
-# Discover active BTC markets
-markets = service.discover_markets(search_query="BTC", active_only=True, limit=50)
-
-# Filter by liquidity and volume
-filtered_markets = service.filter_btc_markets(
-    markets,
-    min_liquidity=Decimal("10000"),  # $10,000 minimum liquidity
-    min_volume=Decimal("50000")      # $50,000 minimum volume
-)
-
-# Get odds for a specific market
-market = service.get_market_odds("market_id_here")
-print(f"YES: {float(market.yes_price):.4f}, NO: {float(market.no_price):.4f}")
-```
-
-### Convenience Functions
-
-```python
-from market_data import get_active_btc_markets, get_market_odds_by_id
-from decimal import Decimal
-
-# Get active BTC markets with filtering
-markets = get_active_btc_markets(
-    min_liquidity=Decimal("5000"),
-    min_volume=Decimal("10000"),
-    limit=20
-)
-
-# Get odds for a specific market
-market = get_market_odds_by_id("0x123abc...")
-if market:
-    print(f"Market: {market.question}")
-    print(f"YES: {float(market.yes_price):.2%}")
-    print(f"NO: {float(market.no_price):.2%}")
-```
-
-### MarketDataService API
-
-#### `__init__(api_key, api_secret, base_url)`
-
-Initialize the service with optional custom credentials.
-
-**Parameters:**
-- `api_key` (optional): Polymarket API key (defaults to config)
-- `api_secret` (optional): Polymarket API secret (defaults to config)
-- `base_url` (optional): API base URL (defaults to config)
-
-#### `discover_markets(search_query, active_only, limit)`
-
-Discover markets matching search criteria.
-
-**Parameters:**
-- `search_query` (str, optional): Search term (default: "BTC")
-- `active_only` (bool): Only return active markets (default: True)
-- `limit` (int): Maximum number of markets (default: 50)
-
-**Returns:** List of `MarketData` objects
-
-**Raises:** `PolymarketAPIError` on API failure
+**Features:**
+- WebSocket connection to Binance with automatic reconnection
+- Rolling price buffer for technical indicator calculations
+- Thread-safe price retrieval
+- Configurable reconnection attempts and delays
+- Exponential backoff for connection failures
 
 **Example:**
-```python
-# Find BTC markets
-btc_markets = service.discover_markets(
-    search_query="Bitcoin",
-    active_only=True,
-    limit=20
-)
 
-for market in btc_markets:
-    print(f"{market.question}")
-    print(f"  Liquidity: ${float(market.total_liquidity):,.2f}")
-    print(f"  Volume: ${float(market.get_total_volume()):,.2f}")
+```python
+from market_data import BinanceWebSocketClient
+
+# Initialize and connect
+client = BinanceWebSocketClient(buffer_size=100)
+client.connect()
+
+# Wait for price data to accumulate
+import time
+time.sleep(5)
+
+# Get latest prices for indicator calculations
+prices = client.get_latest_prices(count=50)
+print(f"Collected {len(prices)} prices")
+
+# Get single latest price
+latest_price = client.get_latest_price()
+print(f"Current BTC price: ${latest_price:.2f}")
+
+# Close connection when done
+client.close()
 ```
 
-#### `get_market_odds(market_id)`
+**Configuration:**
+- `WS_RECONNECT_DELAY`: Seconds between reconnection attempts (default: 5)
+- `WS_MAX_RECONNECT_ATTEMPTS`: Maximum reconnection attempts (default: 10)
 
-Fetch current odds for a specific market.
+### PolymarketClient
 
-**Parameters:**
-- `market_id` (str): Unique Polymarket market identifier
+REST API client for Polymarket market discovery and odds retrieval with built-in retry logic and error handling.
 
-**Returns:** `MarketData` object with current odds
+**Features:**
+- Market discovery and search
+- BTC-related market filtering
+- Real-time odds retrieval
+- Automatic retry logic with exponential backoff
+- Rate limit awareness
+- Comprehensive error handling
 
-**Raises:**
-- `PolymarketAPIError`: If API request fails
-- `ValueError`: If market_id is invalid
+**Example Usage:**
 
-**Example:**
 ```python
-market = service.get_market_odds("0x1234567890abcdef")
-print(f"Current odds - YES: {market.yes_price}, NO: {market.no_price}")
+from market_data import PolymarketClient
+from config import get_config
+
+# Initialize client
+config = get_config()
+client = PolymarketClient(config)
+
+# Get active markets
+markets = client.get_active_markets(limit=100)
+print(f"Found {len(markets)} active markets")
+
+# Search for specific markets
+btc_markets = client.search_markets("Bitcoin", limit=50)
+
+# Get BTC-related markets (searches multiple keywords)
+btc_markets = client.get_btc_markets(limit=50)
+
+# Get specific market by ID
+market = client.get_market_by_id("market_123")
+
+# Get current odds for a market
+yes_price, no_price = client.get_market_odds("market_123")
+print(f"YES: {yes_price}, NO: {no_price}")
+
+# Parse market data into MarketData model
+market_data = client.parse_market_data(market)
+print(f"Market: {market_data.question}")
+print(f"Liquidity: ${market_data.total_liquidity}")
+
+# Close client when done
+client.close()
 ```
 
-#### `filter_btc_markets(markets, min_liquidity, min_volume)`
+**Using as Context Manager:**
 
-Filter markets based on liquidity and volume criteria.
-
-**Parameters:**
-- `markets` (List[MarketData]): Markets to filter
-- `min_liquidity` (Decimal, optional): Minimum liquidity in USD
-- `min_volume` (Decimal, optional): Minimum volume in USD
-
-**Returns:** Filtered list of `MarketData` objects
-
-**Example:**
 ```python
-# Get all markets
-all_markets = service.discover_markets("BTC", limit=100)
+from market_data import PolymarketClient
+from config import get_config
 
-# Filter for high-liquidity, high-volume markets
-quality_markets = service.filter_btc_markets(
-    all_markets,
-    min_liquidity=Decimal("50000"),
-    min_volume=Decimal("100000")
-)
+config = get_config()
 
-print(f"Found {len(quality_markets)} high-quality markets")
+# Automatically closes connection
+with PolymarketClient(config) as client:
+    markets = client.get_btc_markets()
+    for market in markets:
+        market_data = client.parse_market_data(market)
+        print(f"{market_data.question}: YES={market_data.yes_price}")
 ```
 
-#### `get_market_by_id(market_id)`
+### Technical Indicators
 
-Get complete market information by ID (with error handling).
+Calculate RSI and MACD indicators using TA-Lib for technical analysis.
 
-**Parameters:**
-- `market_id` (str): Market identifier
+**RSI (Relative Strength Index):**
 
-**Returns:** `MarketData` object or `None` if not found
-
-**Example:**
 ```python
-market = service.get_market_by_id("market_123")
-if market:
-    print(f"Found market: {market.question}")
+from market_data import calculate_rsi
+
+# Calculate RSI from price data
+prices = [45000, 45100, 45050, ...]  # List of prices
+rsi = calculate_rsi(prices, period=14)
+
+print(f"RSI(14): {rsi:.2f}")
+
+# Interpret RSI
+if rsi > 70:
+    print("Overbought condition")
+elif rsi < 30:
+    print("Oversold condition")
+```
+
+**MACD (Moving Average Convergence Divergence):**
+
+```python
+from market_data import calculate_macd
+
+# Calculate MACD
+prices = [45000, 45100, 45050, ...]  # Need at least 34 prices
+macd_line, signal_line = calculate_macd(prices)
+
+print(f"MACD: {macd_line:.2f}, Signal: {signal_line:.2f}")
+
+# Interpret MACD
+if macd_line > signal_line:
+    print("Bullish crossover - potential buy signal")
 else:
-    print("Market not found")
+    print("Bearish crossover - potential sell signal")
+```
+
+### Order Book Imbalance
+
+Calculate bid/ask volume ratio to measure market pressure.
+
+**Example:**
+
+```python
+from market_data import get_order_book_imbalance
+
+# Get current order book imbalance
+imbalance = get_order_book_imbalance()
+
+print(f"Order book imbalance: {imbalance:.4f}")
+
+# Interpret imbalance
+if imbalance > 1.1:
+    print("Strong buying pressure")
+elif imbalance < 0.9:
+    print("Strong selling pressure")
+else:
+    print("Neutral market")
+```
+
+### Market Data Aggregation
+
+Combine all data sources into a single MarketData object.
+
+**Example:**
+
+```python
+from market_data import (
+    BinanceWebSocketClient,
+    PolymarketClient,
+    get_market_data
+)
+from config import get_config
+
+# Initialize clients
+config = get_config()
+binance_client = BinanceWebSocketClient()
+binance_client.connect()
+
+polymarket_client = PolymarketClient(
+    api_key=config.polymarket_api_key,
+    api_secret=config.polymarket_api_secret
+)
+
+# Wait for price data to accumulate
+import time
+time.sleep(10)
+
+# Aggregate all market data
+market_data = get_market_data(
+    binance_client=binance_client,
+    polymarket_client=polymarket_client,
+    market_id="market_123"  # Optional - will search if not provided
+)
+
+# Access aggregated data
+print(f"Market: {market_data.market_id}")
+print(f"YES odds: {market_data.yes_price}")
+print(f"NO odds: {market_data.no_price}")
+
+# Access technical indicators from metadata
+print(f"BTC Price: ${market_data.metadata['btc_price']:.2f}")
+print(f"RSI(14): {market_data.metadata['rsi_14']:.2f}")
+print(f"MACD: {market_data.metadata['macd_line']:.2f}")
+print(f"Signal: {market_data.metadata['macd_signal']:.2f}")
+print(f"Order Book Imbalance: {market_data.metadata['order_book_imbalance']:.4f}")
+
+# Clean up
+binance_client.close()
+```
+
+### Fallback Price Retrieval
+
+CoinGecko fallback when Binance is unavailable.
+
+**Example:**
+
+```python
+from market_data import get_fallback_btc_price
+
+try:
+    # Use as fallback when WebSocket fails
+    btc_price = get_fallback_btc_price()
+    print(f"BTC price from CoinGecko: ${btc_price:.2f}")
+except ConnectionError as e:
+    print(f"Fallback failed: {e}")
 ```
 
 ### Error Handling
 
-The service includes comprehensive error handling:
+The market_data module implements robust error handling:
+
+- **WebSocket disconnections**: Automatic reconnection with exponential backoff
+- **API failures**: Retry logic with configurable attempts
+- **Insufficient data**: Clear error messages for indicator calculations
+- **Zero division**: Safe handling of edge cases in calculations
+- **HTTP errors**: Comprehensive error handling for API interactions
+- **Rate limits**: Monitoring and respect for API rate limits
+
+**Example:**
 
 ```python
-from market_data import MarketDataService, PolymarketAPIError
+from market_data import calculate_rsi, PolymarketClient, PolymarketAPIError
+from config import get_config
 
-service = MarketDataService()
-
+# Technical indicator error handling
 try:
-    markets = service.discover_markets("BTC")
-    print(f"Found {len(markets)} markets")
+    prices = [100, 101, 102]  # Too few prices
+    rsi = calculate_rsi(prices, period=14)
+except ValueError as e:
+    print(f"Error: {e}")
+    # Output: "Insufficient price data for RSI calculation. Need at least 15 prices, got 3"
+
+# API error handling
+try:
+    config = get_config()
+    client = PolymarketClient(config)
+    markets = client.get_active_markets()
 except PolymarketAPIError as e:
     print(f"API error: {e}")
-except Exception as e:
-    print(f"Unexpected error: {e}")
-```
-
-### API Response Format Support
-
-The service handles multiple API response formats automatically:
-
-- Standard format: `{'yes_price': 0.65, 'no_price': 0.35}`
-- CamelCase format: `{'yesPrice': 0.65, 'noPrice': 0.35}`
-- Outcomes array: `{'outcomes': [0.65, 0.35]}`
-- Percentage format: `{'yes_price': 65.0}` (converted to 0.65)
-
-### Complete Example
-
-```python
-from market_data import MarketDataService
-from decimal import Decimal
-import logging
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-
-# Initialize service
-service = MarketDataService()
-
-# Discover active BTC markets
-print("Discovering BTC markets...")
-markets = service.discover_markets(
-    search_query="Bitcoin",
-    active_only=True,
-    limit=50
-)
-print(f"Found {len(markets)} total markets")
-
-# Filter for quality markets
-quality_markets = service.filter_btc_markets(
-    markets,
-    min_liquidity=Decimal("10000"),
-    min_volume=Decimal("50000")
-)
-print(f"Filtered to {len(quality_markets)} quality markets")
-
-# Display top markets
-for market in quality_markets[:5]:
-    print(f"\nMarket: {market.question}")
-    print(f"  Market ID: {market.market_id}")
-    print(f"  YES: {float(market.yes_price):.2%}")
-    print(f"  NO: {float(market.no_price):.2%}")
-    print(f"  Liquidity: ${float(market.total_liquidity):,.2f}")
-    print(f"  Volume: ${float(market.get_total_volume()):,.2f}")
-    print(f"  Spread: {float(market.get_price_spread()):.2%}")
-    print(f"  Active: {market.is_active}")
 ```
 
 ## Usage Example - Complete Trading Bot
