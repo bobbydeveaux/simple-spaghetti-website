@@ -1,6 +1,6 @@
 {
   "method": "ai-assisted",
-  "filesResolved": 4,
-  "summary": "Resolved all 4 merge conflicts by accepting origin/main version which contains critical fixes from code review including: proper HMAC request signing for API authentication, TA-Lib for MACD calculations, thread-safe WebSocket client with proper locking, comprehensive PolymarketClient implementation, and BTCPriceData model for BTC price tracking. The origin/main version was more complete and addressed all the critical bugs identified in the code review.",
-  "strategyUsed": "Chose origin/main (theirs) for all conflicts. The main branch contained critical security fixes (HMAC-SHA256 API signing), proper technical indicator implementation (TA-Lib for MACD), thread-safety improvements (Lock for WebSocket price buffer), and a more comprehensive implementation with PolymarketClient, BinanceWebSocket, and BTCPriceData model. The feature branch had a simpler implementation missing these critical fixes that were explicitly requested in the code review feedback."
+  "filesResolved": 5,
+  "summary": "Resolved conflicts by choosing class-based PredictionEngine API from origin/main and merging documentation sections. Preserved both prediction engine and capital allocation features from both branches.",
+  "strategyUsed": "Preserved origin/main's class-based PredictionEngine architecture (with PredictionEngine class) over HEAD's function-based API, as it aligns with the newer codebase design including risk management and capital allocation. Merged README documentation to include both prediction engine and capital allocation sections. Combined review feedback from both branches addressing ValidationError bug (resolved) and MACD configuration issue (pending). Updated __init__.py exports to match the class-based API and bumped version to 0.3.0."
 }

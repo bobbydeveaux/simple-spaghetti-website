@@ -73,9 +73,9 @@ data/                            # Created at runtime
 - `PolymarketClient`: REST API wrapper for market discovery and odds fetching
 
 **Key Functions:**
-- `get_market_data() -> MarketData`: Aggregates BTC price, RSI, MACD, order book imbalance, Polymarket odds
-- `calculate_rsi(prices: List[float], period: int = 14) -> float`: RSI calculation using ta-lib
-- `calculate_macd(prices: List[float]) -> Tuple[float, float]`: MACD line and signal line
+- `get_market_data() -> MarketData`: Aggregates BTC price, RSI, MACD, order book imbalance, Polymarket odds using configured indicator parameters
+- `calculate_rsi(prices: List[float], period: int = 14) -> float`: RSI calculation using ta-lib with configurable period
+- `calculate_macd(prices: List[float], fast_period: int = 12, slow_period: int = 26, signal_period: int = 9) -> Tuple[float, float]`: MACD line and signal line with configurable periods
 - `get_order_book_imbalance() -> float`: Binance order book bid/ask ratio
 - `find_active_market() -> Optional[str]`: Queries Polymarket for next settling BTC 5-min market
 
@@ -83,22 +83,49 @@ data/                            # Created at runtime
 
 ### 3.3 Prediction Engine (`prediction.py`)
 
-**Responsibilities:** Deterministic UP/DOWN/SKIP signal generation
+**Responsibilities:** Deterministic UP/DOWN/SKIP signal generation with configurable thresholds
+
+**Key Classes:**
+- `PredictionEngine`: Main class for signal generation using configurable thresholds
 
 **Key Functions:**
-- `generate_signal(market_data: MarketData) -> Tuple[str, float]`: Returns ("UP"|"DOWN"|"SKIP", confidence_score)
+- `generate_signal(prices: List[float], btc_price: Optional[float] = None) -> PredictionSignal`: Returns PredictionSignal object with signal type, confidence, indicators, and reasoning
+- `_calculate_rsi(prices: List[float]) -> float`: Calculate RSI using configured period
+- `_calculate_macd(prices: List[float]) -> Tuple[float, float]`: Calculate MACD using configured periods
+- `_get_order_book_imbalance() -> float`: Fetch current order book imbalance
+- `_evaluate_conditions(...) -> Tuple[SignalType, float, str]`: Evaluate indicator conditions and return signal
 
 **Logic:**
 ```
-IF rsi < 30 AND macd_line > macd_signal AND order_book_imbalance > 1.1:
-    RETURN ("UP", 0.75)
-ELIF rsi > 70 AND macd_line < macd_signal AND order_book_imbalance < 0.9:
-    RETURN ("DOWN", 0.75)
+Configuration from environment:
+- RSI_PERIOD (default: 14)
+- RSI_OVERSOLD_THRESHOLD (default: 30.0)
+- RSI_OVERBOUGHT_THRESHOLD (default: 70.0)
+- MACD_FAST_PERIOD (default: 12)
+- MACD_SLOW_PERIOD (default: 26)
+- MACD_SIGNAL_PERIOD (default: 9)
+- ORDER_BOOK_BULLISH_THRESHOLD (default: 1.1)
+- ORDER_BOOK_BEARISH_THRESHOLD (default: 0.9)
+- PREDICTION_CONFIDENCE_SCORE (default: 0.75)
+
+Signal generation logic:
+IF rsi < RSI_OVERSOLD_THRESHOLD AND macd_line > macd_signal AND order_book_imbalance > ORDER_BOOK_BULLISH_THRESHOLD:
+    RETURN (SignalType.UP, PREDICTION_CONFIDENCE_SCORE, reasoning)
+ELIF rsi > RSI_OVERBOUGHT_THRESHOLD AND macd_line < macd_signal AND order_book_imbalance < ORDER_BOOK_BEARISH_THRESHOLD:
+    RETURN (SignalType.DOWN, PREDICTION_CONFIDENCE_SCORE, reasoning)
 ELSE:
-    RETURN ("SKIP", 0.0)
+    RETURN (SignalType.SKIP, 0.0, reasoning)
 ```
 
-Confidence score fixed at 0.75 for valid signals, 0.0 for skip. No probabilistic models.
+**Output Model (PredictionSignal):**
+- signal: SignalType enum (UP/DOWN/SKIP)
+- confidence: Decimal (configurable, 0.0 for SKIP)
+- rsi, macd_line, macd_signal, order_book_imbalance: Decimal values used
+- btc_price: Optional[Decimal]
+- timestamp: datetime with timezone
+- reasoning: str explaining the decision with threshold values
+
+All thresholds are configurable via environment variables, allowing strategy tuning without code changes.
 
 ### 3.4 Risk Controller (`risk.py`)
 
@@ -249,12 +276,24 @@ class Position:
 @dataclass
 class MarketData:
     btc_price: float
-    rsi_14: float
-    macd_line: float
+    rsi: float  # Calculated with configurable period
+    macd_line: float  # Calculated with configurable periods
     macd_signal: float
     order_book_imbalance: float
     polymarket_odds_up: float
     polymarket_odds_down: float
+
+@dataclass
+class PredictionSignal:
+    signal: SignalType  # Enum: UP, DOWN, SKIP
+    confidence: Decimal  # 0.0 to 1.0
+    rsi: Decimal
+    macd_line: Decimal
+    macd_signal: Decimal
+    order_book_imbalance: Decimal
+    btc_price: Optional[Decimal]
+    timestamp: datetime
+    reasoning: str  # Human-readable explanation
 
 # main.py
 def main() -> None

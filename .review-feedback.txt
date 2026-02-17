@@ -1,132 +1,42 @@
 ## Code Review - Changes Requested
 
+## Review Complete
+
+I've completed comprehensive code reviews for the prediction engine implementation. Here's my assessment:
+
 ## ❌ BLOCKING ISSUES FOUND
 
-I've identified a **critical bug** that will cause runtime failures in production. This must be fixed before the PR can be merged.
+### Critical Issue 1: MACD Configuration Not Applied
 
----
+The prediction engine has a **functional bug** where MACD configuration parameters (`macd_fast_period`, `macd_slow_period`, `macd_signal_period`) are validated, logged, and documented but **never actually used** in the calculation. The `calculate_macd()` function in `market_data.py` uses hardcoded values (12, 26, 9) instead.
 
-## 1. Bugs and Logic Errors
+**Impact**: Users can set these environment variables, see them in logs, and believe they're working - but they have no effect on predictions.
 
-### 🔴 CRITICAL - ValidationError called with incorrect arguments
+### Critical Issue 2: ValidationError Called with Incorrect Arguments (RESOLVED)
 
-**Location:** polymarket-bot/prediction.py:73, 76, 79, 239, 246, 251
+**Note:** This issue was identified in an earlier version where `ValidationError` was called with two arguments (field name, message) but the class only accepts one argument. This has been resolved in the current implementation.
 
-**Issue:** The `ValidationError` class is defined in utils.py as a simple exception with no custom `__init__` method:
+### Additional Non-Blocking Issues Found:
 
-```python
-class ValidationError(Exception):
-    """Exception raised when validation fails."""
-    pass
-```
+1. **Deprecated API**: Uses `datetime.utcnow()` which is deprecated in Python 3.12+
+2. **Incomplete Documentation**: The HLD/LLD docs in `docs/concepts/polymarket-bot/` weren't updated
+3. **Test Inconsistency**: Mixed mocking patterns (`prediction.X` vs `polymarket_bot.prediction.X`)
+4. **Config Validation Logic**: Order book threshold validation may not align with semantic meaning
+5. **API Design**: Exported test helper calls private method
 
-However, prediction.py calls it with **two arguments** throughout the code:
+### Positive Aspects:
 
-```python
-raise ValidationError("market_id", "Market ID is required")  # Line 73
-raise ValidationError("rsi", f"RSI must be between 0 and 100, got {rsi}")  # Line 239
-raise ValidationError("macd", "Both MACD line and signal must be provided together")  # Line 246
-```
-
-**Expected usage** (based on all other files in the codebase):
-```python
-raise ValidationError("Market ID is required")
-raise ValidationError(f"RSI must be between 0 and 100, got {rsi}")
-raise ValidationError("Both MACD line and signal must be provided together")
-```
-
-**Impact:** This will cause `TypeError: Exception() takes at most 1 argument (2 given)` at runtime whenever validation fails. This is a **major bug** that breaks core functionality.
-
-**Evidence:** Every other usage in the codebase uses a single string:
-- utils.py:218: `raise ValidationError(f"{field_name} cannot be None")`
-- market_data.py:502: `raise ValidationError("Market data missing 'id' field")`
-
-**Fix required:** Remove the first argument (field name) from all 6 ValidationError calls in prediction.py and include the field name in the message string instead.
-
----
-
-## 2. Security Vulnerabilities
-
-✅ No security vulnerabilities found. The code:
-- Performs proper input validation
-- Uses type hints and validation for all inputs
-- No SQL injection, XSS, or other common vulnerabilities
-- No secrets or credentials exposed
-
----
-
-## 3. Code Quality
-
-### Minor Issues (Non-blocking):
-
-1. **Unused import** (prediction.py:18): `from decimal import Decimal` is imported but never used
-2. **Unused import** (prediction.py:21): `validate_non_empty` is imported but never used
-3. **Inconsistent naming** (prediction.py:278): Variable `macd_signal` shadows the parameter name for MACD signal line, which could be confusing. Consider renaming to `macd_signal_result` throughout (already done in line 269, but parameter name collides).
-
-### Positive aspects:
-- Excellent docstrings with clear parameter descriptions
-- Well-structured code with good separation of concerns
-- Comprehensive logging throughout
-- Good use of constants for magic numbers
-- Clear function names
-
----
-
-## 4. Test Coverage
-
-✅ **Excellent test coverage:**
-- 40+ test cases covering all scenarios
-- Tests for individual indicator functions
-- Tests for edge cases (invalid inputs, boundary values)
-- Tests for integration scenarios
-- Tests for signal consistency and determinism
-- Tests for confidence calculation
-
-**Note:** Tests cannot be run in this environment (no Python runtime), but the test code structure follows pytest best practices and appears comprehensive.
-
----
-
-## 5. Performance
-
-✅ No performance issues identified:
-- All calculations are simple arithmetic operations (O(1))
-- No database queries or network calls
-- No resource leaks
-- Efficient use of built-in Python functions
-
----
-
-## 6. Documentation Completeness
-
-✅ **Documentation is comprehensive:**
-
-- ✅ README.md updated with new "Prediction Engine" section (lines 27-33, 39-184 in diff)
-- ✅ Usage examples provided with code snippets
-- ✅ All thresholds documented (RSI, MACD, order book)
-- ✅ Edge cases documented with examples
-- ✅ Integration instructions included
-- ✅ Testing guidance provided
-- ✅ __init__.py updated to export new functions
-- ✅ Version bumped to 0.3.0
-- ✅ Project structure updated to include prediction.py
-
-**Docs folder:** The /workspace/docs/polymarket-bot folder only contains utilities.md, which doesn't need updating for this feature. The main README.md is the primary documentation and has been thoroughly updated.
-
----
+✅ Excellent test coverage (60+ test cases)
+✅ Comprehensive README documentation
+✅ Strong configuration validation
+✅ Clean code structure and error handling
+✅ Well-designed models and type hints
 
 ## Summary
 
-This PR implements a well-designed prediction engine with excellent test coverage and comprehensive documentation. However, there is a **critical bug** that will cause the code to fail at runtime:
+The MACD configuration issue is a functional defect that must be fixed before merge. The fix is straightforward - update `calculate_macd()` to accept period parameters and pass the config values through.
 
-**BLOCKING ISSUE:** ValidationError is called with 2 arguments in 6 places, but the class only accepts 1 argument. This will throw a TypeError when any validation fails.
-
-**Required changes:**
-1. Fix all 6 ValidationError calls in prediction.py to use a single string message instead of two arguments
-2. Consider removing unused imports (Decimal, validate_non_empty) for code cleanliness
-
-Once the ValidationError bug is fixed, this PR will be ready to merge. The implementation is otherwise solid, well-tested, and properly documented.
-
-**Action Required**: Please address the blocking issues above before merging.
+**Action Required**: Please address the blocking issue above before merging.
 
 ---
 *Reviewed by code-reviewer agent*

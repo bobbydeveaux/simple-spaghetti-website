@@ -1,350 +1,311 @@
 """
 Prediction Engine for Polymarket Bot.
 
-This module implements the deterministic rule-based signal generator that
-produces trading signals based on technical indicators (RSI, MACD) and
-order book imbalance analysis.
+This module implements the prediction engine that generates trading signals
+based on technical indicators (RSI, MACD) and order book imbalance.
 
-The prediction engine:
-- Analyzes RSI and MACD indicators for momentum signals
-- Incorporates order book imbalance for market pressure assessment
-- Generates UP/DOWN/SKIP signals with confidence scores
-- Handles edge cases (insufficient data, zero volume, etc.)
-- Provides deterministic, rule-based predictions (no ML models)
+The prediction engine follows a deterministic signal generation algorithm:
+- UP signal: RSI oversold + MACD bullish + strong buying pressure
+- DOWN signal: RSI overbought + MACD bearish + strong selling pressure
+- SKIP signal: Conditions don't meet criteria for UP or DOWN
+
+All signals include confidence scores and reasoning for transparency.
 """
 
 import logging
-from typing import Tuple, Optional
+from typing import List, Tuple, Optional
+from decimal import Decimal
+from datetime import datetime, timezone
 
-from .models import MarketData
-from .utils import ValidationError
+from .config import Config, get_config
+from .models import PredictionSignal, SignalType
+from .market_data import calculate_rsi, calculate_macd, get_order_book_imbalance
+
 
 # Setup logging
 logger = logging.getLogger(__name__)
 
-# Signal type constants
-SIGNAL_UP = "UP"
-SIGNAL_DOWN = "DOWN"
-SIGNAL_SKIP = "SKIP"
-
-# Confidence score constants
-CONFIDENCE_HIGH = 75.0
-CONFIDENCE_MEDIUM = 60.0
-CONFIDENCE_LOW = 45.0
-CONFIDENCE_NONE = 0.0
-
-# RSI thresholds
-RSI_OVERSOLD = 30.0
-RSI_OVERBOUGHT = 70.0
-RSI_MODERATE_OVERSOLD = 40.0
-RSI_MODERATE_OVERBOUGHT = 60.0
-
-# Order book imbalance thresholds
-ORDERBOOK_BULLISH = 1.1  # Bid/Ask ratio > 1.1 indicates buying pressure
-ORDERBOOK_BEARISH = 0.9  # Bid/Ask ratio < 0.9 indicates selling pressure
-
 
 class PredictionError(Exception):
-    """Exception raised for prediction-related errors."""
+    """Exception raised for prediction engine errors."""
     pass
 
 
-class InsufficientDataError(PredictionError):
-    """Exception raised when there's insufficient data for prediction."""
-    pass
-
-
-def validate_market_data(market_data: MarketData) -> None:
+class PredictionEngine:
     """
-    Validate that market data contains all required fields for prediction.
+    Prediction engine for generating trading signals.
+
+    Uses technical indicators (RSI, MACD) and order book imbalance
+    to generate deterministic UP/DOWN/SKIP signals with confidence scores.
+    """
+
+    def __init__(self, config: Optional[Config] = None):
+        """
+        Initialize the prediction engine.
+
+        Args:
+            config: Configuration object. If None, loads from environment.
+        """
+        self.config = config if config else get_config()
+        logger.info(
+            f"Initialized PredictionEngine with "
+            f"RSI({self.config.rsi_period}, oversold={self.config.rsi_oversold_threshold}, "
+            f"overbought={self.config.rsi_overbought_threshold}), "
+            f"MACD({self.config.macd_fast_period}, {self.config.macd_slow_period}, "
+            f"{self.config.macd_signal_period})"
+        )
+
+    def generate_signal(
+        self,
+        prices: List[float],
+        btc_price: Optional[float] = None
+    ) -> PredictionSignal:
+        """
+        Generate a trading signal based on technical indicators.
+
+        Args:
+            prices: List of historical prices (oldest to newest)
+            btc_price: Current BTC price (optional, for context)
+
+        Returns:
+            PredictionSignal with signal type, confidence, and reasoning
+
+        Raises:
+            PredictionError: If unable to generate signal due to insufficient data
+        """
+        try:
+            # Calculate technical indicators
+            rsi = self._calculate_rsi(prices)
+            macd_line, macd_signal = self._calculate_macd(prices)
+            order_book_imbalance = self._get_order_book_imbalance()
+
+            logger.debug(
+                f"Indicators - RSI: {rsi:.2f}, MACD: {macd_line:.2f}, "
+                f"Signal: {macd_signal:.2f}, OB Imbalance: {order_book_imbalance:.2f}"
+            )
+
+            # Generate signal based on indicator conditions
+            signal, confidence, reasoning = self._evaluate_conditions(
+                rsi=rsi,
+                macd_line=macd_line,
+                macd_signal=macd_signal,
+                order_book_imbalance=order_book_imbalance
+            )
+
+            # Create prediction signal
+            prediction = PredictionSignal(
+                signal=signal,
+                confidence=Decimal(str(confidence)),
+                rsi=Decimal(str(rsi)),
+                macd_line=Decimal(str(macd_line)),
+                macd_signal=Decimal(str(macd_signal)),
+                order_book_imbalance=Decimal(str(order_book_imbalance)),
+                btc_price=Decimal(str(btc_price)) if btc_price else None,
+                timestamp=datetime.now(timezone.utc),
+                reasoning=reasoning
+            )
+
+            logger.info(
+                f"Generated signal: {signal.value.upper()} "
+                f"(confidence: {confidence:.2f}) - {reasoning}"
+            )
+
+            return prediction
+
+        except ValueError as e:
+            raise PredictionError(f"Failed to generate signal: {str(e)}") from e
+        except Exception as e:
+            raise PredictionError(f"Unexpected error generating signal: {str(e)}") from e
+
+    def _calculate_rsi(self, prices: List[float]) -> float:
+        """
+        Calculate RSI using configured period.
+
+        Args:
+            prices: List of historical prices
+
+        Returns:
+            RSI value (0-100)
+
+        Raises:
+            ValueError: If insufficient price data
+        """
+        return calculate_rsi(prices, period=self.config.rsi_period)
+
+    def _calculate_macd(self, prices: List[float]) -> Tuple[float, float]:
+        """
+        Calculate MACD with configured periods.
+
+        Args:
+            prices: List of historical prices
+
+        Returns:
+            Tuple of (macd_line, signal_line)
+
+        Raises:
+            ValueError: If insufficient price data
+        """
+        return calculate_macd(
+            prices,
+            fast_period=self.config.macd_fast_period,
+            slow_period=self.config.macd_slow_period,
+            signal_period=self.config.macd_signal_period
+        )
+
+    def _get_order_book_imbalance(self) -> float:
+        """
+        Get current order book imbalance.
+
+        Returns:
+            Order book imbalance ratio
+
+        Raises:
+            ConnectionError: If unable to fetch order book data
+        """
+        return get_order_book_imbalance()
+
+    def _evaluate_conditions(
+        self,
+        rsi: float,
+        macd_line: float,
+        macd_signal: float,
+        order_book_imbalance: float
+    ) -> Tuple[SignalType, float, str]:
+        """
+        Evaluate indicator conditions to generate signal.
+
+        Logic:
+        - UP: RSI < oversold_threshold AND MACD > signal AND imbalance > bullish_threshold
+        - DOWN: RSI > overbought_threshold AND MACD < signal AND imbalance < bearish_threshold
+        - SKIP: Otherwise
+
+        Args:
+            rsi: RSI value
+            macd_line: MACD line value
+            macd_signal: MACD signal line value
+            order_book_imbalance: Order book imbalance ratio
+
+        Returns:
+            Tuple of (signal_type, confidence, reasoning)
+        """
+        # Check for UP signal
+        if (
+            rsi < self.config.rsi_oversold_threshold
+            and macd_line > macd_signal
+            and order_book_imbalance > self.config.order_book_bullish_threshold
+        ):
+            reasoning = (
+                f"RSI oversold ({rsi:.2f} < {self.config.rsi_oversold_threshold}), "
+                f"MACD bullish crossover ({macd_line:.2f} > {macd_signal:.2f}), "
+                f"strong buying pressure (imbalance {order_book_imbalance:.2f} > "
+                f"{self.config.order_book_bullish_threshold})"
+            )
+            return SignalType.UP, self.config.prediction_confidence_score, reasoning
+
+        # Check for DOWN signal
+        if (
+            rsi > self.config.rsi_overbought_threshold
+            and macd_line < macd_signal
+            and order_book_imbalance < self.config.order_book_bearish_threshold
+        ):
+            reasoning = (
+                f"RSI overbought ({rsi:.2f} > {self.config.rsi_overbought_threshold}), "
+                f"MACD bearish crossover ({macd_line:.2f} < {macd_signal:.2f}), "
+                f"strong selling pressure (imbalance {order_book_imbalance:.2f} < "
+                f"{self.config.order_book_bearish_threshold})"
+            )
+            return SignalType.DOWN, self.config.prediction_confidence_score, reasoning
+
+        # SKIP signal
+        reasoning = (
+            f"No clear signal - RSI: {rsi:.2f}, "
+            f"MACD: {macd_line:.2f}/{macd_signal:.2f}, "
+            f"OB imbalance: {order_book_imbalance:.2f}"
+        )
+        return SignalType.SKIP, 0.0, reasoning
+
+    def validate_price_data(self, prices: List[float]) -> bool:
+        """
+        Validate that price data is sufficient for signal generation.
+
+        Args:
+            prices: List of historical prices
+
+        Returns:
+            True if price data is sufficient, False otherwise
+        """
+        # Need enough data for MACD (most restrictive)
+        min_required = max(
+            self.config.rsi_period + 1,
+            self.config.macd_slow_period + self.config.macd_signal_period
+        )
+
+        if len(prices) < min_required:
+            logger.warning(
+                f"Insufficient price data: need {min_required}, got {len(prices)}"
+            )
+            return False
+
+        # Validate prices are positive
+        if any(p <= 0 for p in prices):
+            logger.warning("Invalid price data: contains non-positive values")
+            return False
+
+        return True
+
+
+def generate_signal_from_market_data(
+    prices: List[float],
+    btc_price: Optional[float] = None,
+    config: Optional[Config] = None
+) -> PredictionSignal:
+    """
+    Convenience function to generate a signal from market data.
+
+    This is a wrapper around PredictionEngine.generate_signal() for
+    simple use cases where you don't need to maintain engine state.
 
     Args:
-        market_data: MarketData object to validate
-
-    Raises:
-        ValidationError: If required data is missing or invalid
-    """
-    # Check if market_data has the required technical indicator fields
-    # Note: The MarketData model needs RSI, MACD, and order book fields
-    # For now, we'll add basic validation and extend as needed
-
-    if not hasattr(market_data, 'market_id') or not market_data.market_id:
-        raise ValidationError("Market ID is required")
-
-    if not hasattr(market_data, 'yes_price') or market_data.yes_price is None:
-        raise ValidationError("Yes price is required")
-
-    if not hasattr(market_data, 'no_price') or market_data.no_price is None:
-        raise ValidationError("No price is required")
-
-
-def calculate_signal_from_rsi(rsi: float) -> Tuple[Optional[str], str]:
-    """
-    Generate signal component based on RSI indicator.
-
-    Args:
-        rsi: RSI value (0-100)
+        prices: List of historical prices (oldest to newest)
+        btc_price: Current BTC price (optional, for context)
+        config: Configuration object. If None, loads from environment.
 
     Returns:
-        Tuple of (signal, reasoning) where signal is UP/DOWN/None and reasoning explains the decision
+        PredictionSignal with signal type, confidence, and reasoning
+
+    Raises:
+        PredictionError: If unable to generate signal
     """
-    if rsi < RSI_OVERSOLD:
-        return SIGNAL_UP, f"Strong oversold (RSI={rsi:.1f} < {RSI_OVERSOLD})"
-    elif rsi < RSI_MODERATE_OVERSOLD:
-        return SIGNAL_UP, f"Moderate oversold (RSI={rsi:.1f} < {RSI_MODERATE_OVERSOLD})"
-    elif rsi > RSI_OVERBOUGHT:
-        return SIGNAL_DOWN, f"Strong overbought (RSI={rsi:.1f} > {RSI_OVERBOUGHT})"
-    elif rsi > RSI_MODERATE_OVERBOUGHT:
-        return SIGNAL_DOWN, f"Moderate overbought (RSI={rsi:.1f} > {RSI_MODERATE_OVERBOUGHT})"
-    else:
-        return None, f"Neutral (RSI={rsi:.1f})"
+    engine = PredictionEngine(config=config)
+    return engine.generate_signal(prices=prices, btc_price=btc_price)
 
 
-def calculate_signal_from_macd(macd_line: float, macd_signal: float) -> Tuple[Optional[str], str]:
+def _validate_signal_conditions(
+    rsi: float,
+    macd_line: float,
+    macd_signal: float,
+    order_book_imbalance: float,
+    config: Optional[Config] = None
+) -> SignalType:
     """
-    Generate signal component based on MACD indicator.
+    Internal test helper to validate signal conditions directly.
 
     Args:
+        rsi: RSI value
         macd_line: MACD line value
         macd_signal: MACD signal line value
+        order_book_imbalance: Order book imbalance ratio
+        config: Configuration object. If None, loads from environment.
 
     Returns:
-        Tuple of (signal, reasoning) where signal is UP/DOWN/None and reasoning explains the decision
+        SignalType based on conditions
     """
-    macd_diff = macd_line - macd_signal
-
-    if macd_line > macd_signal:
-        if macd_diff > 0.01:  # Strong bullish crossover
-            return SIGNAL_UP, f"Strong bullish MACD (line={macd_line:.4f} > signal={macd_signal:.4f}, diff={macd_diff:.4f})"
-        else:
-            return SIGNAL_UP, f"Bullish MACD (line={macd_line:.4f} > signal={macd_signal:.4f})"
-    elif macd_line < macd_signal:
-        if macd_diff < -0.01:  # Strong bearish crossover
-            return SIGNAL_DOWN, f"Strong bearish MACD (line={macd_line:.4f} < signal={macd_signal:.4f}, diff={macd_diff:.4f})"
-        else:
-            return SIGNAL_DOWN, f"Bearish MACD (line={macd_line:.4f} < signal={macd_signal:.4f})"
-    else:
-        return None, f"Neutral MACD (line={macd_line:.4f} ≈ signal={macd_signal:.4f})"
-
-
-def calculate_signal_from_orderbook(order_book_imbalance: float) -> Tuple[Optional[str], str]:
-    """
-    Generate signal component based on order book imbalance.
-
-    Args:
-        order_book_imbalance: Bid/Ask ratio
-
-    Returns:
-        Tuple of (signal, reasoning) where signal is UP/DOWN/None and reasoning explains the decision
-    """
-    if order_book_imbalance > ORDERBOOK_BULLISH:
-        strength = "strong" if order_book_imbalance > 1.2 else "moderate"
-        return SIGNAL_UP, f"{strength.capitalize()} buying pressure (bid/ask={order_book_imbalance:.2f} > {ORDERBOOK_BULLISH})"
-    elif order_book_imbalance < ORDERBOOK_BEARISH:
-        strength = "strong" if order_book_imbalance < 0.8 else "moderate"
-        return SIGNAL_DOWN, f"{strength.capitalize()} selling pressure (bid/ask={order_book_imbalance:.2f} < {ORDERBOOK_BEARISH})"
-    else:
-        return None, f"Balanced order book (bid/ask={order_book_imbalance:.2f})"
-
-
-def calculate_confidence(
-    rsi_signal: Optional[str],
-    macd_signal: Optional[str],
-    orderbook_signal: Optional[str],
-    final_signal: str
-) -> float:
-    """
-    Calculate confidence score based on signal agreement.
-
-    Confidence is higher when multiple indicators agree:
-    - All 3 agree: High confidence (75)
-    - 2 agree: Medium confidence (60)
-    - Only 1 indicator: Low confidence (45)
-    - No clear signal: No confidence (0)
-
-    Args:
-        rsi_signal: Signal from RSI (UP/DOWN/None)
-        macd_signal: Signal from MACD (UP/DOWN/None)
-        orderbook_signal: Signal from order book (UP/DOWN/None)
-        final_signal: Final decided signal (UP/DOWN/SKIP)
-
-    Returns:
-        Confidence score (0-100)
-    """
-    if final_signal == SIGNAL_SKIP:
-        return CONFIDENCE_NONE
-
-    # Count how many indicators agree with the final signal
-    agreement_count = 0
-    if rsi_signal == final_signal:
-        agreement_count += 1
-    if macd_signal == final_signal:
-        agreement_count += 1
-    if orderbook_signal == final_signal:
-        agreement_count += 1
-
-    # Return confidence based on agreement
-    if agreement_count >= 3:
-        return CONFIDENCE_HIGH
-    elif agreement_count == 2:
-        return CONFIDENCE_MEDIUM
-    elif agreement_count == 1:
-        return CONFIDENCE_LOW
-    else:
-        return CONFIDENCE_NONE
-
-
-def generate_signal(
-    rsi: Optional[float] = None,
-    macd_line: Optional[float] = None,
-    macd_signal: Optional[float] = None,
-    order_book_imbalance: Optional[float] = None,
-    btc_price: Optional[float] = None
-) -> Tuple[str, float]:
-    """
-    Generate trading signal based on technical indicators.
-
-    This is the main prediction function that combines RSI, MACD, and order book
-    imbalance to produce a final trading signal with confidence score.
-
-    Logic:
-    1. Analyze each indicator independently
-    2. Apply voting mechanism to determine final signal
-    3. Calculate confidence based on indicator agreement
-    4. Return SKIP if indicators are conflicting or data is insufficient
-
-    Args:
-        rsi: RSI(14) value (0-100), None if unavailable
-        macd_line: MACD line value, None if unavailable
-        macd_signal: MACD signal line value, None if unavailable
-        order_book_imbalance: Bid/Ask ratio, None if unavailable
-        btc_price: Current BTC price (used for validation), None if unavailable
-
-    Returns:
-        Tuple of (signal, confidence_score) where:
-        - signal is "UP", "DOWN", or "SKIP"
-        - confidence_score is 0-100
-
-    Raises:
-        InsufficientDataError: If no indicators are available
-        ValidationError: If indicator values are invalid
-    """
-    # Validate inputs
-    available_indicators = 0
-
-    # Validate RSI
-    if rsi is not None:
-        if not (0 <= rsi <= 100):
-            raise ValidationError(f"RSI must be between 0 and 100, got {rsi}")
-        available_indicators += 1
-
-    # Validate MACD (both line and signal must be present or both absent)
-    if macd_line is not None and macd_signal is not None:
-        available_indicators += 1
-    elif macd_line is not None or macd_signal is not None:
-        raise ValidationError("Both MACD line and signal must be provided together")
-
-    # Validate order book imbalance
-    if order_book_imbalance is not None:
-        if order_book_imbalance < 0:
-            raise ValidationError(f"Order book imbalance must be >= 0, got {order_book_imbalance}")
-        available_indicators += 1
-
-    # Validate BTC price if provided (sanity check)
-    if btc_price is not None:
-        if not (1000 <= btc_price <= 1000000):
-            logger.warning(f"Unusual BTC price: ${btc_price:.2f} - proceeding with caution")
-
-    # Check if we have enough data
-    if available_indicators == 0:
-        raise InsufficientDataError("No technical indicators available for prediction")
-
-    logger.info(f"Generating signal with {available_indicators} indicators: "
-                f"RSI={rsi}, MACD_line={macd_line}, MACD_signal={macd_signal}, "
-                f"OrderBook={order_book_imbalance}, BTC=${btc_price}")
-
-    # Calculate individual signals
-    rsi_signal = None
-    macd_signal_result = None
-    orderbook_signal = None
-
-    reasoning = []
-
-    if rsi is not None:
-        rsi_signal, rsi_reason = calculate_signal_from_rsi(rsi)
-        reasoning.append(f"RSI: {rsi_reason}")
-
-    if macd_line is not None and macd_signal is not None:
-        macd_signal_result, macd_reason = calculate_signal_from_macd(macd_line, macd_signal)
-        reasoning.append(f"MACD: {macd_reason}")
-
-    if order_book_imbalance is not None:
-        orderbook_signal, orderbook_reason = calculate_signal_from_orderbook(order_book_imbalance)
-        reasoning.append(f"Order Book: {orderbook_reason}")
-
-    # Voting mechanism: determine final signal
-    signals = [s for s in [rsi_signal, macd_signal_result, orderbook_signal] if s is not None]
-
-    if not signals:
-        # No clear signals from any indicator
-        logger.info("No clear signals from indicators - returning SKIP. " + "; ".join(reasoning))
-        return SIGNAL_SKIP, CONFIDENCE_NONE
-
-    # Count votes for each signal
-    up_votes = signals.count(SIGNAL_UP)
-    down_votes = signals.count(SIGNAL_DOWN)
-
-    # Determine final signal based on majority vote
-    if up_votes > down_votes:
-        final_signal = SIGNAL_UP
-    elif down_votes > up_votes:
-        final_signal = SIGNAL_DOWN
-    else:
-        # Tie - no clear consensus
-        logger.info("Conflicting signals - returning SKIP. " + "; ".join(reasoning))
-        return SIGNAL_SKIP, CONFIDENCE_NONE
-
-    # Calculate confidence score
-    confidence = calculate_confidence(rsi_signal, macd_signal_result, orderbook_signal, final_signal)
-
-    logger.info(f"Signal generated: {final_signal} with confidence {confidence:.1f}%. " + "; ".join(reasoning))
-
-    return final_signal, confidence
-
-
-def generate_signal_from_market_data(market_data: MarketData) -> Tuple[str, float]:
-    """
-    Generate trading signal from MarketData object.
-
-    This is a convenience wrapper around generate_signal() that extracts
-    the required technical indicators from a MarketData object.
-
-    Note: This function assumes the MarketData object has been extended
-    with technical indicator fields. If not present, it will return SKIP.
-
-    Args:
-        market_data: MarketData object containing market and indicator data
-
-    Returns:
-        Tuple of (signal, confidence_score)
-
-    Raises:
-        ValidationError: If market_data is invalid
-    """
-    validate_market_data(market_data)
-
-    # Extract technical indicators from market_data if available
-    # These fields need to be added to the MarketData model
-    rsi = getattr(market_data, 'rsi_14', None)
-    macd_line = getattr(market_data, 'macd_line', None)
-    macd_signal = getattr(market_data, 'macd_signal', None)
-    order_book_imbalance = getattr(market_data, 'order_book_imbalance', None)
-    btc_price = getattr(market_data, 'btc_price', None)
-
-    return generate_signal(
+    cfg = config if config else get_config()
+    engine = PredictionEngine(config=cfg)
+    signal, _, _ = engine._evaluate_conditions(
         rsi=rsi,
         macd_line=macd_line,
         macd_signal=macd_signal,
-        order_book_imbalance=order_book_imbalance,
-        btc_price=btc_price
+        order_book_imbalance=order_book_imbalance
     )
+    return signal
