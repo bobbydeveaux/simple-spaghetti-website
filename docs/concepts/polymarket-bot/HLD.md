@@ -15,7 +15,7 @@ Single-process monolithic application with event-driven loop architecture. The b
 
 **Market Data Service**: Fetches BTC price data from Binance WebSocket, calculates technical indicators (RSI, MACD), retrieves Polymarket odds via REST API.
 
-**Prediction Engine**: Deterministic rule-based signal generator. Inputs: RSI(14), MACD(12,26,9), order book imbalance. Outputs: UP/DOWN/SKIP decision.
+**Prediction Engine**: Deterministic rule-based signal generator using configurable technical indicators. Inputs: RSI (configurable period, default 14), MACD (configurable fast/slow/signal periods, defaults 12/26/9), order book imbalance. Outputs: UP/DOWN/SKIP decision with confidence score and reasoning. Configuration via environment variables allows tuning thresholds (RSI oversold/overbought, order book bullish/bearish) without code changes.
 
 **Position Manager**: Tracks current position state (entry time, size, direction), prevents overlapping trades, records settlements.
 
@@ -55,12 +55,23 @@ Single-process monolithic application with event-driven loop architecture. The b
 
 **MarketData** (in-memory):
 - btc_price: float
-- rsi_14: float
-- macd_line: float
-- macd_signal: float
+- rsi: float (calculated with configurable period)
+- macd_line: float (calculated with configurable fast/slow periods)
+- macd_signal: float (calculated with configurable signal period)
 - order_book_imbalance: float
 - polymarket_odds_up: float
 - polymarket_odds_down: float
+
+**PredictionSignal** (in-memory):
+- signal: SignalType (UP/DOWN/SKIP)
+- confidence: Decimal (0-1 range)
+- rsi: Decimal
+- macd_line: Decimal
+- macd_signal: Decimal
+- order_book_imbalance: Decimal
+- btc_price: Optional[Decimal]
+- timestamp: datetime
+- reasoning: str (human-readable explanation)
 
 ---
 

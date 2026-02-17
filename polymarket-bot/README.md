@@ -24,6 +24,14 @@ This package provides:
 - ✅ **Business Logic Methods**: Built-in helpers for common calculations (P&L, win rate, etc.)
 - ✅ **Test Coverage**: Comprehensive test suite with 100% model coverage
 
+### Prediction Engine
+- ✅ **Rule-Based Signals**: Deterministic UP/DOWN/SKIP signal generation
+- ✅ **Technical Indicators**: RSI (overbought/oversold) and MACD (momentum) analysis
+- ✅ **Order Book Analysis**: Bid/ask imbalance for market pressure assessment
+- ✅ **Confidence Scoring**: 0-100 confidence based on indicator agreement
+- ✅ **Edge Case Handling**: Graceful handling of insufficient data and invalid inputs
+- ✅ **Comprehensive Tests**: 40+ test cases covering all scenarios
+
 ### Market Data Integration
 - ✅ **Binance WebSocket**: Real-time BTC/USDT price streaming with automatic reconnection
 - ✅ **Technical Indicators**: RSI and MACD calculations for price analysis
@@ -57,19 +65,34 @@ This package provides:
 - ✅ **24h Statistics**: Volume, high, low, and price change tracking
 - ✅ **Callback Support**: Custom handlers for price updates
 
-### Risk Management
-- ✅ **Drawdown Monitoring**: Automatic tracking of drawdown with configurable thresholds (default: 30%)
-- ✅ **Volatility Circuit Breaker**: Price volatility checks to prevent trading in unstable markets (default: 3% over 5 periods)
-- ✅ **Pre-Trade Validation**: Combined risk checks before trade execution
-- ✅ **Rejection Reasons**: Detailed explanations for rejected trades
+### Risk Management System
+- ✅ **Max Drawdown Monitoring**: Automatic tracking of 30% drawdown threshold from peak equity
+- ✅ **Volatility Circuit Breaker**: 3% 5-minute price range checks to prevent trading in unstable markets
+- ✅ **Pre-Trade Validation**: Comprehensive trade approval logic with detailed rejection reasons
+- ✅ **Risk Metrics**: Real-time risk metrics including drawdown, exposure, and win rate
 - ✅ **Configurable Thresholds**: Customizable risk parameters for different strategies
+- ✅ **Peak Tracking**: Automatic peak capital tracking for accurate drawdown calculations
+- ✅ **Position Sizing**: Dynamic calculation based on risk parameters and exposure limits
+- ✅ **Market Validation**: Active market, liquidity, and closure checks
 - ✅ **Comprehensive Testing**: 50+ test cases covering boundary conditions and edge cases
+
+### Capital Allocation
+- ✅ **Win-Streak Position Sizing**: Dynamic position sizing based on consecutive wins
+- ✅ **Base Size**: $5 starting position with zero streak
+- ✅ **Multiplier**: 1.5x scaling per consecutive win
+- ✅ **Position Cap**: Maximum $25 position size regardless of streak
+- ✅ **Capital Safety**: Automatic 50% capital constraint to prevent over-leverage
+- ✅ **Streak Reset**: Automatic streak reset to zero on any loss
+- ✅ **Configurable Parameters**: Customizable base size, multiplier, and maximum cap
+- ✅ **Automatic Streak Tracking**: Integration with StateManager for win/loss tracking
+- ✅ **Comprehensive Testing**: Full test coverage including edge cases and boundary conditions
 
 ### Technical Capabilities
 - **Environment Configuration**: Secure API key management using `.env` files
 - **WebSocket Streaming**: Real-time BTC/USDT price streaming from Binance with automatic reconnection
 - **Technical Indicators**: RSI(14) and MACD calculations using TA-Lib for momentum analysis
 - **Order Book Analysis**: Real-time bid/ask imbalance calculations for market pressure detection
+- **Prediction Engine**: Deterministic signal generation based on RSI, MACD, and order book imbalance
 - **Multi-Source Data**: Aggregates data from Binance, Polymarket, with CoinGecko fallback
 - **Configurable Risk Management**: Customizable position sizing and stop-loss parameters
 - **Retry Logic**: Exponential backoff for resilient API calls and WebSocket reconnection
@@ -82,18 +105,23 @@ This package provides:
 polymarket-bot/
 ├── __init__.py                 # Package initialization
 ├── config.py                   # Configuration management
-├── models.py                   # Core data models (BotState, Trade, Position, MarketData, BTCPriceData)
+├── models.py                   # Core data models (BotState, Trade, Position, MarketData, BTCPriceData, PredictionSignal)
 ├── market_data.py              # Market data service (Binance WebSocket, Polymarket API, technical indicators)
-├── risk.py                     # Risk management module (drawdown, volatility, trade approval)
+├── prediction.py               # Prediction engine (RSI/MACD-based signal generation)
+├── risk.py                     # Risk management system (drawdown, volatility, trade approval)
+├── capital.py                  # Capital allocation with win-streak position sizing
 ├── state.py                    # State persistence and logging
 ├── utils.py                    # Utility functions (retry, validation, error handling)
 ├── tests/                      # Comprehensive test suite
-│   ├── test_models.py          # Model validation tests (including BTCPriceData)
+│   ├── test_models.py          # Model validation tests (including BTCPriceData, PredictionSignal)
 │   ├── test_market_data.py     # Market data service and Polymarket API tests
 │   ├── test_binance_websocket.py # Binance WebSocket tests
+│   ├── test_prediction.py      # Prediction engine tests
 │   ├── test_risk.py            # Risk management tests
+│   ├── test_capital.py         # Capital allocation tests
 │   └── test_state.py           # State persistence tests
 ├── test_config.py              # Configuration tests
+├── test_risk.py                # Risk management tests
 └── README.md                   # This file
 ```
 
@@ -158,6 +186,18 @@ The bot uses environment variables for configuration. All required variables mus
 - `WS_MAX_RECONNECT_ATTEMPTS`: Maximum WebSocket reconnection attempts (default: `10`)
 - `LOG_LEVEL`: Logging level - DEBUG, INFO, WARNING, ERROR, or CRITICAL (default: `INFO`)
 - `LOG_FILE`: Log file path (default: `polymarket_bot.log`)
+
+### Prediction Engine Configuration
+
+- `RSI_PERIOD`: RSI calculation period (default: `14`)
+- `RSI_OVERSOLD_THRESHOLD`: RSI oversold threshold for UP signals (default: `30.0`)
+- `RSI_OVERBOUGHT_THRESHOLD`: RSI overbought threshold for DOWN signals (default: `70.0`)
+- `MACD_FAST_PERIOD`: MACD fast period (default: `12`)
+- `MACD_SLOW_PERIOD`: MACD slow period (default: `26`)
+- `MACD_SIGNAL_PERIOD`: MACD signal period (default: `9`)
+- `ORDER_BOOK_BULLISH_THRESHOLD`: Order book imbalance threshold for bullish signals (default: `1.1`)
+- `ORDER_BOOK_BEARISH_THRESHOLD`: Order book imbalance threshold for bearish signals (default: `0.9`)
+- `PREDICTION_CONFIDENCE_SCORE`: Confidence score for actionable signals (default: `0.75`)
 
 ## Data Models
 
@@ -800,6 +840,273 @@ The WebSocket receives 24hr ticker data from Binance:
 
 This is automatically parsed into `BTCPriceData` model instances.
 
+## Prediction Engine
+
+The `prediction.py` module implements a deterministic rule-based signal generator that produces trading signals based on technical indicators and market analysis.
+
+### Features
+
+- **Technical Indicator Analysis**: RSI (Relative Strength Index) and MACD (Moving Average Convergence Divergence)
+- **Order Book Analysis**: Bid/Ask imbalance for market pressure assessment
+- **Confidence Scoring**: 0-100 confidence scores based on indicator agreement
+- **Class-Based API**: `PredictionEngine` class for stateful prediction generation
+- **Edge Case Handling**: Graceful handling of insufficient data, invalid inputs, and conflicting signals
+- **Deterministic**: Same inputs always produce same outputs (no randomness)
+
+### Signal Types
+
+The prediction engine generates three types of signals:
+
+- **UP**: Bullish signal indicating price expected to rise
+- **DOWN**: Bearish signal indicating price expected to fall
+- **SKIP**: No clear signal or conflicting indicators
+
+### Confidence Levels
+
+Confidence scores are calculated based on indicator conditions and configuration thresholds.
+
+## Capital Allocation
+
+The `capital.py` module implements win-streak capital allocation logic for position sizing. Position sizes scale with consecutive winning trades using a multiplier system, with a maximum cap to manage risk.
+
+### Win-Streak Position Sizing
+
+The capital allocator uses the following formula:
+
+```
+position_size = min(base_size * (multiplier ** win_streak), max_size)
+```
+
+**Default Parameters:**
+- **Base Size**: $5.00
+- **Multiplier**: 1.5x per consecutive win
+- **Maximum Size**: $25.00 (position cap)
+
+**Position Size Progression:**
+- Streak 0 (first trade or after loss): $5.00
+- Streak 1 (after 1 win): $7.50
+- Streak 2 (after 2 consecutive wins): $11.25
+- Streak 3 (after 3 consecutive wins): $16.88
+- Streak 4+ (capped): $25.00
+
+### CapitalAllocator Class
+
+The `CapitalAllocator` class provides position sizing with configurable parameters:
+
+```python
+from capital import CapitalAllocator
+from decimal import Decimal
+
+# Initialize with default parameters
+allocator = CapitalAllocator()
+
+# Or customize parameters
+allocator = CapitalAllocator(
+    base_size=Decimal("10.00"),
+    multiplier=Decimal("2.0"),
+    max_size=Decimal("50.00")
+)
+
+# Calculate position size based on win streak
+position_size = allocator.calculate_position_size(win_streak=2)
+print(f"Position size: ${position_size}")  # Output: Position size: $11.25
+
+# With capital safety check (never exceed 50% of available capital)
+position_size = allocator.calculate_position_size(
+    win_streak=2,
+    current_capital=Decimal("100.00")
+)
+```
+
+### Standalone Functions
+
+For convenience, standalone functions are available:
+
+```python
+from capital import calculate_position_size
+from decimal import Decimal
+
+# Simple usage
+size = calculate_position_size(win_streak=1)
+print(f"${size}")  # Output: $7.50
+
+# With custom parameters
+size = calculate_position_size(
+    win_streak=2,
+    current_capital=Decimal("100.00"),
+    base_size=Decimal("5.00"),
+    multiplier=Decimal("1.5"),
+    max_size=Decimal("25.00")
+)
+```
+
+### Integration with StateManager
+
+The capital allocator integrates with the `StateManager` to track win streaks:
+
+```python
+from state import StateManager
+from capital import calculate_position_size
+
+# Create state manager
+state_manager = StateManager(state_dir="data")
+
+# Get current win streak from metrics
+metrics = state_manager.get_metrics()
+win_streak = metrics['win_streak']
+
+# Calculate position size
+position_size = calculate_position_size(win_streak)
+
+# After a winning trade
+state_manager.update_metrics(
+    trade_result="win",
+    pnl=Decimal("5.50"),
+    current_equity=Decimal("105.50")
+)
+
+# After a losing trade (resets streak to 0)
+state_manager.update_metrics(
+    trade_result="loss",
+    pnl=Decimal("-3.25"),
+    current_equity=Decimal("102.25")
+)
+```
+
+### Streak Management
+
+The allocator provides methods for streak management:
+
+```python
+allocator = CapitalAllocator()
+
+# Increment streak after a win
+current_streak = 2
+new_streak = allocator.increment_streak(current_streak)
+print(new_streak)  # Output: 3
+
+# Reset streak after a loss
+new_streak = allocator.reset_streak()
+print(new_streak)  # Output: 0
+```
+
+### Safety Features
+
+1. **Maximum Cap**: Position size is capped at `max_size` regardless of win streak
+2. **Capital Safety Check**: Position size never exceeds 50% of current capital
+3. **Parameter Validation**: Invalid parameters raise `ValueError` on initialization
+4. **Negative Streak Protection**: Negative win streaks are rejected
+
+### Prediction Engine Usage Example
+
+```python
+from prediction import PredictionEngine, generate_signal_from_market_data
+from models import SignalType
+
+# Initialize prediction engine
+engine = PredictionEngine()
+
+# Generate signal from price history
+prices = [50000.0, 50100.0, 50200.0, ...]  # Historical prices
+prediction = engine.generate_signal(prices=prices, btc_price=50250.0)
+
+print(f"Signal: {prediction.signal.value}")  # "up", "down", or "skip"
+print(f"Confidence: {prediction.confidence}")
+print(f"Reasoning: {prediction.reasoning}")
+
+# Act on the signal
+if prediction.signal == SignalType.UP and prediction.confidence >= 60:
+    print("Strong bullish signal - consider buying")
+elif prediction.signal == SignalType.DOWN and prediction.confidence >= 60:
+    print("Strong bearish signal - consider selling")
+else:
+    print("No clear signal - skip this opportunity")
+```
+
+### Indicator Thresholds
+
+The prediction engine uses configurable thresholds for signal generation:
+
+**RSI (Relative Strength Index)**
+- **Oversold**: RSI < configured threshold (default 30) - contributes to UP signal
+- **Overbought**: RSI > configured threshold (default 70) - contributes to DOWN signal
+
+**MACD (Moving Average Convergence Divergence)**
+- **Bullish**: MACD line > signal line - contributes to UP signal
+- **Bearish**: MACD line < signal line - contributes to DOWN signal
+
+**Order Book Imbalance**
+- **Buying Pressure**: bid/ask > configured threshold (default 1.1) - contributes to UP signal
+- **Selling Pressure**: bid/ask < configured threshold (default 0.9) - contributes to DOWN signal
+
+### Testing
+
+The prediction engine includes comprehensive test cases covering:
+
+- Signal generation based on indicator conditions
+- Confidence score calculation
+- Edge cases (invalid inputs, insufficient data)
+- Realistic trading scenarios
+- Integration with configuration
+
+Run tests:
+```bash
+pytest tests/test_prediction.py -v
+```
+
+## Capital Allocation - Full Usage Example
+
+```python
+from capital import CapitalAllocator, calculate_position_size
+from state import StateManager
+from decimal import Decimal
+
+# Initialize components
+allocator = CapitalAllocator()
+state_manager = StateManager(state_dir="data")
+
+# Trading loop
+for trade_number in range(10):
+    # Get current metrics
+    metrics = state_manager.get_metrics()
+    win_streak = metrics['win_streak']
+
+    # Calculate position size
+    position_size = allocator.calculate_position_size(win_streak)
+
+    print(f"Trade {trade_number + 1}: Win Streak = {win_streak}, Position Size = ${position_size}")
+
+    # Simulate trade execution and result
+    # ... (execute trade)
+
+    # Update metrics based on trade result
+    trade_result = "win" if trade_number % 3 != 0 else "loss"  # Example
+    pnl = Decimal("5.00") if trade_result == "win" else Decimal("-3.00")
+
+    state_manager.update_metrics(
+        trade_result=trade_result,
+        pnl=pnl,
+        current_equity=Decimal("100.00") + pnl * (trade_number + 1)
+    )
+```
+
+### Capital Allocation Testing
+
+The capital allocation module includes comprehensive tests in `tests/test_capital.py`:
+
+```bash
+pytest tests/test_capital.py -v
+```
+
+**Test Coverage:**
+- Base position sizing (streak = 0)
+- Win-streak multiplier scaling (streaks 1-5+)
+- Maximum cap enforcement
+- Capital safety checks
+- Parameter validation
+- Edge cases and boundary conditions
+- Integration with BotState
+- Acceptance criteria verification
 ## State Persistence and Logging
 
 The `state.py` module provides robust state management, trade logging, and metrics tracking with atomic writes and crash recovery.
@@ -917,126 +1224,124 @@ data/
 └── trades.log       # Trade history log (append-only)
 ```
 
-## Risk Management
+## Capital Allocation
 
-The risk management module provides pre-trade validation to ensure trades comply with risk limits before execution.
+The capital allocation module implements dynamic position sizing based on win-streak scaling. This approach rewards consecutive wins with larger positions while maintaining strict safety limits.
 
-### Features
+### Position Sizing Formula
 
-- **Drawdown Monitoring**: Tracks drawdown from starting capital with configurable threshold (default: 30%)
-- **Volatility Circuit Breaker**: Prevents trading during high volatility periods (default: 3% over 5 periods)
-- **Trade Approval**: Combines all risk checks to approve/reject trades with detailed reasons
+```
+position_size = min(base_size * (multiplier ^ win_streak), max_size)
+```
+
+**Constants:**
+- **BASE_SIZE**: $5.00 (starting position with zero streak)
+- **MULTIPLIER**: 1.5x (scaling per consecutive win)
+- **MAX_SIZE**: $25.00 (maximum position cap)
+
+**Additional Safety:** Position size is also capped at 50% of current capital to prevent over-leverage.
+
+### Win-Streak Progression
+
+| Streak | Formula | Position Size | Capped At |
+|--------|---------|---------------|-----------|
+| 0 | 5.0 × 1.5⁰ | $5.00 | - |
+| 1 | 5.0 × 1.5¹ | $7.50 | - |
+| 2 | 5.0 × 1.5² | $11.25 | - |
+| 3 | 5.0 × 1.5³ | $16.88 | - |
+| 4 | 5.0 × 1.5⁴ | $25.31 | $25.00 |
+| 5+ | 5.0 × 1.5⁵⁺ | >$25.00 | $25.00 |
 
 ### Usage
 
-#### Basic Usage with Convenience Functions
+```python
+from polymarket_bot.capital import calculate_position_size, update_win_streak
+
+# Mock bot state with current capital and win streak
+class BotState:
+    def __init__(self, current_capital, win_streak):
+        self.current_capital = current_capital
+        self.win_streak = win_streak
+
+# Calculate position size for new trade
+bot_state = BotState(current_capital=100.0, win_streak=0)
+position = calculate_position_size(bot_state)
+print(f"Position size: ${position}")  # $5.00
+
+# After a winning trade
+bot_state.win_streak = update_win_streak(bot_state, "WIN")
+position = calculate_position_size(bot_state)
+print(f"Position size after win: ${position}")  # $7.50
+
+# After a losing trade (streak resets)
+bot_state.win_streak = update_win_streak(bot_state, "LOSS")
+position = calculate_position_size(bot_state)
+print(f"Position size after loss: ${position}")  # $5.00 (back to base)
+```
+
+### Utility Function
+
+For testing or analysis, use `get_position_size_for_streak` to calculate position sizes without modifying bot state:
 
 ```python
-from risk import check_drawdown, check_volatility, approve_trade
+from polymarket_bot.capital import get_position_size_for_streak
 
-# Check if drawdown is within limits
-current_capital = 75.0
-starting_capital = 100.0
-if check_drawdown(current_capital, starting_capital, max_drawdown_percent=30.0):
-    print("Drawdown is acceptable")
-else:
-    print("Drawdown exceeds threshold")
+# Calculate position for various streaks
+for streak in range(6):
+    size = get_position_size_for_streak(streak)
+    print(f"Streak {streak}: ${size:.2f}")
 
-# Check if volatility is within limits
-price_history = [100.0, 101.0, 102.0, 101.5, 102.5]
-if check_volatility(price_history, max_volatility_percent=3.0, lookback_periods=5):
-    print("Volatility is acceptable")
-else:
-    print("Volatility too high")
-
-# Approve trade (combines all checks)
-signal = "UP"  # or "DOWN" or "SKIP"
-if approve_trade(signal, current_capital, price_history, starting_capital):
-    print("Trade approved - safe to execute")
-else:
-    print("Trade rejected - risk limits exceeded")
+# Output:
+# Streak 0: $5.00
+# Streak 1: $7.50
+# Streak 2: $11.25
+# Streak 3: $16.88
+# Streak 4: $25.00
+# Streak 5: $25.00 (capped)
 ```
 
-#### Advanced Usage with RiskController
+### Capital Safety Features
 
+1. **Maximum Position Cap**: No position exceeds $25 regardless of streak length
+2. **Capital Constraint**: Position size limited to 50% of current capital
+3. **Automatic Streak Reset**: Any loss resets the win streak to zero
+4. **Low Capital Protection**: With capital < $10, positions automatically scale down
+
+### Example Scenarios
+
+**Scenario 1: Normal Trading**
 ```python
-from risk import RiskController
-
-# Create risk controller with custom settings
-risk_controller = RiskController(
-    max_drawdown_percent=25.0,  # Custom 25% drawdown limit
-    max_volatility_percent=5.0,  # Custom 5% volatility limit
-    starting_capital=1000.0      # Custom starting capital
-)
-
-# Check drawdown with detailed feedback
-passed, reason = risk_controller.check_drawdown(current_capital=800.0)
-if not passed:
-    print(f"Drawdown check failed: {reason}")
-
-# Check volatility with detailed feedback
-price_history = [100.0, 101.0, 105.0, 102.0, 103.0]
-passed, reason = risk_controller.check_volatility(price_history)
-if not passed:
-    print(f"Volatility check failed: {reason}")
-
-# Approve trade with detailed feedback
-approved, reason = risk_controller.approve_trade(
-    signal="UP",
-    current_capital=800.0,
-    price_history=price_history
-)
-
-if approved:
-    print("Trade approved - executing order")
-else:
-    print(f"Trade rejected: {reason}")
+bot = BotState(current_capital=100.0, win_streak=2)
+position = calculate_position_size(bot)  # $11.25
 ```
 
-### Risk Check Details
-
-#### Drawdown Calculation
-
-```
-drawdown_percent = ((starting_capital - current_capital) / starting_capital) * 100
+**Scenario 2: Low Capital Constraint**
+```python
+bot = BotState(current_capital=20.0, win_streak=2)
+position = calculate_position_size(bot)  # $10.00 (50% of $20, not $11.25)
 ```
 
-- **Passes if**: `drawdown_percent <= max_drawdown_percent`
-- **Default threshold**: 30%
-- **Example**: With $100 starting capital and $69 current capital, drawdown is 31% and fails
-
-#### Volatility Calculation
-
-```
-price_range = max(recent_prices) - min(recent_prices)
-volatility_percent = (price_range / min(recent_prices)) * 100
+**Scenario 3: Very High Streak**
+```python
+bot = BotState(current_capital=100.0, win_streak=10)
+position = calculate_position_size(bot)  # $25.00 (capped at max)
 ```
 
-- **Passes if**: `volatility_percent <= max_volatility_percent`
-- **Default threshold**: 3% over last 5 periods
-- **Example**: Prices [100, 101, 103.1, 102, 101.5] have 3.1% volatility and fail
+**Scenario 4: Win-Loss Pattern**
+```python
+bot = BotState(current_capital=100.0, win_streak=0)
 
-#### Trade Approval Logic
+# Win 1
+bot.win_streak = update_win_streak(bot, "WIN")  # streak = 1
+pos1 = calculate_position_size(bot)  # $7.50
 
-1. **SKIP signals**: Always approved (no trade executed)
-2. **UP/DOWN signals**: Must pass both drawdown AND volatility checks
-3. **Invalid signals**: Rejected with error message
+# Win 2
+bot.win_streak = update_win_streak(bot, "WIN")  # streak = 2
+pos2 = calculate_position_size(bot)  # $11.25
 
-### Testing
-
-The risk module includes comprehensive tests covering:
-
-- Boundary conditions (29%, 30%, 31% drawdown)
-- Boundary conditions (2.9%, 3%, 3.1% volatility)
-- Edge cases (zero capital, negative values, empty history)
-- All combinations of signal types and risk states
-
-```bash
-# Run risk management tests
-pytest tests/test_risk.py -v
-
-# Run with coverage
-pytest tests/test_risk.py --cov=risk --cov-report=html
+# Loss (resets streak)
+bot.win_streak = update_win_streak(bot, "LOSS")  # streak = 0
+pos3 = calculate_position_size(bot)  # $5.00 (back to base)
 ```
 
 ## Utility Functions
@@ -1402,6 +1707,267 @@ except PolymarketAPIError as e:
     print(f"API error: {e}")
 ```
 
+## Prediction Engine
+
+The `prediction.py` module provides deterministic signal generation based on technical indicators. It analyzes RSI, MACD, and order book imbalance to generate actionable UP/DOWN signals or SKIP when conditions aren't met.
+
+### PredictionEngine
+
+Main prediction engine class that generates trading signals with confidence scores and reasoning.
+
+**Features:**
+- Deterministic signal generation (no probabilistic models)
+- Configurable RSI, MACD, and order book thresholds
+- Confidence scoring for signal reliability
+- Human-readable reasoning for transparency
+- Comprehensive error handling and data validation
+
+**Signal Logic:**
+
+```
+UP Signal (Bullish):
+  RSI < oversold_threshold (default: 30)
+  AND MACD line > MACD signal (bullish crossover)
+  AND order book imbalance > bullish_threshold (default: 1.1)
+
+DOWN Signal (Bearish):
+  RSI > overbought_threshold (default: 70)
+  AND MACD line < MACD signal (bearish crossover)
+  AND order book imbalance < bearish_threshold (default: 0.9)
+
+SKIP Signal:
+  All other conditions (no clear directional signal)
+```
+
+**Example Usage:**
+
+```python
+from prediction import PredictionEngine
+from config import get_config
+
+# Initialize engine
+config = get_config()
+engine = PredictionEngine(config=config)
+
+# Generate signal from price data
+prices = [45000, 45100, 45050, ...]  # Historical prices (oldest to newest)
+signal = engine.generate_signal(prices, btc_price=45678.90)
+
+# Check signal
+print(f"Signal: {signal.signal.value.upper()}")  # UP, DOWN, or SKIP
+print(f"Confidence: {signal.confidence}")  # 0.75 for UP/DOWN, 0.0 for SKIP
+print(f"Reasoning: {signal.reasoning}")
+
+# Access indicator values
+print(f"RSI: {signal.rsi}")
+print(f"MACD: {signal.macd_line} / {signal.macd_signal}")
+print(f"Order Book Imbalance: {signal.order_book_imbalance}")
+
+# Check if actionable
+if signal.is_actionable():
+    direction = signal.get_direction()  # "UP" or "DOWN"
+    print(f"Trade direction: {direction}")
+else:
+    print("Skip trading - no clear signal")
+```
+
+**Convenience Function:**
+
+```python
+from prediction import generate_signal_from_market_data
+
+# Generate signal without maintaining engine instance
+signal = generate_signal_from_market_data(
+    prices=prices,
+    btc_price=45678.90
+)
+
+print(f"{signal.signal.value}: {signal.reasoning}")
+```
+
+### PredictionSignal Model
+
+Represents a generated trading signal with metadata.
+
+**Fields:**
+- `signal`: SignalType (UP, DOWN, or SKIP)
+- `confidence`: Confidence score (0.0-1.0)
+- `rsi`: RSI value at signal generation
+- `macd_line`: MACD line value
+- `macd_signal`: MACD signal line value
+- `order_book_imbalance`: Order book imbalance ratio
+- `btc_price`: BTC price at signal time (optional)
+- `timestamp`: Signal generation timestamp
+- `reasoning`: Human-readable explanation
+
+**Methods:**
+- `is_actionable()`: Returns True for UP/DOWN, False for SKIP
+- `get_direction()`: Returns "UP", "DOWN", or None
+- `to_dict()`: Serialize to dictionary
+
+**Example:**
+
+```python
+from models import PredictionSignal, SignalType
+from decimal import Decimal
+
+signal = PredictionSignal(
+    signal=SignalType.UP,
+    confidence=Decimal('0.75'),
+    rsi=Decimal('28.5'),
+    macd_line=Decimal('150.23'),
+    macd_signal=Decimal('145.10'),
+    order_book_imbalance=Decimal('1.15'),
+    btc_price=Decimal('45678.90'),
+    reasoning="RSI oversold (28.50 < 30.00), MACD bullish crossover, strong buying pressure"
+)
+
+# Check if should trade
+if signal.is_actionable():
+    print(f"Action: {signal.get_direction()}")
+    print(f"Confidence: {signal.confidence}")
+
+    # Serialize for logging
+    signal_dict = signal.to_dict()
+```
+
+### Validation and Testing
+
+**Validate Price Data:**
+
+```python
+from prediction import PredictionEngine
+
+engine = PredictionEngine()
+
+# Check if enough data for signal generation
+prices = [...]  # Your price data
+if engine.validate_price_data(prices):
+    signal = engine.generate_signal(prices)
+else:
+    print("Insufficient price data for prediction")
+```
+
+**Test Signal Conditions:**
+
+```python
+from prediction import validate_signal_conditions
+
+# Test specific indicator values
+signal_type = validate_signal_conditions(
+    rsi=25.0,
+    macd_line=150.0,
+    macd_signal=145.0,
+    order_book_imbalance=1.2
+)
+
+print(f"Would generate: {signal_type.value}")  # "up"
+```
+
+### Integration with Main Loop
+
+**Typical Usage Pattern:**
+
+```python
+from market_data import BinanceWebSocketClient, get_order_book_imbalance
+from prediction import PredictionEngine
+from config import get_config
+
+# Initialize components
+config = get_config()
+ws_client = BinanceWebSocketClient(buffer_size=100)
+ws_client.connect()
+engine = PredictionEngine(config=config)
+
+# Wait for price data to accumulate
+import time
+time.sleep(30)
+
+# Get prices and generate signal
+prices = ws_client.get_price_series(limit=50)
+
+if engine.validate_price_data(prices):
+    signal = engine.generate_signal(
+        prices=[float(p) for p in prices],
+        btc_price=float(ws_client.get_latest_price())
+    )
+
+    if signal.is_actionable():
+        print(f"Signal: {signal.signal.value.upper()}")
+        print(f"Reason: {signal.reasoning}")
+        # Proceed with trading logic
+    else:
+        print("No actionable signal, waiting...")
+else:
+    print("Waiting for more price data...")
+
+# Clean up
+ws_client.disconnect()
+```
+
+### Error Handling
+
+The prediction engine implements comprehensive error handling:
+
+```python
+from prediction import PredictionEngine, PredictionError
+
+engine = PredictionEngine()
+
+try:
+    signal = engine.generate_signal(prices)
+except PredictionError as e:
+    print(f"Prediction error: {e}")
+    # Handle insufficient data, indicator calculation errors, etc.
+except Exception as e:
+    print(f"Unexpected error: {e}")
+```
+
+**Common Errors:**
+- **Insufficient Data**: Need at least 34 prices for MACD calculation
+- **Invalid Prices**: Prices must be positive values
+- **Order Book Unavailable**: Network error fetching order book data
+- **Indicator Calculation**: TA-Lib errors during RSI/MACD calculation
+
+### Configuration
+
+Customize prediction engine behavior via environment variables:
+
+```bash
+# RSI Configuration
+RSI_PERIOD=14                    # RSI calculation period
+RSI_OVERSOLD_THRESHOLD=30.0      # Oversold level for UP signals
+RSI_OVERBOUGHT_THRESHOLD=70.0    # Overbought level for DOWN signals
+
+# MACD Configuration
+MACD_FAST_PERIOD=12              # MACD fast EMA period
+MACD_SLOW_PERIOD=26              # MACD slow EMA period
+MACD_SIGNAL_PERIOD=9             # MACD signal line period
+
+# Order Book Configuration
+ORDER_BOOK_BULLISH_THRESHOLD=1.1 # Imbalance for bullish signals
+ORDER_BOOK_BEARISH_THRESHOLD=0.9 # Imbalance for bearish signals
+
+# Signal Configuration
+PREDICTION_CONFIDENCE_SCORE=0.75 # Confidence for UP/DOWN signals
+```
+
+### Testing
+
+Run prediction engine tests:
+
+```bash
+# All prediction tests
+pytest tests/test_prediction.py -v
+
+# With coverage
+pytest tests/test_prediction.py --cov=prediction --cov-report=html
+
+# Specific test classes
+pytest tests/test_prediction.py::TestSignalGeneration -v
+pytest tests/test_prediction.py::TestConditionEvaluation -v
+```
+
 ## Usage Example - Complete Trading Bot
 
 ```python
@@ -1520,6 +2086,213 @@ The package includes comprehensive tests covering:
 - ✅ Error handling and retry logic
 - ✅ Integration scenarios
 
+## Risk Management
+
+The `risk.py` module implements pre-trade validation with multiple risk controls to protect capital and ensure safe trading operations.
+
+### Risk Controls
+
+#### Drawdown Monitoring
+
+Automatically blocks trades when account drawdown exceeds the maximum threshold:
+- **Threshold**: 30% maximum drawdown
+- **Calculation**: `(starting_capital - current_capital) / starting_capital * 100`
+- **Action**: Trade rejected with detailed reason when threshold exceeded
+
+```python
+from risk import check_drawdown
+from decimal import Decimal
+
+# Example: 25% drawdown - approved
+approved, reason = check_drawdown(
+    current_capital=Decimal("75.0"),
+    starting_capital=Decimal("100.0")
+)
+# Returns: (True, None)
+
+# Example: 35% drawdown - rejected
+approved, reason = check_drawdown(
+    current_capital=Decimal("65.0"),
+    starting_capital=Decimal("100.0")
+)
+# Returns: (False, "Drawdown of 35.00% exceeds maximum threshold of 30.00%")
+```
+
+#### Volatility Circuit Breaker
+
+Blocks trades during periods of excessive price volatility:
+- **Threshold**: 3% maximum 5-minute price range
+- **Window**: Last 5 price updates
+- **Calculation**: `(max_price - min_price) / min_price * 100`
+- **Action**: Trade rejected during high volatility periods
+
+```python
+from risk import check_volatility
+from decimal import Decimal
+
+# Example: Low volatility (2%) - approved
+prices = [
+    Decimal("45000.0"),
+    Decimal("45100.0"),
+    Decimal("45200.0"),
+    Decimal("45150.0"),
+    Decimal("45100.0")
+]
+approved, reason = check_volatility(prices)
+# Returns: (True, None)
+
+# Example: High volatility (5%) - rejected
+volatile_prices = [
+    Decimal("45000.0"),
+    Decimal("43000.0"),
+    Decimal("47000.0")
+]
+approved, reason = check_volatility(volatile_prices)
+# Returns: (False, "Volatility of 9.30% exceeds maximum threshold of 3.00%")
+```
+
+#### Trade Approval Logic
+
+Combines all risk checks with market validation for final trade decision:
+- Drawdown validation
+- Volatility check
+- Market active status
+- Market closure check
+- Liquidity verification
+- Exposure limit validation
+
+```python
+from risk import approve_trade
+from models import BotState, MarketData
+from decimal import Decimal
+from datetime import datetime
+
+# Create bot state
+bot_state = BotState(
+    bot_id="bot_001",
+    strategy_name="momentum_v1",
+    max_position_size=Decimal("1000.0"),
+    max_total_exposure=Decimal("5000.0"),
+    risk_per_trade=Decimal("500.0"),
+    total_pnl=Decimal("250.0"),
+    current_exposure=Decimal("1500.0")
+)
+
+# Create market data
+market_data = MarketData(
+    market_id="market_123",
+    question="Will BTC reach $100k?",
+    end_date=datetime(2024, 12, 31),
+    yes_price=Decimal("0.65"),
+    no_price=Decimal("0.35"),
+    total_liquidity=Decimal("10000.0"),
+    is_active=True,
+    is_closed=False
+)
+
+# Price history
+price_history = [
+    Decimal("45000.0"),
+    Decimal("45100.0"),
+    Decimal("45200.0"),
+    Decimal("45150.0"),
+    Decimal("45100.0")
+]
+
+# Approve trade with all checks
+approved, reason = approve_trade(
+    signal="UP",
+    market_data=market_data,
+    bot_state=bot_state,
+    price_history=price_history
+)
+# Returns: (True, None) if all checks pass
+# Returns: (False, "rejection reason") if any check fails
+```
+
+#### Position Sizing
+
+Calculate maximum allowable trade size based on risk parameters:
+
+```python
+from risk import calculate_max_trade_size
+
+max_size = calculate_max_trade_size(bot_state, market_data)
+# Returns minimum of:
+# - max_position_size
+# - remaining_exposure (max_total_exposure - current_exposure)
+# - risk_per_trade
+```
+
+#### Risk Metrics
+
+Get comprehensive risk metrics for monitoring:
+
+```python
+from risk import get_risk_metrics
+
+metrics = get_risk_metrics(bot_state, price_history)
+# Returns dictionary with:
+# - current_capital
+# - starting_capital
+# - drawdown_percent
+# - volatility_percent
+# - exposure_utilization_percent
+# - win_rate_percent
+# - total_pnl
+```
+
+### Risk Validation Workflow
+
+```python
+from risk import approve_trade, calculate_max_trade_size, get_risk_metrics
+from models import BotState, MarketData
+
+# 1. Get risk metrics for monitoring
+metrics = get_risk_metrics(bot_state, price_history)
+print(f"Drawdown: {metrics['drawdown_percent']:.2f}%")
+print(f"Volatility: {metrics['volatility_percent']:.2f}%")
+
+# 2. Approve trade with all risk checks
+approved, reason = approve_trade(
+    signal="UP",
+    market_data=market_data,
+    bot_state=bot_state,
+    price_history=price_history
+)
+
+if not approved:
+    print(f"Trade rejected: {reason}")
+    return
+
+# 3. Calculate safe position size
+max_size = calculate_max_trade_size(bot_state, market_data)
+print(f"Max trade size: ${max_size}")
+
+# 4. Execute trade (if approved)
+# ... execute trade with max_size
+```
+
+### Error Handling
+
+All risk functions return tuples of `(approved: bool, reason: Optional[str])`:
+- **Success**: `(True, None)` - validation passed
+- **Failure**: `(False, "detailed reason")` - validation failed with explanation
+
+Invalid inputs are caught and returned as rejections:
+```python
+# Invalid starting capital
+approved, reason = check_drawdown(
+    current_capital=Decimal("50.0"),
+    starting_capital=Decimal("0.0")
+)
+# Returns: (False, "Invalid starting capital: 0. Must be greater than 0.")
+
+# Empty price history
+approved, reason = check_volatility([])
+# Returns: (False, "Price history is empty. Cannot calculate volatility.")
+```
+
 Run tests:
 ```bash
 # All tests
@@ -1528,14 +2301,221 @@ pytest -v
 # Specific test files
 pytest tests/test_models.py -v
 pytest tests/test_market_data.py -v
+pytest tests/test_risk.py -v
 pytest tests/test_state.py -v
 pytest test_config.py test_polymarket_utils.py -v
 
 # With coverage
 pytest tests/test_models.py --cov=models --cov-report=html
 pytest tests/test_market_data.py --cov=market_data --cov-report=html
+pytest tests/test_risk.py --cov=risk --cov-report=html
 pytest tests/test_state.py --cov=state --cov-report=html
 pytest test_config.py -v --cov=config --cov-report=html
+pytest test_risk.py -v --cov=risk --cov-report=html
+```
+
+## Risk Management System
+
+The `risk.py` module provides a comprehensive risk management system with max drawdown monitoring, volatility circuit breakers, and pre-trade validation logic.
+
+### RiskManager
+
+The main `RiskManager` class implements all risk control mechanisms for the trading bot.
+
+**Features:**
+- Max drawdown tracking (default: 30% threshold)
+- Volatility circuit breaker (default: 3% 5-minute range)
+- Pre-trade validation with detailed approval/rejection reasons
+- Peak capital tracking for accurate drawdown calculations
+- Risk metrics monitoring and reporting
+- Configurable thresholds for different strategies
+
+**Example Usage:**
+
+```python
+from risk import RiskManager
+from models import BotState, BotStatus
+from decimal import Decimal
+
+# Initialize risk manager with default thresholds
+rm = RiskManager(
+    max_drawdown_percent=Decimal("30.0"),  # 30% max drawdown
+    volatility_threshold_percent=Decimal("3.0"),  # 3% max volatility
+    starting_capital=Decimal("100.0")  # Starting capital
+)
+
+# Create bot state
+bot_state = BotState(
+    bot_id="my_bot",
+    strategy_name="momentum_v1",
+    max_position_size=Decimal("25.0"),
+    max_total_exposure=Decimal("100.0"),
+    risk_per_trade=Decimal("5.0"),
+    total_pnl=Decimal("-20.0"),  # Current P&L
+    status=BotStatus.RUNNING
+)
+
+# Check if trade should be approved
+recent_prices = [Decimal("45000"), Decimal("45500"), Decimal("45200")]
+result = rm.approve_trade(bot_state, recent_prices=recent_prices)
+
+if result.approved:
+    print("✓ Trade APPROVED")
+    if result.warnings:
+        for warning in result.warnings:
+            print(f"  ⚠ {warning}")
+else:
+    print("✗ Trade REJECTED")
+    for reason in result.rejection_reasons:
+        print(f"  - {reason}")
+
+# Get current risk metrics
+metrics = rm.get_risk_metrics(bot_state)
+print(f"Drawdown: {metrics['drawdown_percent']:.2f}%")
+print(f"Current capital: ${metrics['current_capital']:.2f}")
+print(f"Win rate: {metrics['win_rate']:.2f}%")
+```
+
+### Drawdown Monitoring
+
+Tracks drawdown from peak equity and prevents trading when threshold is exceeded.
+
+```python
+# Calculate current drawdown
+current_capital = Decimal("75.0")
+drawdown = rm.calculate_drawdown(current_capital)
+print(f"Current drawdown: {drawdown}%")  # 25%
+
+# Check if drawdown is within limits
+is_ok, drawdown_percent = rm.check_drawdown(current_capital)
+if not is_ok:
+    print(f"⚠ Drawdown {drawdown_percent}% exceeds limit!")
+
+# Update peak capital on profitable trades
+rm.update_peak_capital(Decimal("150.0"))  # New peak
+```
+
+**Drawdown Calculation:**
+- Formula: `((peak_capital - current_capital) / peak_capital) * 100`
+- Peak capital is automatically tracked (highest value seen)
+- Default threshold: 30% (configurable)
+- Trade is rejected if drawdown >= threshold
+
+### Volatility Circuit Breaker
+
+Prevents trading during high volatility periods by checking 5-minute price range.
+
+```python
+# Recent prices over 5-minute window
+prices = [
+    Decimal("45000"),
+    Decimal("45200"),
+    Decimal("45100"),
+    Decimal("45300"),
+    Decimal("44900")
+]
+
+# Calculate volatility
+volatility = rm.calculate_volatility(prices)
+print(f"Current volatility: {volatility:.2f}%")
+
+# Check if volatility is within limits
+is_ok, volatility_percent = rm.check_volatility(prices)
+if not is_ok:
+    print(f"⚠ Volatility {volatility_percent}% exceeds limit!")
+```
+
+**Volatility Calculation:**
+- Formula: `((max_price - min_price) / min_price) * 100`
+- Default threshold: 3% (configurable)
+- Trade is rejected if volatility >= threshold
+- Protects against trading in unstable market conditions
+
+### Pre-Trade Validation
+
+Comprehensive validation combining all risk checks before executing a trade.
+
+```python
+# Perform full pre-trade validation
+result = rm.approve_trade(
+    bot_state=bot_state,
+    market_data=market_data,  # Optional
+    recent_prices=recent_prices  # Optional
+)
+
+# Check result
+if result:  # RiskApprovalResult acts as boolean
+    print("Trade approved!")
+else:
+    print("Trade rejected:")
+    for reason in result.rejection_reasons:
+        print(f"  - {reason}")
+
+# Access detailed information
+print(f"Drawdown: {result.details['drawdown_percent']}%")
+print(f"Current capital: ${result.details['current_capital']}")
+
+# Check for warnings
+for warning in result.warnings:
+    print(f"⚠ {warning}")
+```
+
+**Validation Checks:**
+1. **Drawdown**: Current drawdown must be below threshold
+2. **Volatility**: Recent price volatility must be below threshold (if prices provided)
+3. **Capital**: Must have sufficient capital for minimum trade ($5)
+4. **Exposure**: Current exposure must be below maximum allowed
+5. **Bot Status**: Bot must be in 'running' or 'initializing' status
+
+**Approval Result:**
+- `approved`: Boolean indicating if trade is approved
+- `rejection_reasons`: List of reasons if rejected
+- `warnings`: Non-blocking warnings (e.g., approaching limits)
+- `details`: Detailed metrics (drawdown, capital, volatility, etc.)
+
+### Standalone Functions
+
+Convenience functions for simpler use cases:
+
+```python
+from risk import check_drawdown, check_volatility, approve_trade
+from decimal import Decimal
+
+# Simple drawdown check
+is_ok = check_drawdown(
+    current_capital=Decimal("75.0"),
+    starting_capital=Decimal("100.0")
+)
+
+# Simple volatility check
+prices = [Decimal("45000"), Decimal("45500")]
+is_ok = check_volatility(prices)
+
+# Simple trade approval (backward compatible)
+approved = approve_trade(
+    signal="UP",
+    market_data=market_data,
+    bot_state=bot_state,
+    recent_prices=recent_prices
+)
+```
+
+### Risk Metrics
+
+Monitor comprehensive risk metrics:
+
+```python
+metrics = rm.get_risk_metrics(bot_state)
+
+# Available metrics:
+print(f"Timestamp: {metrics['timestamp']}")
+print(f"Starting capital: ${metrics['starting_capital']}")
+print(f"Peak capital: ${metrics['peak_capital']}")
+print(f"Current capital: ${metrics['current_capital']}")
+print(f"Drawdown: {metrics['drawdown_percent']:.2f}%")
+print(f"Drawdown limit: {metrics['drawdown_limit']:.2f}%")
+print(f"Drawdown remaining: {metrics['drawdown_remaining']:.2f}%")
+print(f"Win rate: {metrics['win_rate']:.2f}%")
 ```
 
 ## Dependencies

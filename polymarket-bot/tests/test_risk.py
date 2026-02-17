@@ -1,687 +1,634 @@
 """
-Comprehensive tests for risk management module.
+Comprehensive tests for the risk management module.
 
 Tests cover:
-- Drawdown threshold boundary conditions (29%, 30%, 31%)
-- Volatility circuit breaker at boundary (2.9%, 3%, 3.1%)
-- Trade approval/rejection logic with various state combinations
+- Drawdown validation with various scenarios
+- Volatility circuit breaker functionality
+- Trade approval logic
 - Edge cases and error handling
+- Integration with BotState
 """
 
 import pytest
-from pathlib import Path
 from decimal import Decimal
-
-# Add parent directory to path for imports
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from risk import (
-    RiskController,
-    check_drawdown,
-    check_volatility,
-    approve_trade
-)
-from models import BotState, MarketData, BotStatus, OutcomeType
 from datetime import datetime
 
+from polymarket_bot.risk import (
+    check_drawdown,
+    check_volatility,
+    approve_trade,
+    calculate_max_trade_size,
+    get_risk_metrics,
+    MAX_DRAWDOWN_PERCENT,
+    MAX_VOLATILITY_PERCENT
+)
+from polymarket_bot.models import BotState, MarketData, BotStatus, OutcomeType
 
-class TestRiskController:
-    """Test RiskController class functionality."""
 
-    @pytest.fixture
-    def risk_controller(self):
-        """Create a RiskController instance with default settings."""
-        return RiskController(
-            max_drawdown_percent=30.0,
-            max_volatility_percent=3.0,
-            starting_capital=100.0
+class TestCheckDrawdown:
+    """Test suite for drawdown validation."""
+
+    def test_drawdown_within_limit(self):
+        """Test that trades are approved when drawdown is within limit."""
+        # 25% drawdown (75/100) - should pass
+        approved, reason = check_drawdown(
+            current_capital=Decimal("75.0"),
+            starting_capital=Decimal("100.0")
         )
-
-    @pytest.fixture
-    def custom_risk_controller(self):
-        """Create a RiskController instance with custom settings."""
-        return RiskController(
-            max_drawdown_percent=20.0,
-            max_volatility_percent=5.0,
-            starting_capital=1000.0
-        )
-
-    # ========================================
-    # Drawdown Tests
-    # ========================================
-
-    def test_check_drawdown_below_threshold(self, risk_controller):
-        """Test drawdown check when drawdown is below threshold (29%)."""
-        # 29% drawdown: current_capital = 71.0 (100 - 29)
-        passed, reason = risk_controller.check_drawdown(
-            current_capital=71.0,
-            starting_capital=100.0
-        )
-
-        assert passed is True
+        assert approved is True
         assert reason is None
 
-    def test_check_drawdown_at_threshold(self, risk_controller):
-        """Test drawdown check when exactly at threshold (30%)."""
-        # Exactly 30% drawdown: current_capital = 70.0 (100 - 30)
-        passed, reason = risk_controller.check_drawdown(
-            current_capital=70.0,
-            starting_capital=100.0
+    def test_drawdown_at_limit(self):
+        """Test that trades are approved when drawdown is exactly at limit."""
+        # 30% drawdown (70/100) - should pass (at threshold)
+        approved, reason = check_drawdown(
+            current_capital=Decimal("70.0"),
+            starting_capital=Decimal("100.0")
         )
-
-        # At exactly 30%, should still pass (not exceeding)
-        assert passed is True
+        assert approved is True
         assert reason is None
 
-    def test_check_drawdown_above_threshold(self, risk_controller):
-        """Test drawdown check when above threshold (31%)."""
-        # 31% drawdown: current_capital = 69.0 (100 - 31)
-        passed, reason = risk_controller.check_drawdown(
-            current_capital=69.0,
-            starting_capital=100.0
+    def test_drawdown_exceeds_limit(self):
+        """Test that trades are blocked when drawdown exceeds limit."""
+        # 31% drawdown (69/100) - should fail
+        approved, reason = check_drawdown(
+            current_capital=Decimal("69.0"),
+            starting_capital=Decimal("100.0")
         )
-
-        assert passed is False
+        assert approved is False
         assert reason is not None
         assert "31.00%" in reason
-        assert "exceeds" in reason.lower()
+        assert "exceeds maximum threshold" in reason
 
-    def test_check_drawdown_zero_drawdown(self, risk_controller):
-        """Test drawdown check with no drawdown (0%)."""
-        # No drawdown: current_capital = starting_capital
-        passed, reason = risk_controller.check_drawdown(
-            current_capital=100.0,
-            starting_capital=100.0
+    def test_drawdown_significant_loss(self):
+        """Test drawdown check with significant loss."""
+        # 50% drawdown - should fail
+        approved, reason = check_drawdown(
+            current_capital=Decimal("50.0"),
+            starting_capital=Decimal("100.0")
         )
+        assert approved is False
+        assert "50.00%" in reason
 
-        assert passed is True
+    def test_drawdown_no_loss(self):
+        """Test drawdown check with no loss (at starting capital)."""
+        approved, reason = check_drawdown(
+            current_capital=Decimal("100.0"),
+            starting_capital=Decimal("100.0")
+        )
+        assert approved is True
         assert reason is None
 
-    def test_check_drawdown_negative_drawdown_profit(self, risk_controller):
-        """Test drawdown check with profit (negative drawdown)."""
-        # Profit scenario: current_capital > starting_capital
-        passed, reason = risk_controller.check_drawdown(
-            current_capital=150.0,
-            starting_capital=100.0
+    def test_drawdown_with_profit(self):
+        """Test drawdown check when account is in profit."""
+        # Account grew from 100 to 120 (negative drawdown)
+        approved, reason = check_drawdown(
+            current_capital=Decimal("120.0"),
+            starting_capital=Decimal("100.0")
         )
-
-        assert passed is True
+        assert approved is True
         assert reason is None
 
-    def test_check_drawdown_total_loss(self, risk_controller):
-        """Test drawdown check with total loss (100% drawdown)."""
-        # Total loss: current_capital = 0
-        passed, reason = risk_controller.check_drawdown(
-            current_capital=0.0,
-            starting_capital=100.0
+    def test_drawdown_different_starting_capital(self):
+        """Test drawdown calculation with different starting capital."""
+        # 25% drawdown with starting capital of 500
+        approved, reason = check_drawdown(
+            current_capital=Decimal("375.0"),
+            starting_capital=Decimal("500.0")
         )
-
-        assert passed is False
-        assert reason is not None
-        assert "100.00%" in reason
-
-    def test_check_drawdown_invalid_starting_capital(self, risk_controller):
-        """Test drawdown check with invalid starting capital."""
-        # Zero starting capital
-        passed, reason = risk_controller.check_drawdown(
-            current_capital=50.0,
-            starting_capital=0.0
-        )
-
-        assert passed is False
-        assert reason is not None
-        assert "starting capital" in reason.lower()
-
-        # Negative starting capital
-        passed, reason = risk_controller.check_drawdown(
-            current_capital=50.0,
-            starting_capital=-100.0
-        )
-
-        assert passed is False
-        assert reason is not None
-
-    def test_check_drawdown_invalid_current_capital(self, risk_controller):
-        """Test drawdown check with negative current capital."""
-        passed, reason = risk_controller.check_drawdown(
-            current_capital=-50.0,
-            starting_capital=100.0
-        )
-
-        assert passed is False
-        assert reason is not None
-        assert "current capital" in reason.lower()
-
-    def test_check_drawdown_uses_default_starting_capital(self, risk_controller):
-        """Test that drawdown check uses instance's starting capital when not provided."""
-        # Don't provide starting_capital, should use instance default (100.0)
-        passed, reason = risk_controller.check_drawdown(current_capital=71.0)
-
-        assert passed is True
+        assert approved is True
         assert reason is None
 
-    def test_check_drawdown_boundary_29_percent(self, risk_controller):
-        """Test drawdown at exact 29% boundary."""
-        passed, reason = risk_controller.check_drawdown(
-            current_capital=71.0,
-            starting_capital=100.0
+    def test_drawdown_invalid_starting_capital_zero(self):
+        """Test that zero starting capital is rejected."""
+        approved, reason = check_drawdown(
+            current_capital=Decimal("50.0"),
+            starting_capital=Decimal("0.0")
         )
+        assert approved is False
+        assert "Invalid starting capital" in reason
 
-        assert passed is True
-        assert reason is None
-
-    def test_check_drawdown_boundary_30_percent(self, risk_controller):
-        """Test drawdown at exact 30% boundary."""
-        passed, reason = risk_controller.check_drawdown(
-            current_capital=70.0,
-            starting_capital=100.0
+    def test_drawdown_invalid_starting_capital_negative(self):
+        """Test that negative starting capital is rejected."""
+        approved, reason = check_drawdown(
+            current_capital=Decimal("50.0"),
+            starting_capital=Decimal("-100.0")
         )
+        assert approved is False
+        assert "Invalid starting capital" in reason
 
-        assert passed is True
-        assert reason is None
-
-    def test_check_drawdown_boundary_31_percent(self, risk_controller):
-        """Test drawdown at exact 31% boundary."""
-        passed, reason = risk_controller.check_drawdown(
-            current_capital=69.0,
-            starting_capital=100.0
+    def test_drawdown_invalid_current_capital_negative(self):
+        """Test that negative current capital is rejected."""
+        approved, reason = check_drawdown(
+            current_capital=Decimal("-10.0"),
+            starting_capital=Decimal("100.0")
         )
+        assert approved is False
+        assert "Invalid current capital" in reason
 
-        assert passed is False
-        assert reason is not None
+    def test_drawdown_precision(self):
+        """Test drawdown calculation with high precision values."""
+        # Exactly 30.00% drawdown
+        approved, reason = check_drawdown(
+            current_capital=Decimal("70.00"),
+            starting_capital=Decimal("100.00")
+        )
+        assert approved is True
 
-    # ========================================
-    # Volatility Tests
-    # ========================================
+        # Slightly over 30% (30.01%)
+        approved, reason = check_drawdown(
+            current_capital=Decimal("69.99"),
+            starting_capital=Decimal("100.00")
+        )
+        assert approved is False
 
-    def test_check_volatility_below_threshold(self, risk_controller):
-        """Test volatility check when volatility is below threshold (2.9%)."""
-        # Prices with 2.9% range: min=100, max=102.9, range=2.9%
-        price_history = [100.0, 101.0, 102.0, 101.5, 102.9]
 
-        passed, reason = risk_controller.check_volatility(price_history)
+class TestCheckVolatility:
+    """Test suite for volatility validation."""
 
-        assert passed is True
+    def test_volatility_within_limit(self):
+        """Test that trades are approved when volatility is within limit."""
+        # 2% volatility - should pass
+        prices = [
+            Decimal("100.0"),
+            Decimal("101.0"),
+            Decimal("102.0"),
+            Decimal("101.5"),
+            Decimal("100.5")
+        ]
+        approved, reason = check_volatility(prices)
+        assert approved is True
         assert reason is None
 
-    def test_check_volatility_at_threshold(self, risk_controller):
-        """Test volatility check when exactly at threshold (3%)."""
-        # Prices with exactly 3% range: min=100, max=103, range=3%
-        price_history = [100.0, 101.0, 103.0, 102.0, 101.5]
-
-        passed, reason = risk_controller.check_volatility(price_history)
-
-        # At exactly 3%, should still pass (not exceeding)
-        assert passed is True
-        assert reason is None
-
-    def test_check_volatility_above_threshold(self, risk_controller):
-        """Test volatility check when above threshold (3.1%)."""
-        # Prices with 3.1% range: min=100, max=103.1, range=3.1%
-        price_history = [100.0, 101.0, 103.1, 102.0, 101.5]
-
-        passed, reason = risk_controller.check_volatility(price_history)
-
-        assert passed is False
+    def test_volatility_exceeds_limit(self):
+        """Test that trades are blocked when volatility exceeds limit."""
+        # 4% volatility - should fail
+        prices = [
+            Decimal("100.0"),
+            Decimal("96.0"),
+            Decimal("104.0"),
+            Decimal("100.0"),
+            Decimal("98.0")
+        ]
+        approved, reason = check_volatility(prices)
+        assert approved is False
         assert reason is not None
-        assert "3.10%" in reason
-        assert "exceeds" in reason.lower()
+        assert "exceeds maximum threshold" in reason
 
-    def test_check_volatility_zero_volatility(self, risk_controller):
-        """Test volatility check with zero volatility (flat prices)."""
-        # All prices the same
-        price_history = [100.0, 100.0, 100.0, 100.0, 100.0]
+    def test_volatility_at_limit(self):
+        """Test volatility exactly at threshold."""
+        # Create price range that results in exactly 3% volatility
+        prices = [
+            Decimal("100.0"),
+            Decimal("103.0"),
+            Decimal("100.0")
+        ]
+        approved, reason = check_volatility(prices)
+        assert approved is True
 
-        passed, reason = risk_controller.check_volatility(price_history)
+    def test_volatility_uses_last_five_prices(self):
+        """Test that volatility calculation uses only last 5 prices."""
+        # Large volatility in older data, stable in recent 5
+        prices = [
+            Decimal("100.0"),
+            Decimal("150.0"),  # Old spike
+            Decimal("101.0"),
+            Decimal("101.5"),
+            Decimal("102.0"),
+            Decimal("101.5"),
+            Decimal("101.0")
+        ]
+        approved, reason = check_volatility(prices)
+        assert approved is True  # Recent 5 prices are stable
 
-        assert passed is True
-        assert reason is None
+    def test_volatility_with_fewer_than_five_prices(self):
+        """Test volatility calculation with less than 5 prices."""
+        prices = [
+            Decimal("100.0"),
+            Decimal("101.0"),
+            Decimal("100.5")
+        ]
+        approved, reason = check_volatility(prices)
+        assert approved is True
 
-    def test_check_volatility_high_volatility(self, risk_controller):
-        """Test volatility check with very high volatility (>10%)."""
-        # Prices with 10% range: min=100, max=110
-        price_history = [100.0, 105.0, 110.0, 107.0, 103.0]
+    def test_volatility_with_single_price(self):
+        """Test volatility with only one price (insufficient data)."""
+        prices = [Decimal("100.0")]
+        approved, reason = check_volatility(prices)
+        assert approved is True  # Approved by default with insufficient data
 
-        passed, reason = risk_controller.check_volatility(price_history)
-
-        assert passed is False
-        assert reason is not None
-
-    def test_check_volatility_insufficient_history(self, risk_controller):
-        """Test volatility check with insufficient price history."""
-        # Only 3 prices, but need 5
-        price_history = [100.0, 101.0, 102.0]
-
-        passed, reason = risk_controller.check_volatility(price_history)
-
-        assert passed is False
-        assert reason is not None
-        assert "insufficient" in reason.lower()
-
-    def test_check_volatility_empty_history(self, risk_controller):
-        """Test volatility check with empty price history."""
-        price_history = []
-
-        passed, reason = risk_controller.check_volatility(price_history)
-
-        assert passed is False
-        assert reason is not None
+    def test_volatility_empty_list(self):
+        """Test that empty price list is rejected."""
+        prices = []
+        approved, reason = check_volatility(prices)
+        assert approved is False
         assert "empty" in reason.lower()
 
-    def test_check_volatility_invalid_prices(self, risk_controller):
-        """Test volatility check with invalid (non-positive) prices."""
-        # Price history with zero price
-        price_history = [100.0, 101.0, 0.0, 102.0, 103.0]
-
-        passed, reason = risk_controller.check_volatility(price_history)
-
-        assert passed is False
-        assert reason is not None
-        assert "invalid" in reason.lower()
-
-        # Price history with negative price
-        price_history = [100.0, 101.0, -50.0, 102.0, 103.0]
-
-        passed, reason = risk_controller.check_volatility(price_history)
-
-        assert passed is False
-        assert reason is not None
-
-    def test_check_volatility_uses_last_n_prices(self, risk_controller):
-        """Test that volatility check uses only the last N prices."""
-        # Long price history where only last 5 matter
-        # First 10 prices have high volatility, last 5 have low volatility
-        price_history = [
-            100.0, 90.0, 110.0, 95.0, 105.0,  # High volatility
-            100.0, 100.5, 101.0, 100.8, 101.2  # Low volatility (last 5)
+    def test_volatility_with_zero_price(self):
+        """Test that zero prices are rejected."""
+        prices = [
+            Decimal("100.0"),
+            Decimal("0.0"),
+            Decimal("101.0")
         ]
-
-        passed, reason = risk_controller.check_volatility(price_history, lookback_periods=5)
-
-        # Should pass because only last 5 prices are checked
-        assert passed is True
-        assert reason is None
-
-    def test_check_volatility_custom_lookback(self, risk_controller):
-        """Test volatility check with custom lookback period."""
-        # Price history with different volatility patterns
-        price_history = [100.0, 101.0, 102.0, 103.0, 104.0, 105.0]
-
-        # Check last 3 prices (104, 105): ~1% range
-        passed, reason = risk_controller.check_volatility(price_history, lookback_periods=3)
-        assert passed is True
-
-        # Check last 6 prices (100-105): 5% range
-        passed, reason = risk_controller.check_volatility(price_history, lookback_periods=6)
-        assert passed is False
-
-    def test_check_volatility_boundary_2_9_percent(self, risk_controller):
-        """Test volatility at exact 2.9% boundary."""
-        price_history = [100.0, 101.0, 102.9, 101.5, 102.0]
-
-        passed, reason = risk_controller.check_volatility(price_history)
-
-        assert passed is True
-        assert reason is None
-
-    def test_check_volatility_boundary_3_percent(self, risk_controller):
-        """Test volatility at exact 3% boundary."""
-        price_history = [100.0, 101.0, 103.0, 101.5, 102.0]
-
-        passed, reason = risk_controller.check_volatility(price_history)
-
-        assert passed is True
-        assert reason is None
-
-    def test_check_volatility_boundary_3_1_percent(self, risk_controller):
-        """Test volatility at exact 3.1% boundary."""
-        price_history = [100.0, 101.0, 103.1, 101.5, 102.0]
-
-        passed, reason = risk_controller.check_volatility(price_history)
-
-        assert passed is False
-        assert reason is not None
-
-    # ========================================
-    # Trade Approval Tests
-    # ========================================
-
-    def test_approve_trade_all_checks_pass(self, risk_controller):
-        """Test trade approval when all checks pass."""
-        price_history = [100.0, 101.0, 102.0, 101.5, 102.5]  # ~2.5% volatility
-
-        approved, reason = risk_controller.approve_trade(
-            signal="UP",
-            current_capital=80.0,  # 20% drawdown
-            price_history=price_history,
-            starting_capital=100.0
-        )
-
-        assert approved is True
-        assert reason is None
-
-    def test_approve_trade_drawdown_fails(self, risk_controller):
-        """Test trade rejection when drawdown check fails."""
-        price_history = [100.0, 101.0, 102.0, 101.5, 102.5]  # Low volatility
-
-        approved, reason = risk_controller.approve_trade(
-            signal="UP",
-            current_capital=65.0,  # 35% drawdown (exceeds 30% threshold)
-            price_history=price_history,
-            starting_capital=100.0
-        )
-
+        approved, reason = check_volatility(prices)
         assert approved is False
-        assert reason is not None
-        assert "drawdown" in reason.lower()
+        assert "non-positive" in reason.lower()
 
-    def test_approve_trade_volatility_fails(self, risk_controller):
-        """Test trade rejection when volatility check fails."""
-        price_history = [100.0, 101.0, 105.0, 102.0, 103.0]  # High volatility (5%)
-
-        approved, reason = risk_controller.approve_trade(
-            signal="UP",
-            current_capital=80.0,  # 20% drawdown (OK)
-            price_history=price_history,
-            starting_capital=100.0
-        )
-
+    def test_volatility_with_negative_price(self):
+        """Test that negative prices are rejected."""
+        prices = [
+            Decimal("100.0"),
+            Decimal("-50.0"),
+            Decimal("101.0")
+        ]
+        approved, reason = check_volatility(prices)
         assert approved is False
-        assert reason is not None
-        assert "volatility" in reason.lower()
+        assert "non-positive" in reason.lower()
 
-    def test_approve_trade_both_checks_fail(self, risk_controller):
-        """Test trade rejection when both checks fail."""
-        price_history = [100.0, 101.0, 110.0, 105.0, 108.0]  # High volatility
-
-        approved, reason = risk_controller.approve_trade(
-            signal="DOWN",
-            current_capital=60.0,  # 40% drawdown
-            price_history=price_history,
-            starting_capital=100.0
-        )
-
+    def test_volatility_high_price_range(self):
+        """Test with high volatility scenario."""
+        # 10% volatility
+        prices = [
+            Decimal("100.0"),
+            Decimal("90.0"),
+            Decimal("110.0"),
+            Decimal("95.0"),
+            Decimal("105.0")
+        ]
+        approved, reason = check_volatility(prices)
         assert approved is False
-        assert reason is not None
-        # Should fail on first check (drawdown)
-        assert "drawdown" in reason.lower()
 
-    def test_approve_trade_skip_signal_always_approved(self, risk_controller):
-        """Test that SKIP signals are always approved without validation."""
-        # Even with terrible conditions, SKIP should be approved
-        price_history = [100.0, 101.0, 150.0, 105.0, 148.0]  # Extreme volatility
-
-        approved, reason = risk_controller.approve_trade(
-            signal="SKIP",
-            current_capital=10.0,  # 90% drawdown
-            price_history=price_history,
-            starting_capital=100.0
-        )
-
+    def test_volatility_stable_prices(self):
+        """Test with very stable prices (minimal volatility)."""
+        prices = [
+            Decimal("100.0"),
+            Decimal("100.0"),
+            Decimal("100.0"),
+            Decimal("100.0"),
+            Decimal("100.0")
+        ]
+        approved, reason = check_volatility(prices)
         assert approved is True
-        assert reason is None
-
-    def test_approve_trade_invalid_signal(self, risk_controller):
-        """Test trade rejection with invalid signal."""
-        price_history = [100.0, 101.0, 102.0, 101.5, 102.5]
-
-        approved, reason = risk_controller.approve_trade(
-            signal="INVALID",
-            current_capital=80.0,
-            price_history=price_history,
-            starting_capital=100.0
-        )
-
-        assert approved is False
-        assert reason is not None
-        assert "invalid signal" in reason.lower()
-
-    def test_approve_trade_up_signal(self, risk_controller):
-        """Test trade approval with UP signal."""
-        price_history = [100.0, 101.0, 102.0, 101.5, 102.5]
-
-        approved, reason = risk_controller.approve_trade(
-            signal="UP",
-            current_capital=80.0,
-            price_history=price_history,
-            starting_capital=100.0
-        )
-
-        assert approved is True
-        assert reason is None
-
-    def test_approve_trade_down_signal(self, risk_controller):
-        """Test trade approval with DOWN signal."""
-        price_history = [100.0, 101.0, 102.0, 101.5, 102.5]
-
-        approved, reason = risk_controller.approve_trade(
-            signal="DOWN",
-            current_capital=80.0,
-            price_history=price_history,
-            starting_capital=100.0
-        )
-
-        assert approved is True
-        assert reason is None
-
-    def test_approve_trade_with_bot_state(self, risk_controller):
-        """Test trade approval with BotState object (for future use)."""
-        price_history = [100.0, 101.0, 102.0, 101.5, 102.5]
-        bot_state = BotState(
-            bot_id="test_bot",
-            strategy_name="test_strategy",
-            max_position_size=Decimal("1000.00"),
-            max_total_exposure=Decimal("5000.00"),
-            risk_per_trade=Decimal("100.00")
-        )
-
-        approved, reason = risk_controller.approve_trade(
-            signal="UP",
-            current_capital=80.0,
-            price_history=price_history,
-            starting_capital=100.0,
-            bot_state=bot_state
-        )
-
-        assert approved is True
-        assert reason is None
-
-    def test_approve_trade_with_market_data(self, risk_controller):
-        """Test trade approval with MarketData object (for future use)."""
-        price_history = [100.0, 101.0, 102.0, 101.5, 102.5]
-        market_data = MarketData(
-            market_id="test_market",
-            question="Test question?",
-            end_date=datetime.utcnow(),
-            yes_price=Decimal("0.65"),
-            no_price=Decimal("0.35")
-        )
-
-        approved, reason = risk_controller.approve_trade(
-            signal="UP",
-            current_capital=80.0,
-            price_history=price_history,
-            starting_capital=100.0,
-            market_data=market_data
-        )
-
-        assert approved is True
-        assert reason is None
-
-    # ========================================
-    # Custom Configuration Tests
-    # ========================================
-
-    def test_custom_drawdown_threshold(self, custom_risk_controller):
-        """Test risk controller with custom drawdown threshold (20%)."""
-        # 21% drawdown: should fail with 20% threshold
-        passed, reason = custom_risk_controller.check_drawdown(
-            current_capital=790.0,
-            starting_capital=1000.0
-        )
-
-        assert passed is False
-        assert reason is not None
-
-        # 19% drawdown: should pass
-        passed, reason = custom_risk_controller.check_drawdown(
-            current_capital=810.0,
-            starting_capital=1000.0
-        )
-
-        assert passed is True
-        assert reason is None
-
-    def test_custom_volatility_threshold(self, custom_risk_controller):
-        """Test risk controller with custom volatility threshold (5%)."""
-        # 5.1% volatility: should fail with 5% threshold
-        price_history = [100.0, 101.0, 105.1, 102.0, 103.0]
-
-        passed, reason = custom_risk_controller.check_volatility(price_history)
-
-        assert passed is False
-        assert reason is not None
-
-        # 4.9% volatility: should pass
-        price_history = [100.0, 101.0, 104.9, 102.0, 103.0]
-
-        passed, reason = custom_risk_controller.check_volatility(price_history)
-
-        assert passed is True
-        assert reason is None
-
-    def test_custom_starting_capital(self, custom_risk_controller):
-        """Test risk controller with custom starting capital (1000)."""
-        # Uses instance's starting capital (1000)
-        passed, reason = custom_risk_controller.check_drawdown(current_capital=810.0)
-
-        assert passed is True
-        assert reason is None
 
 
-class TestConvenienceFunctions:
-    """Test standalone convenience functions."""
-
-    def test_check_drawdown_function(self):
-        """Test standalone check_drawdown function."""
-        # Should pass at 29% drawdown
-        assert check_drawdown(71.0, 100.0, 30.0) is True
-
-        # Should fail at 31% drawdown
-        assert check_drawdown(69.0, 100.0, 30.0) is False
-
-    def test_check_volatility_function(self):
-        """Test standalone check_volatility function."""
-        # Low volatility (should pass)
-        price_history = [100.0, 101.0, 102.0, 101.5, 102.5]
-        assert check_volatility(price_history, 3.0, 5) is True
-
-        # High volatility (should fail)
-        price_history = [100.0, 101.0, 105.0, 102.0, 103.0]
-        assert check_volatility(price_history, 3.0, 5) is False
-
-    def test_approve_trade_function(self):
-        """Test standalone approve_trade function."""
-        price_history = [100.0, 101.0, 102.0, 101.5, 102.5]
-
-        # Should approve with good conditions
-        assert approve_trade("UP", 80.0, price_history, 100.0, 30.0, 3.0) is True
-
-        # Should reject with bad drawdown
-        assert approve_trade("UP", 60.0, price_history, 100.0, 30.0, 3.0) is False
-
-        # Should always approve SKIP
-        assert approve_trade("SKIP", 10.0, price_history, 100.0, 30.0, 3.0) is True
-
-    def test_convenience_functions_with_defaults(self):
-        """Test that convenience functions use default parameters correctly."""
-        price_history = [100.0, 101.0, 102.0, 101.5, 102.5]
-
-        # Test with defaults (30% drawdown, 3% volatility, $100 starting capital)
-        result = approve_trade("UP", 80.0, price_history)
-        assert result is True
-
-
-class TestEdgeCases:
-    """Test edge cases and error scenarios."""
+class TestApproveTrade:
+    """Test suite for trade approval logic."""
 
     @pytest.fixture
-    def risk_controller(self):
-        """Create a RiskController instance for testing."""
-        return RiskController()
-
-    def test_very_small_capital_amounts(self, risk_controller):
-        """Test with very small capital amounts."""
-        passed, reason = risk_controller.check_drawdown(
-            current_capital=0.01,
-            starting_capital=0.10
+    def bot_state(self):
+        """Create a sample bot state for testing."""
+        return BotState(
+            bot_id="test_bot_001",
+            strategy_name="test_strategy",
+            max_position_size=Decimal("1000.0"),
+            max_total_exposure=Decimal("5000.0"),
+            risk_per_trade=Decimal("500.0"),
+            total_trades=10,
+            winning_trades=6,
+            total_pnl=Decimal("250.0"),
+            current_exposure=Decimal("1500.0")
         )
 
-        # 90% drawdown - should fail
-        assert passed is False
-
-    def test_very_large_capital_amounts(self, risk_controller):
-        """Test with very large capital amounts."""
-        passed, reason = risk_controller.check_drawdown(
-            current_capital=1_000_000.0,
-            starting_capital=1_500_000.0
+    @pytest.fixture
+    def market_data(self):
+        """Create sample market data for testing."""
+        return MarketData(
+            market_id="test_market_001",
+            question="Will BTC reach $100k?",
+            end_date=datetime(2024, 12, 31),
+            yes_price=Decimal("0.65"),
+            no_price=Decimal("0.35"),
+            yes_volume=Decimal("50000.0"),
+            no_volume=Decimal("30000.0"),
+            total_liquidity=Decimal("10000.0"),
+            is_active=True,
+            is_closed=False
         )
 
-        # ~33% drawdown - should fail
-        assert passed is False
+    @pytest.fixture
+    def price_history(self):
+        """Create sample price history for testing."""
+        return [
+            Decimal("45000.0"),
+            Decimal("45100.0"),
+            Decimal("45200.0"),
+            Decimal("45150.0"),
+            Decimal("45100.0")
+        ]
 
-    def test_fractional_drawdown_percentages(self, risk_controller):
-        """Test drawdown calculations with fractional percentages."""
-        # 29.99% drawdown
-        passed, reason = risk_controller.check_drawdown(
-            current_capital=70.01,
-            starting_capital=100.0
+    def test_approve_trade_all_checks_pass(self, bot_state, market_data, price_history):
+        """Test that trade is approved when all checks pass."""
+        approved, reason = approve_trade(
+            signal="UP",
+            market_data=market_data,
+            bot_state=bot_state,
+            price_history=price_history
         )
-        assert passed is True
-
-        # 30.01% drawdown
-        passed, reason = risk_controller.check_drawdown(
-            current_capital=69.99,
-            starting_capital=100.0
-        )
-        assert passed is False
-
-    def test_fractional_volatility_percentages(self, risk_controller):
-        """Test volatility calculations with fractional percentages."""
-        # 2.99% volatility
-        price_history = [100.0, 100.5, 102.99, 101.0, 102.0]
-        passed, reason = risk_controller.check_volatility(price_history)
-        assert passed is True
-
-        # 3.01% volatility
-        price_history = [100.0, 100.5, 103.01, 101.0, 102.0]
-        passed, reason = risk_controller.check_volatility(price_history)
-        assert passed is False
-
-    def test_price_history_exactly_minimum_length(self, risk_controller):
-        """Test with price history exactly at minimum required length."""
-        price_history = [100.0, 101.0, 102.0, 101.5, 102.5]  # Exactly 5
-
-        passed, reason = risk_controller.check_volatility(price_history, lookback_periods=5)
-
-        assert passed is True
+        assert approved is True
         assert reason is None
 
-    def test_rejection_reasons_are_descriptive(self, risk_controller):
-        """Test that rejection reasons contain useful information."""
-        # Test drawdown rejection reason
-        passed, reason = risk_controller.check_drawdown(65.0, 100.0)
-        assert passed is False
-        assert "35.00%" in reason
-        assert "30" in reason
+    def test_approve_trade_skip_signal(self, bot_state, market_data, price_history):
+        """Test that SKIP signal is always approved."""
+        approved, reason = approve_trade(
+            signal="SKIP",
+            market_data=market_data,
+            bot_state=bot_state,
+            price_history=price_history
+        )
+        assert approved is True
+        assert reason is None
 
-        # Test volatility rejection reason
-        price_history = [100.0, 101.0, 110.0, 105.0, 108.0]
-        passed, reason = risk_controller.check_volatility(price_history)
-        assert passed is False
-        assert "%" in reason
-        assert "3" in reason
+    def test_approve_trade_invalid_signal(self, bot_state, market_data, price_history):
+        """Test that invalid signal is rejected."""
+        approved, reason = approve_trade(
+            signal="INVALID",
+            market_data=market_data,
+            bot_state=bot_state,
+            price_history=price_history
+        )
+        assert approved is False
+        assert "Invalid signal" in reason
+
+    def test_approve_trade_high_drawdown(self, bot_state, market_data, price_history):
+        """Test that trade is blocked when drawdown is too high."""
+        # Set total_pnl to create >30% drawdown
+        bot_state.total_pnl = Decimal("-2000.0")  # Results in 40% drawdown
+
+        approved, reason = approve_trade(
+            signal="UP",
+            market_data=market_data,
+            bot_state=bot_state,
+            price_history=price_history
+        )
+        assert approved is False
+        assert "Drawdown" in reason
+
+    def test_approve_trade_high_volatility(self, bot_state, market_data):
+        """Test that trade is blocked when volatility is too high."""
+        high_volatility_prices = [
+            Decimal("45000.0"),
+            Decimal("43000.0"),
+            Decimal("47000.0"),
+            Decimal("44000.0"),
+            Decimal("46000.0")
+        ]
+
+        approved, reason = approve_trade(
+            signal="DOWN",
+            market_data=market_data,
+            bot_state=bot_state,
+            price_history=high_volatility_prices
+        )
+        assert approved is False
+        assert "Volatility" in reason
+
+    def test_approve_trade_market_not_active(self, bot_state, market_data, price_history):
+        """Test that trade is blocked when market is not active."""
+        market_data.is_active = False
+
+        approved, reason = approve_trade(
+            signal="UP",
+            market_data=market_data,
+            bot_state=bot_state,
+            price_history=price_history
+        )
+        assert approved is False
+        assert "not active" in reason
+
+    def test_approve_trade_market_closed(self, bot_state, market_data, price_history):
+        """Test that trade is blocked when market is closed."""
+        market_data.is_closed = True
+
+        approved, reason = approve_trade(
+            signal="UP",
+            market_data=market_data,
+            bot_state=bot_state,
+            price_history=price_history
+        )
+        assert approved is False
+        assert "closed" in reason
+
+    def test_approve_trade_insufficient_liquidity(self, bot_state, market_data, price_history):
+        """Test that trade is blocked when market has no liquidity."""
+        market_data.total_liquidity = Decimal("0.0")
+
+        approved, reason = approve_trade(
+            signal="UP",
+            market_data=market_data,
+            bot_state=bot_state,
+            price_history=price_history
+        )
+        assert approved is False
+        assert "liquidity" in reason.lower()
+
+    def test_approve_trade_max_exposure_reached(self, bot_state, market_data, price_history):
+        """Test that trade is blocked when at max exposure."""
+        bot_state.current_exposure = bot_state.max_total_exposure
+
+        approved, reason = approve_trade(
+            signal="UP",
+            market_data=market_data,
+            bot_state=bot_state,
+            price_history=price_history
+        )
+        assert approved is False
+        assert "exposure" in reason.lower()
+
+    def test_approve_trade_no_price_history(self, bot_state, market_data):
+        """Test that trade can be approved without price history."""
+        approved, reason = approve_trade(
+            signal="UP",
+            market_data=market_data,
+            bot_state=bot_state,
+            price_history=None
+        )
+        assert approved is True
+        assert reason is None
+
+    def test_approve_trade_empty_price_history(self, bot_state, market_data):
+        """Test that trade can be approved with empty price history."""
+        approved, reason = approve_trade(
+            signal="DOWN",
+            market_data=market_data,
+            bot_state=bot_state,
+            price_history=[]
+        )
+        assert approved is True
+
+    def test_approve_trade_down_signal(self, bot_state, market_data, price_history):
+        """Test approval with DOWN signal."""
+        approved, reason = approve_trade(
+            signal="DOWN",
+            market_data=market_data,
+            bot_state=bot_state,
+            price_history=price_history
+        )
+        assert approved is True
+        assert reason is None
+
+
+class TestCalculateMaxTradeSize:
+    """Test suite for maximum trade size calculation."""
+
+    @pytest.fixture
+    def bot_state(self):
+        """Create a sample bot state for testing."""
+        return BotState(
+            bot_id="test_bot_001",
+            strategy_name="test_strategy",
+            max_position_size=Decimal("1000.0"),
+            max_total_exposure=Decimal("5000.0"),
+            risk_per_trade=Decimal("500.0"),
+            current_exposure=Decimal("1500.0")
+        )
+
+    @pytest.fixture
+    def market_data(self):
+        """Create sample market data for testing."""
+        return MarketData(
+            market_id="test_market_001",
+            question="Test market",
+            end_date=datetime(2024, 12, 31),
+            yes_price=Decimal("0.65"),
+            no_price=Decimal("0.35"),
+            total_liquidity=Decimal("10000.0")
+        )
+
+    def test_max_trade_size_limited_by_position_size(self, bot_state, market_data):
+        """Test max trade size when limited by max position size."""
+        # risk_per_trade (500) < max_position_size (1000) < remaining_exposure (3500)
+        max_size = calculate_max_trade_size(bot_state, market_data)
+        assert max_size == Decimal("500.0")  # Limited by risk_per_trade
+
+    def test_max_trade_size_limited_by_remaining_exposure(self, bot_state, market_data):
+        """Test max trade size when limited by remaining exposure."""
+        bot_state.current_exposure = Decimal("4700.0")
+        # Remaining exposure = 300, which is less than risk_per_trade and max_position_size
+
+        max_size = calculate_max_trade_size(bot_state, market_data)
+        assert max_size == Decimal("300.0")
+
+    def test_max_trade_size_at_max_exposure(self, bot_state, market_data):
+        """Test max trade size when at maximum exposure."""
+        bot_state.current_exposure = bot_state.max_total_exposure
+
+        max_size = calculate_max_trade_size(bot_state, market_data)
+        assert max_size == Decimal("0.0")
+
+    def test_max_trade_size_no_exposure(self, bot_state, market_data):
+        """Test max trade size with no current exposure."""
+        bot_state.current_exposure = Decimal("0.0")
+
+        max_size = calculate_max_trade_size(bot_state, market_data)
+        # Should be minimum of max_position_size (1000), max_exposure (5000), risk_per_trade (500)
+        assert max_size == Decimal("500.0")
+
+
+class TestGetRiskMetrics:
+    """Test suite for risk metrics calculation."""
+
+    @pytest.fixture
+    def bot_state(self):
+        """Create a sample bot state for testing."""
+        return BotState(
+            bot_id="test_bot_001",
+            strategy_name="test_strategy",
+            max_position_size=Decimal("1000.0"),
+            max_total_exposure=Decimal("5000.0"),
+            risk_per_trade=Decimal("500.0"),
+            total_trades=20,
+            winning_trades=12,
+            total_pnl=Decimal("250.0"),
+            current_exposure=Decimal("2000.0")
+        )
+
+    @pytest.fixture
+    def price_history(self):
+        """Create sample price history for testing."""
+        return [
+            Decimal("45000.0"),
+            Decimal("45500.0"),
+            Decimal("46000.0"),
+            Decimal("45750.0"),
+            Decimal("45500.0")
+        ]
+
+    def test_get_risk_metrics_complete(self, bot_state, price_history):
+        """Test risk metrics calculation with all data."""
+        metrics = get_risk_metrics(bot_state, price_history)
+
+        assert "current_capital" in metrics
+        assert "starting_capital" in metrics
+        assert "drawdown_percent" in metrics
+        assert "volatility_percent" in metrics
+        assert "exposure_utilization_percent" in metrics
+        assert "win_rate_percent" in metrics
+        assert "total_pnl" in metrics
+
+        # Verify values
+        assert metrics["current_capital"] == 5250.0  # 5000 + 250
+        assert metrics["starting_capital"] == 5000.0
+        assert metrics["total_pnl"] == 250.0
+        assert metrics["total_trades"] == 20
+        assert metrics["winning_trades"] == 12
+        assert metrics["win_rate_percent"] == 60.0  # 12/20 * 100
+
+    def test_get_risk_metrics_no_price_history(self, bot_state):
+        """Test risk metrics without price history."""
+        metrics = get_risk_metrics(bot_state, None)
+
+        assert metrics["volatility_percent"] is None
+        assert "drawdown_percent" in metrics
+        assert "win_rate_percent" in metrics
+
+    def test_get_risk_metrics_with_loss(self, bot_state, price_history):
+        """Test risk metrics with negative PnL."""
+        bot_state.total_pnl = Decimal("-1000.0")
+
+        metrics = get_risk_metrics(bot_state, price_history)
+
+        assert metrics["current_capital"] == 4000.0  # 5000 - 1000
+        assert metrics["drawdown_percent"] == 20.0  # 1000/5000 * 100
+
+    def test_get_risk_metrics_exposure_utilization(self, bot_state, price_history):
+        """Test exposure utilization calculation."""
+        bot_state.current_exposure = Decimal("2500.0")
+        bot_state.max_total_exposure = Decimal("5000.0")
+
+        metrics = get_risk_metrics(bot_state, price_history)
+
+        assert metrics["exposure_utilization_percent"] == 50.0
+
+    def test_get_risk_metrics_zero_trades(self, bot_state, price_history):
+        """Test risk metrics with no trades."""
+        bot_state.total_trades = 0
+        bot_state.winning_trades = 0
+
+        metrics = get_risk_metrics(bot_state, price_history)
+
+        assert metrics["win_rate_percent"] == 0.0
+        assert metrics["total_trades"] == 0
+
+    def test_get_risk_metrics_insufficient_price_data(self, bot_state):
+        """Test risk metrics with insufficient price data."""
+        prices = [Decimal("45000.0")]
+
+        metrics = get_risk_metrics(bot_state, prices)
+
+        assert metrics["volatility_percent"] is None
+
+
+class TestRiskThresholds:
+    """Test suite to verify risk threshold constants."""
+
+    def test_max_drawdown_threshold(self):
+        """Verify max drawdown threshold is set correctly."""
+        assert MAX_DRAWDOWN_PERCENT == Decimal("30.0")
+
+    def test_max_volatility_threshold(self):
+        """Verify max volatility threshold is set correctly."""
+        assert MAX_VOLATILITY_PERCENT == Decimal("3.0")
 
 
 if __name__ == "__main__":
