@@ -744,3 +744,131 @@ class MarketData(BaseModel):
         total = self.yes_price + self.no_price
         # Allow small tolerance for rounding
         return abs(total - Decimal("1.0")) < Decimal("0.01")
+
+
+class TechnicalIndicatorData(BaseModel):
+    """
+    Technical indicator data for BTC price analysis.
+
+    Contains RSI, MACD, and order book metrics calculated from
+    real-time BTC/USDT price data from Binance.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "btc_price": 45250.50,
+                "rsi": 65.5,
+                "macd_line": 125.75,
+                "macd_signal": 110.25,
+                "macd_histogram": 15.50,
+                "order_book_imbalance": 1.15,
+                "timestamp": "2024-01-15T10:30:00Z"
+            }
+        }
+    )
+
+    # BTC Price
+    btc_price: Decimal = Field(
+        ...,
+        description="Current BTC/USDT price",
+        gt=0
+    )
+
+    # Technical Indicators
+    rsi: Optional[Decimal] = Field(
+        default=None,
+        description="Relative Strength Index (0-100)",
+        ge=0,
+        le=100
+    )
+
+    macd_line: Optional[Decimal] = Field(
+        default=None,
+        description="MACD line value"
+    )
+
+    macd_signal: Optional[Decimal] = Field(
+        default=None,
+        description="MACD signal line value"
+    )
+
+    macd_histogram: Optional[Decimal] = Field(
+        default=None,
+        description="MACD histogram (MACD line - signal line)"
+    )
+
+    # Order Book Metrics
+    order_book_imbalance: Decimal = Field(
+        default=Decimal("1.0"),
+        description="Order book bid/ask volume ratio",
+        gt=0
+    )
+
+    # Metadata
+    timestamp: datetime = Field(
+        default_factory=datetime.utcnow,
+        description="Data timestamp"
+    )
+
+    price_history_size: int = Field(
+        default=0,
+        description="Number of price points in history",
+        ge=0
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Serialize indicator data to dictionary.
+
+        Returns:
+            Dictionary representation of the indicator data
+        """
+        return {
+            "btc_price": float(self.btc_price),
+            "rsi": float(self.rsi) if self.rsi is not None else None,
+            "macd_line": float(self.macd_line) if self.macd_line is not None else None,
+            "macd_signal": float(self.macd_signal) if self.macd_signal is not None else None,
+            "macd_histogram": float(self.macd_histogram) if self.macd_histogram is not None else None,
+            "order_book_imbalance": float(self.order_book_imbalance),
+            "timestamp": self.timestamp.isoformat(),
+            "price_history_size": self.price_history_size
+        }
+
+    def has_valid_indicators(self) -> bool:
+        """Check if all technical indicators are available."""
+        return all([
+            self.rsi is not None,
+            self.macd_line is not None,
+            self.macd_signal is not None,
+            self.macd_histogram is not None
+        ])
+
+    def get_rsi_signal(self) -> Optional[str]:
+        """
+        Get RSI-based signal.
+
+        Returns:
+            "overbought" if RSI > 70, "oversold" if RSI < 30, "neutral" otherwise
+        """
+        if self.rsi is None:
+            return None
+
+        if self.rsi > 70:
+            return "overbought"
+        elif self.rsi < 30:
+            return "oversold"
+        else:
+            return "neutral"
+
+    def get_macd_signal(self) -> Optional[str]:
+        """
+        Get MACD-based signal.
+
+        Returns:
+            "bullish" if MACD line > signal line, "bearish" otherwise
+        """
+        if self.macd_line is None or self.macd_signal is None:
+            return None
+
+        return "bullish" if self.macd_line > self.macd_signal else "bearish"
