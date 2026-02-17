@@ -87,6 +87,8 @@ class PolymarketAPIClient:
 
         # Mock order storage for testing
         self._mock_orders: Dict[str, Dict[str, Any]] = {}
+        # Mock settlement outcomes for testing (order_id -> SettlementOutcome)
+        self._mock_settlement_outcomes: Dict[str, SettlementOutcome] = {}
 
     def submit_order(
         self,
@@ -179,21 +181,30 @@ class PolymarketAPIClient:
         if order_id not in self._mock_orders:
             raise ExecutionError(f"Order not found: {order_id}")
 
-        order = self._mock_orders[order_id]
+        # Get the stored order but don't mutate it
+        stored_order = self._mock_orders[order_id]
+
+        # Create a copy to return with calculated current state
+        order = stored_order.copy()
 
         # Simulate order progression: PENDING -> OPEN -> MATCHED -> SETTLED
         # In real implementation, this would come from the API
-        current_status = order.get("status", OrderStatus.PENDING.value)
+        current_status = stored_order.get("status", OrderStatus.PENDING.value)
 
         # For testing purposes, advance status based on time
-        created_at = datetime.fromisoformat(order["created_at"].replace('Z', '+00:00'))
+        created_at = datetime.fromisoformat(stored_order["created_at"].replace('Z', '+00:00'))
         elapsed_seconds = (datetime.now(timezone.utc) - created_at).total_seconds()
 
+        # Calculate current state without mutating stored order
         if elapsed_seconds > 60 and current_status == OrderStatus.PENDING.value:
             order["status"] = OrderStatus.SETTLED.value
             order["filled_amount"] = order["amount"]
-            # Simulate outcome determination
-            order["settlement_outcome"] = SettlementOutcome.WIN.value  # Mock outcome
+            # Use configurable settlement outcome if set, otherwise default to WIN
+            settlement_outcome = self._mock_settlement_outcomes.get(
+                order_id,
+                SettlementOutcome.WIN  # Default for backward compatibility
+            )
+            order["settlement_outcome"] = settlement_outcome.value
             order["settled_at"] = datetime.now(timezone.utc).isoformat()
         elif elapsed_seconds > 30 and current_status == OrderStatus.PENDING.value:
             order["status"] = OrderStatus.MATCHED.value
@@ -201,7 +212,7 @@ class PolymarketAPIClient:
         elif elapsed_seconds > 10 and current_status == OrderStatus.PENDING.value:
             order["status"] = OrderStatus.OPEN.value
 
-        return order.copy()
+        return order
 
     def get_market_resolution(self, market_id: str) -> Optional[str]:
         """
@@ -216,6 +227,21 @@ class PolymarketAPIClient:
         # Mock implementation - in production, this would make an HTTP GET request
         # For now, return None (unresolved) to simulate pending resolution
         return None
+
+    def set_mock_settlement_outcome(self, order_id: str, outcome: SettlementOutcome) -> None:
+        """
+        Set the mock settlement outcome for an order (for testing purposes).
+
+        Args:
+            order_id: The order ID to set outcome for
+            outcome: The settlement outcome to use
+
+        Note:
+            This method is only available in the mock implementation and is used
+            for testing different settlement scenarios.
+        """
+        self._mock_settlement_outcomes[order_id] = outcome
+        logger.debug(f"Mock settlement outcome set for {order_id}: {outcome.value}")
 
 
 def submit_order(
@@ -458,13 +484,16 @@ def update_trade_with_settlement(
     """
     Update a Trade object with settlement outcome.
 
+    This function creates a copy of the Trade object with updated settlement
+    information, preserving immutability and avoiding side effects.
+
     Args:
         trade: Trade object to update
         outcome: Settlement outcome (WIN/LOSS/PUSH/UNKNOWN)
         realized_pnl: Optional realized profit/loss
 
     Returns:
-        Updated Trade object
+        New Trade object with settlement updates applied
 
     Example:
         updated_trade = update_trade_with_settlement(
@@ -473,31 +502,44 @@ def update_trade_with_settlement(
             realized_pnl=Decimal("5.00")
         )
     """
-    # Update trade status
-    if outcome == SettlementOutcome.WIN:
-        trade.status = TradeStatus.EXECUTED
-        trade.filled_quantity = trade.quantity
-        trade.executed_at = datetime.now(timezone.utc)
-    elif outcome == SettlementOutcome.LOSS:
-        trade.status = TradeStatus.EXECUTED
-        trade.filled_quantity = trade.quantity
-        trade.executed_at = datetime.now(timezone.utc)
-    elif outcome == SettlementOutcome.PUSH:
-        trade.status = TradeStatus.CANCELLED
-    else:
-        trade.status = TradeStatus.FAILED
-
-    # Add outcome to metadata
-    trade.metadata["settlement_outcome"] = outcome.value
+    # Create a copy to avoid mutating the input object
+    updated_metadata = trade.metadata.copy()
+    updated_metadata["settlement_outcome"] = outcome.value
     if realized_pnl is not None:
-        trade.metadata["realized_pnl"] = float(realized_pnl)
+        updated_metadata["realized_pnl"] = float(realized_pnl)
+
+    # Determine new status based on outcome
+    if outcome == SettlementOutcome.WIN:
+        new_status = TradeStatus.EXECUTED
+        new_filled_quantity = trade.quantity
+        new_executed_at = datetime.now(timezone.utc)
+    elif outcome == SettlementOutcome.LOSS:
+        new_status = TradeStatus.EXECUTED
+        new_filled_quantity = trade.quantity
+        new_executed_at = datetime.now(timezone.utc)
+    elif outcome == SettlementOutcome.PUSH:
+        new_status = TradeStatus.CANCELLED
+        new_filled_quantity = trade.filled_quantity
+        new_executed_at = trade.executed_at
+    else:
+        new_status = TradeStatus.FAILED
+        new_filled_quantity = trade.filled_quantity
+        new_executed_at = trade.executed_at
+
+    # Create new Trade object with updated values
+    updated_trade = trade.model_copy(update={
+        "status": new_status,
+        "filled_quantity": new_filled_quantity,
+        "executed_at": new_executed_at,
+        "metadata": updated_metadata
+    })
 
     logger.info(
-        f"Trade {trade.trade_id} updated with settlement: "
-        f"outcome={outcome.value}, status={trade.status.value}"
+        f"Trade {updated_trade.trade_id} updated with settlement: "
+        f"outcome={outcome.value}, status={updated_trade.status.value}"
     )
 
-    return trade
+    return updated_trade
 
 
 def update_position_with_settlement(
@@ -508,13 +550,16 @@ def update_position_with_settlement(
     """
     Update a Position object with settlement outcome.
 
+    This function creates a copy of the Position object with updated settlement
+    information, preserving immutability and avoiding side effects.
+
     Args:
         position: Position object to update
         outcome: Settlement outcome (WIN/LOSS/PUSH/UNKNOWN)
         exit_price: Final exit price (1.0 for WIN, 0.0 for LOSS)
 
     Returns:
-        Updated Position object
+        New Position object with settlement updates applied
 
     Example:
         updated_position = update_position_with_settlement(
@@ -523,27 +568,34 @@ def update_position_with_settlement(
             exit_price=Decimal("1.00")
         )
     """
-    # Close the position
-    position.status = PositionStatus.CLOSED
-    position.exit_price = exit_price
-    position.closed_at = datetime.now(timezone.utc)
+    # Create a copy of metadata to avoid mutating the input object
+    updated_metadata = position.metadata.copy()
+    updated_metadata["settlement_outcome"] = outcome.value
 
     # Calculate realized PnL
     price_diff = exit_price - position.entry_price
-    position.realized_pnl = price_diff * position.quantity
-    position.unrealized_pnl = Decimal("0.00")
+    new_realized_pnl = price_diff * position.quantity
+    new_unrealized_pnl = Decimal("0.00")
 
-    # Add outcome to metadata
-    position.metadata["settlement_outcome"] = outcome.value
+    current_time = datetime.now(timezone.utc)
 
-    position.updated_at = datetime.now(timezone.utc)
+    # Create new Position object with updated values
+    updated_position = position.model_copy(update={
+        "status": PositionStatus.CLOSED,
+        "exit_price": exit_price,
+        "closed_at": current_time,
+        "realized_pnl": new_realized_pnl,
+        "unrealized_pnl": new_unrealized_pnl,
+        "metadata": updated_metadata,
+        "updated_at": current_time
+    })
 
     logger.info(
-        f"Position {position.position_id} settled: "
-        f"outcome={outcome.value}, realized_pnl={position.realized_pnl}"
+        f"Position {updated_position.position_id} settled: "
+        f"outcome={outcome.value}, realized_pnl={updated_position.realized_pnl}"
     )
 
-    return position
+    return updated_position
 
 
 def track_order_lifecycle(
@@ -592,15 +644,15 @@ def track_order_lifecycle(
 
     # Calculate realized PnL based on outcome
     if outcome == SettlementOutcome.WIN:
-        # For prediction markets, winning pays out $1 per share
+        # For prediction markets, winning pays out $1.00 per share
         cost = trade.price * trade.quantity
-        payout = trade.quantity  # $1 per share
+        payout = Decimal("1.00") * trade.quantity  # $1.00 per share
         realized_pnl = payout - cost - trade.fee
         exit_price = Decimal("1.00")
     elif outcome == SettlementOutcome.LOSS:
-        # Losing means shares are worth $0
+        # Losing means shares are worth $0.00
         cost = trade.price * trade.quantity
-        realized_pnl = -cost - trade.fee
+        realized_pnl = Decimal("0.00") - cost - trade.fee
         exit_price = Decimal("0.00")
     else:
         # PUSH or UNKNOWN
