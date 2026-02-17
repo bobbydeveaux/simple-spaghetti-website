@@ -9,7 +9,8 @@ This package provides:
 - **Configuration Management**: Secure API key management and environment-based configuration
 - **Utility Functions**: Retry logic, validation, error handling, and helper functions
 - **Multi-Exchange Support**: Integration with Polymarket, Binance, and CoinGecko APIs
-- **Technical Analysis**: Built-in TA-Lib support for technical indicators
+- **Market Data Integration**: Real-time market discovery, odds retrieval, and technical indicators
+- **Technical Analysis**: Built-in TA-Lib support for technical indicators (RSI, MACD)
 
 ## Features
 
@@ -35,9 +36,11 @@ polymarket-bot/
 ├── __init__.py         # Package initialization
 ├── config.py           # Configuration management
 ├── models.py           # Core data models (BotState, Trade, Position, MarketData)
+├── market_data.py      # Market data integration (PolymarketClient, BinanceWebSocketClient, indicators)
 ├── utils.py            # Utility functions (retry, validation, error handling)
 ├── tests/              # Comprehensive test suite
-│   └── test_models.py  # Model validation tests
+│   ├── test_models.py     # Model validation tests
+│   └── test_market_data.py # Market data integration tests
 ├── test_config.py      # Configuration tests
 └── README.md           # This file
 ```
@@ -319,6 +322,206 @@ market_dict = market.to_dict()
 - `YES`: Yes outcome
 - `NO`: No outcome
 
+## Market Data Integration
+
+The `market_data` module provides comprehensive market data integration with Polymarket and Binance APIs, including technical indicator calculations.
+
+### PolymarketClient
+
+REST API client for discovering active markets and retrieving odds.
+
+**Key Features:**
+- Market discovery with BTC asset filtering
+- Current odds retrieval for Yes/No positions
+- Automatic retry logic with exponential backoff
+- Data transformation to MarketData models
+- Rate limit handling
+
+**Example:**
+```python
+from market_data import PolymarketClient
+from config import get_config
+
+config = get_config()
+client = PolymarketClient(
+    api_key=config.polymarket_api_key,
+    api_secret=config.polymarket_api_secret,
+    base_url=config.polymarket_base_url
+)
+
+# Find active BTC markets
+market_id = client.find_active_market("BTC")
+if market_id:
+    # Get current odds
+    yes_odds, no_odds = client.get_market_odds(market_id)
+    print(f"YES: {yes_odds}, NO: {no_odds}")
+
+    # Get complete market details
+    market_data = client.get_market_details(market_id)
+    print(f"Question: {market_data.question}")
+    print(f"Liquidity: ${market_data.total_liquidity}")
+
+# Close client when done
+client.close()
+```
+
+**API Methods:**
+- `find_active_market(asset="BTC")`: Find active markets for the specified asset
+- `get_market_odds(market_id)`: Retrieve current YES/NO odds
+- `get_market_details(market_id)`: Get complete market information as MarketData object
+
+**Error Handling:**
+- Automatic retry on transient failures (3 attempts with exponential backoff)
+- Graceful handling of rate limits (429 responses)
+- Validation of probability values (must be 0.0 to 1.0)
+
+### BinanceWebSocketClient
+
+WebSocket client for real-time BTC price streaming from Binance.
+
+**Key Features:**
+- Real-time 1-minute kline (candlestick) data
+- Price buffer for technical indicator calculations
+- Automatic reconnection handling
+- Thread-safe price access
+
+**Example:**
+```python
+from market_data import BinanceWebSocketClient
+
+# Initialize client
+ws_client = BinanceWebSocketClient(symbol="btcusdt", buffer_size=100)
+
+# Connect to WebSocket (in production, run in separate thread)
+ws_client.connect()
+
+# Get latest prices for indicator calculations
+prices = ws_client.get_latest_prices(count=50)
+if prices:
+    latest_price = ws_client.get_latest_price()
+    print(f"Current BTC price: ${latest_price}")
+
+# Close when done
+ws_client.close()
+```
+
+### Technical Indicators
+
+Calculate RSI (Relative Strength Index) and MACD (Moving Average Convergence Divergence) for trend analysis.
+
+**Calculate RSI:**
+```python
+from market_data import calculate_rsi
+
+# Get price history from WebSocket client
+prices = ws_client.get_latest_prices(count=100)
+
+# Calculate 14-period RSI
+rsi = calculate_rsi(prices, period=14)
+if rsi:
+    if rsi < 30:
+        print(f"Oversold: RSI = {rsi:.2f}")
+    elif rsi > 70:
+        print(f"Overbought: RSI = {rsi:.2f}")
+    else:
+        print(f"Neutral: RSI = {rsi:.2f}")
+```
+
+**Calculate MACD:**
+```python
+from market_data import calculate_macd
+
+# Get price history
+prices = ws_client.get_latest_prices(count=100)
+
+# Calculate MACD with default periods (12, 26, 9)
+result = calculate_macd(prices)
+if result:
+    macd_line, signal_line = result
+
+    if macd_line > signal_line:
+        print("Bullish crossover detected")
+    elif macd_line < signal_line:
+        print("Bearish crossover detected")
+```
+
+### Order Book Imbalance
+
+Calculate order book imbalance from Binance to gauge buying/selling pressure.
+
+**Example:**
+```python
+from market_data import get_order_book_imbalance
+
+imbalance = get_order_book_imbalance("BTCUSDT")
+if imbalance:
+    if imbalance > 1.1:
+        print(f"Strong buying pressure: {imbalance:.2f}")
+    elif imbalance < 0.9:
+        print(f"Strong selling pressure: {imbalance:.2f}")
+    else:
+        print(f"Balanced order book: {imbalance:.2f}")
+```
+
+**Interpretation:**
+- Imbalance > 1.0: More bid volume than ask volume (buying pressure)
+- Imbalance < 1.0: More ask volume than bid volume (selling pressure)
+- Imbalance ≈ 1.0: Balanced order book
+
+### Complete Market Data Workflow
+
+```python
+from market_data import (
+    PolymarketClient,
+    BinanceWebSocketClient,
+    calculate_rsi,
+    calculate_macd,
+    get_order_book_imbalance
+)
+from config import get_config
+from models import MarketData
+
+# Initialize clients
+config = get_config()
+poly_client = PolymarketClient(
+    api_key=config.polymarket_api_key,
+    api_secret=config.polymarket_api_secret
+)
+ws_client = BinanceWebSocketClient(symbol="btcusdt")
+
+# Connect to Binance WebSocket
+ws_client.connect()
+
+# Wait for price data to accumulate (in production, run in background)
+# time.sleep(60)
+
+# Get technical indicators
+prices = ws_client.get_latest_prices(100)
+rsi = calculate_rsi(prices, period=14)
+macd_result = calculate_macd(prices)
+imbalance = get_order_book_imbalance("BTCUSDT")
+
+# Find active Polymarket markets
+market_id = poly_client.find_active_market("BTC")
+if market_id:
+    market_data = poly_client.get_market_details(market_id)
+
+    print(f"Market: {market_data.question}")
+    print(f"YES odds: {market_data.yes_price}")
+    print(f"NO odds: {market_data.no_price}")
+    print(f"RSI: {rsi:.2f}")
+
+    if macd_result:
+        macd_line, signal_line = macd_result
+        print(f"MACD: {macd_line:.2f}, Signal: {signal_line:.2f}")
+
+    print(f"Order book imbalance: {imbalance:.2f}")
+
+# Cleanup
+poly_client.close()
+ws_client.close()
+```
+
 ## Utility Functions
 
 ### Configuration Management
@@ -519,6 +722,7 @@ The package includes comprehensive tests covering:
 - ✅ Serialization
 - ✅ Configuration management
 - ✅ Utility functions
+- ✅ Market data integration (API clients, indicators)
 - ✅ Integration scenarios
 
 Run tests:
@@ -528,10 +732,12 @@ pytest -v
 
 # Specific test files
 pytest tests/test_models.py -v
-pytest test_config.py test_polymarket_utils.py -v
+pytest tests/test_market_data.py -v
+pytest test_config.py -v
 
 # With coverage
 pytest tests/test_models.py --cov=models --cov-report=html
+pytest tests/test_market_data.py --cov=market_data --cov-report=html
 pytest test_config.py -v --cov=config --cov-report=html
 ```
 
