@@ -23,6 +23,7 @@ from models import (
     Trade,
     Position,
     MarketData,
+    BTCPriceData,
     BotStatus,
     OrderSide,
     OrderType,
@@ -563,3 +564,164 @@ class TestModelIntegration:
 
         assert bot.get_win_rate() == 50.0
         assert bot.current_exposure <= bot.max_total_exposure
+
+
+class TestBTCPriceData:
+    """Tests for BTCPriceData model."""
+
+    def test_btc_price_data_creation_valid(self):
+        """Test creating a valid BTCPriceData."""
+        price_data = BTCPriceData(
+            symbol="BTCUSDT",
+            price=Decimal("45678.90"),
+            timestamp=datetime(2024, 1, 15, 10, 30, 0),
+            volume_24h=Decimal("123456789.50"),
+            high_24h=Decimal("46000.00"),
+            low_24h=Decimal("45000.00"),
+            price_change_24h=Decimal("678.90"),
+            price_change_percent_24h=Decimal("1.51"),
+        )
+
+        assert price_data.symbol == "BTCUSDT"
+        assert price_data.price == Decimal("45678.90")
+        assert price_data.volume_24h == Decimal("123456789.50")
+        assert price_data.high_24h == Decimal("46000.00")
+        assert price_data.low_24h == Decimal("45000.00")
+        assert price_data.price_change_24h == Decimal("678.90")
+        assert price_data.price_change_percent_24h == Decimal("1.51")
+
+    def test_btc_price_data_creation_minimal(self):
+        """Test creating BTCPriceData with minimal required fields."""
+        price_data = BTCPriceData(
+            price=Decimal("50000.00"),
+            timestamp=datetime.utcnow(),
+        )
+
+        assert price_data.symbol == "BTCUSDT"  # default value
+        assert price_data.price == Decimal("50000.00")
+        assert price_data.volume_24h is None
+        assert price_data.high_24h is None
+        assert price_data.low_24h is None
+
+    def test_btc_price_data_validation_positive_price(self):
+        """Test BTCPriceData validates positive price."""
+        with pytest.raises(ValidationError) as exc_info:
+            BTCPriceData(
+                price=Decimal("0.00"),
+                timestamp=datetime.utcnow(),
+            )
+
+        assert "greater than 0" in str(exc_info.value).lower()
+
+    def test_btc_price_data_validation_negative_price(self):
+        """Test BTCPriceData rejects negative price."""
+        with pytest.raises(ValidationError) as exc_info:
+            BTCPriceData(
+                price=Decimal("-100.00"),
+                timestamp=datetime.utcnow(),
+            )
+
+        assert "greater than 0" in str(exc_info.value).lower()
+
+    def test_btc_price_data_to_dict(self):
+        """Test BTCPriceData to_dict serialization."""
+        price_data = BTCPriceData(
+            symbol="BTCUSDT",
+            price=Decimal("45678.90"),
+            timestamp=datetime(2024, 1, 15, 10, 30, 0),
+            volume_24h=Decimal("123456789.50"),
+            high_24h=Decimal("46000.00"),
+            low_24h=Decimal("45000.00"),
+        )
+
+        data_dict = price_data.to_dict()
+
+        assert data_dict["symbol"] == "BTCUSDT"
+        assert data_dict["price"] == 45678.90
+        assert data_dict["volume_24h"] == 123456789.50
+        assert data_dict["high_24h"] == 46000.00
+        assert data_dict["low_24h"] == 45000.00
+        assert isinstance(data_dict["timestamp"], str)
+
+    def test_btc_price_data_get_mid_range_price(self):
+        """Test calculating mid-range price."""
+        price_data = BTCPriceData(
+            price=Decimal("45500.00"),
+            timestamp=datetime.utcnow(),
+            high_24h=Decimal("46000.00"),
+            low_24h=Decimal("45000.00"),
+        )
+
+        mid_range = price_data.get_mid_range_price()
+
+        assert mid_range == Decimal("45500.00")
+
+    def test_btc_price_data_get_mid_range_price_none_when_missing_high(self):
+        """Test mid-range price returns None when high is missing."""
+        price_data = BTCPriceData(
+            price=Decimal("45500.00"),
+            timestamp=datetime.utcnow(),
+            low_24h=Decimal("45000.00"),
+        )
+
+        mid_range = price_data.get_mid_range_price()
+
+        assert mid_range is None
+
+    def test_btc_price_data_get_mid_range_price_none_when_missing_low(self):
+        """Test mid-range price returns None when low is missing."""
+        price_data = BTCPriceData(
+            price=Decimal("45500.00"),
+            timestamp=datetime.utcnow(),
+            high_24h=Decimal("46000.00"),
+        )
+
+        mid_range = price_data.get_mid_range_price()
+
+        assert mid_range is None
+
+    def test_btc_price_data_get_volatility_percent(self):
+        """Test calculating volatility percentage."""
+        price_data = BTCPriceData(
+            price=Decimal("45500.00"),
+            timestamp=datetime.utcnow(),
+            high_24h=Decimal("46000.00"),
+            low_24h=Decimal("45000.00"),
+        )
+
+        volatility = price_data.get_volatility_percent()
+
+        # Range = 1000, Price = 45500, Volatility = (1000 / 45500) * 100 ≈ 2.20%
+        assert volatility is not None
+        assert abs(volatility - Decimal("2.20")) < Decimal("0.01")
+
+    def test_btc_price_data_get_volatility_percent_none_when_no_range(self):
+        """Test volatility returns None when price range data is missing."""
+        price_data = BTCPriceData(
+            price=Decimal("45500.00"),
+            timestamp=datetime.utcnow(),
+        )
+
+        volatility = price_data.get_volatility_percent()
+
+        assert volatility is None
+
+    def test_btc_price_data_metadata(self):
+        """Test BTCPriceData metadata storage."""
+        metadata = {"exchange": "binance", "pair": "BTC/USDT"}
+        price_data = BTCPriceData(
+            price=Decimal("45678.90"),
+            timestamp=datetime.utcnow(),
+            metadata=metadata,
+        )
+
+        assert price_data.metadata == metadata
+
+    def test_btc_price_data_default_symbol(self):
+        """Test BTCPriceData uses default symbol."""
+        price_data = BTCPriceData(
+            price=Decimal("45678.90"),
+            timestamp=datetime.utcnow(),
+        )
+
+        assert price_data.symbol == "BTCUSDT"

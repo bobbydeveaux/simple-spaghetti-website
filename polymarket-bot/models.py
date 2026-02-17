@@ -746,129 +746,112 @@ class MarketData(BaseModel):
         return abs(total - Decimal("1.0")) < Decimal("0.01")
 
 
-class TechnicalIndicatorData(BaseModel):
+class BTCPriceData(BaseModel):
     """
-    Technical indicator data for BTC price analysis.
+    Bitcoin price data from Binance WebSocket.
 
-    Contains RSI, MACD, and order book metrics calculated from
-    real-time BTC/USDT price data from Binance.
+    Represents a single BTC/USDT price update from the Binance WebSocket feed,
+    including price, volume, and timestamp information.
     """
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "btc_price": 45250.50,
-                "rsi": 65.5,
-                "macd_line": 125.75,
-                "macd_signal": 110.25,
-                "macd_histogram": 15.50,
-                "order_book_imbalance": 1.15,
-                "timestamp": "2024-01-15T10:30:00Z"
+                "symbol": "BTCUSDT",
+                "price": 45678.90,
+                "timestamp": "2024-01-15T10:30:00Z",
+                "volume_24h": 123456789.50,
+                "high_24h": 46000.00,
+                "low_24h": 45000.00,
+                "price_change_24h": 678.90,
+                "price_change_percent_24h": 1.51
             }
         }
     )
 
-    # BTC Price
-    btc_price: Decimal = Field(
+    # Symbol
+    symbol: str = Field(
+        default="BTCUSDT",
+        description="Trading pair symbol",
+        min_length=1
+    )
+
+    # Price Data
+    price: Decimal = Field(
         ...,
-        description="Current BTC/USDT price",
+        description="Current BTC price in USDT",
         gt=0
     )
 
-    # Technical Indicators
-    rsi: Optional[Decimal] = Field(
-        default=None,
-        description="Relative Strength Index (0-100)",
-        ge=0,
-        le=100
+    # Timestamp
+    timestamp: datetime = Field(
+        ...,
+        description="Price update timestamp"
     )
 
-    macd_line: Optional[Decimal] = Field(
+    # 24-Hour Statistics
+    volume_24h: Optional[Decimal] = Field(
         default=None,
-        description="MACD line value"
+        description="24-hour trading volume in USDT",
+        ge=0
     )
 
-    macd_signal: Optional[Decimal] = Field(
+    high_24h: Optional[Decimal] = Field(
         default=None,
-        description="MACD signal line value"
-    )
-
-    macd_histogram: Optional[Decimal] = Field(
-        default=None,
-        description="MACD histogram (MACD line - signal line)"
-    )
-
-    # Order Book Metrics
-    order_book_imbalance: Decimal = Field(
-        default=Decimal("1.0"),
-        description="Order book bid/ask volume ratio",
+        description="24-hour high price",
         gt=0
+    )
+
+    low_24h: Optional[Decimal] = Field(
+        default=None,
+        description="24-hour low price",
+        gt=0
+    )
+
+    price_change_24h: Optional[Decimal] = Field(
+        default=None,
+        description="24-hour price change in USDT"
+    )
+
+    price_change_percent_24h: Optional[Decimal] = Field(
+        default=None,
+        description="24-hour price change percentage"
     )
 
     # Metadata
-    timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="Data timestamp"
-    )
-
-    price_history_size: int = Field(
-        default=0,
-        description="Number of price points in history",
-        ge=0
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional price data metadata"
     )
 
     def to_dict(self) -> Dict[str, Any]:
         """
-        Serialize indicator data to dictionary.
+        Serialize BTC price data to dictionary.
 
         Returns:
-            Dictionary representation of the indicator data
+            Dictionary representation of the price data
         """
         return {
-            "btc_price": float(self.btc_price),
-            "rsi": float(self.rsi) if self.rsi is not None else None,
-            "macd_line": float(self.macd_line) if self.macd_line is not None else None,
-            "macd_signal": float(self.macd_signal) if self.macd_signal is not None else None,
-            "macd_histogram": float(self.macd_histogram) if self.macd_histogram is not None else None,
-            "order_book_imbalance": float(self.order_book_imbalance),
+            "symbol": self.symbol,
+            "price": float(self.price),
             "timestamp": self.timestamp.isoformat(),
-            "price_history_size": self.price_history_size
+            "volume_24h": float(self.volume_24h) if self.volume_24h else None,
+            "high_24h": float(self.high_24h) if self.high_24h else None,
+            "low_24h": float(self.low_24h) if self.low_24h else None,
+            "price_change_24h": float(self.price_change_24h) if self.price_change_24h else None,
+            "price_change_percent_24h": float(self.price_change_percent_24h) if self.price_change_percent_24h else None,
+            "metadata": self.metadata
         }
 
-    def has_valid_indicators(self) -> bool:
-        """Check if all technical indicators are available."""
-        return all([
-            self.rsi is not None,
-            self.macd_line is not None,
-            self.macd_signal is not None,
-            self.macd_histogram is not None
-        ])
+    def get_mid_range_price(self) -> Optional[Decimal]:
+        """Calculate the mid-range price from 24h high and low."""
+        if self.high_24h and self.low_24h:
+            return (self.high_24h + self.low_24h) / Decimal("2.0")
+        return None
 
-    def get_rsi_signal(self) -> Optional[str]:
-        """
-        Get RSI-based signal.
-
-        Returns:
-            "overbought" if RSI > 70, "oversold" if RSI < 30, "neutral" otherwise
-        """
-        if self.rsi is None:
-            return None
-
-        if self.rsi > 70:
-            return "overbought"
-        elif self.rsi < 30:
-            return "oversold"
-        else:
-            return "neutral"
-
-    def get_macd_signal(self) -> Optional[str]:
-        """
-        Get MACD-based signal.
-
-        Returns:
-            "bullish" if MACD line > signal line, "bearish" otherwise
-        """
-        if self.macd_line is None or self.macd_signal is None:
-            return None
-
-        return "bullish" if self.macd_line > self.macd_signal else "bearish"
+    def get_volatility_percent(self) -> Optional[Decimal]:
+        """Calculate volatility as percentage of price range to mid-range."""
+        if self.high_24h and self.low_24h and self.price:
+            price_range = self.high_24h - self.low_24h
+            return (price_range / self.price) * Decimal("100.0")
+        return None
