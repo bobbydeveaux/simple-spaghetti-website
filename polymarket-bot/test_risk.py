@@ -10,7 +10,7 @@ Tests cover:
 
 import pytest
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timezone
 
 from risk import (
     RiskManager,
