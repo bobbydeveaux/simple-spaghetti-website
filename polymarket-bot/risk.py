@@ -520,3 +520,127 @@ def approve_trade(
     rm = RiskManager()
     result = rm.approve_trade(bot_state, market_data, recent_prices)
     return result.approved
+
+
+def calculate_max_trade_size(
+    bot_state: BotState,
+    market_data: MarketData
+) -> Decimal:
+    """
+    Calculate the maximum allowable trade size based on risk parameters.
+
+    Determines the maximum position size that can be taken while staying
+    within risk limits including max position size, available capital,
+    and remaining exposure capacity.
+
+    Args:
+        bot_state: Current bot state with risk parameters
+        market_data: Current market data
+
+    Returns:
+        Maximum trade size in USD
+
+    Examples:
+        >>> calculate_max_trade_size(bot_state, market_data)
+        Decimal('1000.00')
+    """
+    # Calculate remaining exposure capacity
+    remaining_exposure = bot_state.max_total_exposure - bot_state.current_exposure
+
+    # Maximum trade size is the minimum of:
+    # 1. Max position size from config
+    # 2. Remaining exposure capacity
+    # 3. Risk per trade limit
+    max_trade_size = min(
+        bot_state.max_position_size,
+        remaining_exposure,
+        bot_state.risk_per_trade
+    )
+
+    # Ensure non-negative
+    max_trade_size = max(max_trade_size, Decimal("0.00"))
+
+    logger.debug(
+        f"Calculated max trade size: ${max_trade_size} "
+        f"(Position limit: ${bot_state.max_position_size}, "
+        f"Remaining exposure: ${remaining_exposure}, "
+        f"Risk per trade: ${bot_state.risk_per_trade})"
+    )
+
+    return max_trade_size
+
+
+def get_risk_metrics(
+    bot_state: BotState,
+    price_history: Optional[List[Decimal]] = None
+) -> dict:
+    """
+    Get current risk metrics for monitoring and reporting.
+
+    Calculates and returns key risk metrics including drawdown,
+    volatility, exposure utilization, and win rate.
+
+    Args:
+        bot_state: Current bot state
+        price_history: Optional price history for volatility calculation
+
+    Returns:
+        Dictionary containing risk metrics
+
+    Examples:
+        >>> metrics = get_risk_metrics(bot_state, prices)
+        >>> metrics['drawdown_percent']
+        15.5
+    """
+    # Risk thresholds (module level constants)
+    MAX_DRAWDOWN_PERCENT = Decimal("30.0")
+    MAX_VOLATILITY_PERCENT = Decimal("3.0")
+
+    # Calculate current capital
+    current_capital = bot_state.max_total_exposure + bot_state.total_pnl
+    starting_capital = bot_state.max_total_exposure
+
+    # Calculate drawdown
+    if starting_capital > 0:
+        drawdown_amount = starting_capital - current_capital
+        drawdown_percent = float((drawdown_amount / starting_capital) * Decimal("100.0"))
+    else:
+        drawdown_percent = 0.0
+
+    # Calculate volatility if price history provided
+    volatility_percent = None
+    if price_history and len(price_history) >= 2:
+        recent_prices = price_history[-5:] if len(price_history) >= 5 else price_history
+        max_price = max(recent_prices)
+        min_price = min(recent_prices)
+        price_range = max_price - min_price
+        volatility_percent = float((price_range / min_price) * Decimal("100.0"))
+
+    # Calculate exposure utilization
+    if bot_state.max_total_exposure > 0:
+        exposure_utilization = float(
+            (bot_state.current_exposure / bot_state.max_total_exposure) * Decimal("100.0")
+        )
+    else:
+        exposure_utilization = 0.0
+
+    # Get win rate
+    win_rate = bot_state.get_win_rate()
+
+    metrics = {
+        "current_capital": float(current_capital),
+        "starting_capital": float(starting_capital),
+        "drawdown_percent": drawdown_percent,
+        "drawdown_threshold_percent": float(MAX_DRAWDOWN_PERCENT),
+        "volatility_percent": volatility_percent,
+        "volatility_threshold_percent": float(MAX_VOLATILITY_PERCENT),
+        "current_exposure": float(bot_state.current_exposure),
+        "max_exposure": float(bot_state.max_total_exposure),
+        "exposure_utilization_percent": exposure_utilization,
+        "total_trades": bot_state.total_trades,
+        "winning_trades": bot_state.winning_trades,
+        "win_rate_percent": win_rate,
+        "total_pnl": float(bot_state.total_pnl)
+    }
+
+    return metrics

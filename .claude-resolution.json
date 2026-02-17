@@ -1,6 +1,6 @@
 {
   "method": "ai-assisted",
-  "filesResolved": 4,
-  "summary": "Resolved all 4 merge conflicts by accepting origin/main version which contains critical fixes from code review including: proper HMAC request signing for API authentication, TA-Lib for MACD calculations, thread-safe WebSocket client with proper locking, comprehensive PolymarketClient implementation, and BTCPriceData model for BTC price tracking. The origin/main version was more complete and addressed all the critical bugs identified in the code review.",
-  "strategyUsed": "Chose origin/main (theirs) for all conflicts. The main branch contained critical security fixes (HMAC-SHA256 API signing), proper technical indicator implementation (TA-Lib for MACD), thread-safety improvements (Lock for WebSocket price buffer), and a more comprehensive implementation with PolymarketClient, BinanceWebSocket, and BTCPriceData model. The feature branch had a simpler implementation missing these critical fixes that were explicitly requested in the code review feedback."
+  "filesResolved": 2,
+  "summary": "Successfully merged risk management and capital allocation features. Resolved conflicts in README.md by combining feature descriptions from both branches. Resolved conflicts in risk.py by using the comprehensive RiskManager class from HEAD and adding the calculate_max_trade_size and get_risk_metrics helper functions from origin/main for backward compatibility.",
+  "strategyUsed": "Preserved advanced OOP design (RiskManager class with RiskApprovalResult) from HEAD while adding standalone utility functions (calculate_max_trade_size, get_risk_metrics) from origin/main. Combined documentation sections to include both risk management system details and capital allocation features. Maintained backward compatibility by keeping both class-based and function-based interfaces."
 }

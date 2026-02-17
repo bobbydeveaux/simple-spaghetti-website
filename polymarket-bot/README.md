@@ -64,6 +64,19 @@ This package provides:
 - ✅ **Risk Metrics**: Real-time risk metrics including drawdown, exposure, and win rate
 - ✅ **Configurable Thresholds**: Customizable risk parameters for different strategies
 - ✅ **Peak Tracking**: Automatic peak capital tracking for accurate drawdown calculations
+- ✅ **Position Sizing**: Dynamic calculation based on risk parameters and exposure limits
+- ✅ **Market Validation**: Active market, liquidity, and closure checks
+
+### Capital Allocation
+- ✅ **Win-Streak Position Sizing**: Dynamic position sizing based on consecutive wins
+- ✅ **Base Size**: $5 starting position with zero streak
+- ✅ **Multiplier**: 1.5x scaling per consecutive win
+- ✅ **Position Cap**: Maximum $25 position size regardless of streak
+- ✅ **Capital Safety**: Automatic 50% capital constraint to prevent over-leverage
+- ✅ **Streak Reset**: Automatic streak reset to zero on any loss
+- ✅ **Configurable Parameters**: Customizable base size, multiplier, and maximum cap
+- ✅ **Automatic Streak Tracking**: Integration with StateManager for win/loss tracking
+- ✅ **Comprehensive Testing**: Full test coverage including edge cases and boundary conditions
 
 ### Technical Capabilities
 - **Environment Configuration**: Secure API key management using `.env` files
@@ -85,12 +98,15 @@ polymarket-bot/
 ├── models.py                   # Core data models (BotState, Trade, Position, MarketData, BTCPriceData)
 ├── market_data.py              # Market data service (Binance WebSocket, Polymarket API, technical indicators)
 ├── risk.py                     # Risk management system (drawdown, volatility, trade approval)
+├── capital.py                  # Capital allocation with win-streak position sizing
 ├── state.py                    # State persistence and logging
 ├── utils.py                    # Utility functions (retry, validation, error handling)
 ├── tests/                      # Comprehensive test suite
 │   ├── test_models.py          # Model validation tests (including BTCPriceData)
 │   ├── test_market_data.py     # Market data service and Polymarket API tests
 │   ├── test_binance_websocket.py # Binance WebSocket tests
+│   ├── test_risk.py            # Risk management tests
+│   ├── test_capital.py         # Capital allocation tests
 │   └── test_state.py           # State persistence tests
 ├── test_config.py              # Configuration tests
 ├── test_risk.py                # Risk management tests
@@ -800,6 +816,192 @@ The WebSocket receives 24hr ticker data from Binance:
 
 This is automatically parsed into `BTCPriceData` model instances.
 
+## Capital Allocation
+
+The `capital.py` module implements win-streak capital allocation logic for position sizing. Position sizes scale with consecutive winning trades using a multiplier system, with a maximum cap to manage risk.
+
+### Win-Streak Position Sizing
+
+The capital allocator uses the following formula:
+
+```
+position_size = min(base_size * (multiplier ** win_streak), max_size)
+```
+
+**Default Parameters:**
+- **Base Size**: $5.00
+- **Multiplier**: 1.5x per consecutive win
+- **Maximum Size**: $25.00 (position cap)
+
+**Position Size Progression:**
+- Streak 0 (first trade or after loss): $5.00
+- Streak 1 (after 1 win): $7.50
+- Streak 2 (after 2 consecutive wins): $11.25
+- Streak 3 (after 3 consecutive wins): $16.88
+- Streak 4+ (capped): $25.00
+
+### CapitalAllocator Class
+
+The `CapitalAllocator` class provides position sizing with configurable parameters:
+
+```python
+from capital import CapitalAllocator
+from decimal import Decimal
+
+# Initialize with default parameters
+allocator = CapitalAllocator()
+
+# Or customize parameters
+allocator = CapitalAllocator(
+    base_size=Decimal("10.00"),
+    multiplier=Decimal("2.0"),
+    max_size=Decimal("50.00")
+)
+
+# Calculate position size based on win streak
+position_size = allocator.calculate_position_size(win_streak=2)
+print(f"Position size: ${position_size}")  # Output: Position size: $11.25
+
+# With capital safety check (never exceed 50% of available capital)
+position_size = allocator.calculate_position_size(
+    win_streak=2,
+    current_capital=Decimal("100.00")
+)
+```
+
+### Standalone Functions
+
+For convenience, standalone functions are available:
+
+```python
+from capital import calculate_position_size
+from decimal import Decimal
+
+# Simple usage
+size = calculate_position_size(win_streak=1)
+print(f"${size}")  # Output: $7.50
+
+# With custom parameters
+size = calculate_position_size(
+    win_streak=2,
+    current_capital=Decimal("100.00"),
+    base_size=Decimal("5.00"),
+    multiplier=Decimal("1.5"),
+    max_size=Decimal("25.00")
+)
+```
+
+### Integration with StateManager
+
+The capital allocator integrates with the `StateManager` to track win streaks:
+
+```python
+from state import StateManager
+from capital import calculate_position_size
+
+# Create state manager
+state_manager = StateManager(state_dir="data")
+
+# Get current win streak from metrics
+metrics = state_manager.get_metrics()
+win_streak = metrics['win_streak']
+
+# Calculate position size
+position_size = calculate_position_size(win_streak)
+
+# After a winning trade
+state_manager.update_metrics(
+    trade_result="win",
+    pnl=Decimal("5.50"),
+    current_equity=Decimal("105.50")
+)
+
+# After a losing trade (resets streak to 0)
+state_manager.update_metrics(
+    trade_result="loss",
+    pnl=Decimal("-3.25"),
+    current_equity=Decimal("102.25")
+)
+```
+
+### Streak Management
+
+The allocator provides methods for streak management:
+
+```python
+allocator = CapitalAllocator()
+
+# Increment streak after a win
+current_streak = 2
+new_streak = allocator.increment_streak(current_streak)
+print(new_streak)  # Output: 3
+
+# Reset streak after a loss
+new_streak = allocator.reset_streak()
+print(new_streak)  # Output: 0
+```
+
+### Safety Features
+
+1. **Maximum Cap**: Position size is capped at `max_size` regardless of win streak
+2. **Capital Safety Check**: Position size never exceeds 50% of current capital
+3. **Parameter Validation**: Invalid parameters raise `ValueError` on initialization
+4. **Negative Streak Protection**: Negative win streaks are rejected
+
+### Usage Example
+
+```python
+from capital import CapitalAllocator, calculate_position_size
+from state import StateManager
+from decimal import Decimal
+
+# Initialize components
+allocator = CapitalAllocator()
+state_manager = StateManager(state_dir="data")
+
+# Trading loop
+for trade_number in range(10):
+    # Get current metrics
+    metrics = state_manager.get_metrics()
+    win_streak = metrics['win_streak']
+
+    # Calculate position size
+    position_size = allocator.calculate_position_size(win_streak)
+
+    print(f"Trade {trade_number + 1}: Win Streak = {win_streak}, Position Size = ${position_size}")
+
+    # Simulate trade execution and result
+    # ... (execute trade)
+
+    # Update metrics based on trade result
+    trade_result = "win" if trade_number % 3 != 0 else "loss"  # Example
+    pnl = Decimal("5.00") if trade_result == "win" else Decimal("-3.00")
+
+    state_manager.update_metrics(
+        trade_result=trade_result,
+        pnl=pnl,
+        current_equity=Decimal("100.00") + pnl * (trade_number + 1)
+    )
+```
+
+### Testing
+
+The capital allocation module includes comprehensive tests in `tests/test_capital.py`:
+
+```bash
+pytest tests/test_capital.py -v
+```
+
+**Test Coverage:**
+- Base position sizing (streak = 0)
+- Win-streak multiplier scaling (streaks 1-5+)
+- Maximum cap enforcement
+- Capital safety checks
+- Parameter validation
+- Edge cases and boundary conditions
+- Integration with BotState
+- Acceptance criteria verification
+
 ## State Persistence and Logging
 
 The `state.py` module provides robust state management, trade logging, and metrics tracking with atomic writes and crash recovery.
@@ -915,6 +1117,126 @@ data/
 ├── bot_state.json   # Current bot state (atomic writes)
 ├── metrics.json     # Performance metrics (atomic writes)
 └── trades.log       # Trade history log (append-only)
+```
+
+## Capital Allocation
+
+The capital allocation module implements dynamic position sizing based on win-streak scaling. This approach rewards consecutive wins with larger positions while maintaining strict safety limits.
+
+### Position Sizing Formula
+
+```
+position_size = min(base_size * (multiplier ^ win_streak), max_size)
+```
+
+**Constants:**
+- **BASE_SIZE**: $5.00 (starting position with zero streak)
+- **MULTIPLIER**: 1.5x (scaling per consecutive win)
+- **MAX_SIZE**: $25.00 (maximum position cap)
+
+**Additional Safety:** Position size is also capped at 50% of current capital to prevent over-leverage.
+
+### Win-Streak Progression
+
+| Streak | Formula | Position Size | Capped At |
+|--------|---------|---------------|-----------|
+| 0 | 5.0 × 1.5⁰ | $5.00 | - |
+| 1 | 5.0 × 1.5¹ | $7.50 | - |
+| 2 | 5.0 × 1.5² | $11.25 | - |
+| 3 | 5.0 × 1.5³ | $16.88 | - |
+| 4 | 5.0 × 1.5⁴ | $25.31 | $25.00 |
+| 5+ | 5.0 × 1.5⁵⁺ | >$25.00 | $25.00 |
+
+### Usage
+
+```python
+from polymarket_bot.capital import calculate_position_size, update_win_streak
+
+# Mock bot state with current capital and win streak
+class BotState:
+    def __init__(self, current_capital, win_streak):
+        self.current_capital = current_capital
+        self.win_streak = win_streak
+
+# Calculate position size for new trade
+bot_state = BotState(current_capital=100.0, win_streak=0)
+position = calculate_position_size(bot_state)
+print(f"Position size: ${position}")  # $5.00
+
+# After a winning trade
+bot_state.win_streak = update_win_streak(bot_state, "WIN")
+position = calculate_position_size(bot_state)
+print(f"Position size after win: ${position}")  # $7.50
+
+# After a losing trade (streak resets)
+bot_state.win_streak = update_win_streak(bot_state, "LOSS")
+position = calculate_position_size(bot_state)
+print(f"Position size after loss: ${position}")  # $5.00 (back to base)
+```
+
+### Utility Function
+
+For testing or analysis, use `get_position_size_for_streak` to calculate position sizes without modifying bot state:
+
+```python
+from polymarket_bot.capital import get_position_size_for_streak
+
+# Calculate position for various streaks
+for streak in range(6):
+    size = get_position_size_for_streak(streak)
+    print(f"Streak {streak}: ${size:.2f}")
+
+# Output:
+# Streak 0: $5.00
+# Streak 1: $7.50
+# Streak 2: $11.25
+# Streak 3: $16.88
+# Streak 4: $25.00
+# Streak 5: $25.00 (capped)
+```
+
+### Capital Safety Features
+
+1. **Maximum Position Cap**: No position exceeds $25 regardless of streak length
+2. **Capital Constraint**: Position size limited to 50% of current capital
+3. **Automatic Streak Reset**: Any loss resets the win streak to zero
+4. **Low Capital Protection**: With capital < $10, positions automatically scale down
+
+### Example Scenarios
+
+**Scenario 1: Normal Trading**
+```python
+bot = BotState(current_capital=100.0, win_streak=2)
+position = calculate_position_size(bot)  # $11.25
+```
+
+**Scenario 2: Low Capital Constraint**
+```python
+bot = BotState(current_capital=20.0, win_streak=2)
+position = calculate_position_size(bot)  # $10.00 (50% of $20, not $11.25)
+```
+
+**Scenario 3: Very High Streak**
+```python
+bot = BotState(current_capital=100.0, win_streak=10)
+position = calculate_position_size(bot)  # $25.00 (capped at max)
+```
+
+**Scenario 4: Win-Loss Pattern**
+```python
+bot = BotState(current_capital=100.0, win_streak=0)
+
+# Win 1
+bot.win_streak = update_win_streak(bot, "WIN")  # streak = 1
+pos1 = calculate_position_size(bot)  # $7.50
+
+# Win 2
+bot.win_streak = update_win_streak(bot, "WIN")  # streak = 2
+pos2 = calculate_position_size(bot)  # $11.25
+
+# Loss (resets streak)
+bot.win_streak = update_win_streak(bot, "LOSS")  # streak = 0
+pos3 = calculate_position_size(bot)  # $5.00 (back to base)
 ```
 
 ## Utility Functions
@@ -1398,6 +1720,213 @@ The package includes comprehensive tests covering:
 - ✅ Error handling and retry logic
 - ✅ Integration scenarios
 
+## Risk Management
+
+The `risk.py` module implements pre-trade validation with multiple risk controls to protect capital and ensure safe trading operations.
+
+### Risk Controls
+
+#### Drawdown Monitoring
+
+Automatically blocks trades when account drawdown exceeds the maximum threshold:
+- **Threshold**: 30% maximum drawdown
+- **Calculation**: `(starting_capital - current_capital) / starting_capital * 100`
+- **Action**: Trade rejected with detailed reason when threshold exceeded
+
+```python
+from risk import check_drawdown
+from decimal import Decimal
+
+# Example: 25% drawdown - approved
+approved, reason = check_drawdown(
+    current_capital=Decimal("75.0"),
+    starting_capital=Decimal("100.0")
+)
+# Returns: (True, None)
+
+# Example: 35% drawdown - rejected
+approved, reason = check_drawdown(
+    current_capital=Decimal("65.0"),
+    starting_capital=Decimal("100.0")
+)
+# Returns: (False, "Drawdown of 35.00% exceeds maximum threshold of 30.00%")
+```
+
+#### Volatility Circuit Breaker
+
+Blocks trades during periods of excessive price volatility:
+- **Threshold**: 3% maximum 5-minute price range
+- **Window**: Last 5 price updates
+- **Calculation**: `(max_price - min_price) / min_price * 100`
+- **Action**: Trade rejected during high volatility periods
+
+```python
+from risk import check_volatility
+from decimal import Decimal
+
+# Example: Low volatility (2%) - approved
+prices = [
+    Decimal("45000.0"),
+    Decimal("45100.0"),
+    Decimal("45200.0"),
+    Decimal("45150.0"),
+    Decimal("45100.0")
+]
+approved, reason = check_volatility(prices)
+# Returns: (True, None)
+
+# Example: High volatility (5%) - rejected
+volatile_prices = [
+    Decimal("45000.0"),
+    Decimal("43000.0"),
+    Decimal("47000.0")
+]
+approved, reason = check_volatility(volatile_prices)
+# Returns: (False, "Volatility of 9.30% exceeds maximum threshold of 3.00%")
+```
+
+#### Trade Approval Logic
+
+Combines all risk checks with market validation for final trade decision:
+- Drawdown validation
+- Volatility check
+- Market active status
+- Market closure check
+- Liquidity verification
+- Exposure limit validation
+
+```python
+from risk import approve_trade
+from models import BotState, MarketData
+from decimal import Decimal
+from datetime import datetime
+
+# Create bot state
+bot_state = BotState(
+    bot_id="bot_001",
+    strategy_name="momentum_v1",
+    max_position_size=Decimal("1000.0"),
+    max_total_exposure=Decimal("5000.0"),
+    risk_per_trade=Decimal("500.0"),
+    total_pnl=Decimal("250.0"),
+    current_exposure=Decimal("1500.0")
+)
+
+# Create market data
+market_data = MarketData(
+    market_id="market_123",
+    question="Will BTC reach $100k?",
+    end_date=datetime(2024, 12, 31),
+    yes_price=Decimal("0.65"),
+    no_price=Decimal("0.35"),
+    total_liquidity=Decimal("10000.0"),
+    is_active=True,
+    is_closed=False
+)
+
+# Price history
+price_history = [
+    Decimal("45000.0"),
+    Decimal("45100.0"),
+    Decimal("45200.0"),
+    Decimal("45150.0"),
+    Decimal("45100.0")
+]
+
+# Approve trade with all checks
+approved, reason = approve_trade(
+    signal="UP",
+    market_data=market_data,
+    bot_state=bot_state,
+    price_history=price_history
+)
+# Returns: (True, None) if all checks pass
+# Returns: (False, "rejection reason") if any check fails
+```
+
+#### Position Sizing
+
+Calculate maximum allowable trade size based on risk parameters:
+
+```python
+from risk import calculate_max_trade_size
+
+max_size = calculate_max_trade_size(bot_state, market_data)
+# Returns minimum of:
+# - max_position_size
+# - remaining_exposure (max_total_exposure - current_exposure)
+# - risk_per_trade
+```
+
+#### Risk Metrics
+
+Get comprehensive risk metrics for monitoring:
+
+```python
+from risk import get_risk_metrics
+
+metrics = get_risk_metrics(bot_state, price_history)
+# Returns dictionary with:
+# - current_capital
+# - starting_capital
+# - drawdown_percent
+# - volatility_percent
+# - exposure_utilization_percent
+# - win_rate_percent
+# - total_pnl
+```
+
+### Risk Validation Workflow
+
+```python
+from risk import approve_trade, calculate_max_trade_size, get_risk_metrics
+from models import BotState, MarketData
+
+# 1. Get risk metrics for monitoring
+metrics = get_risk_metrics(bot_state, price_history)
+print(f"Drawdown: {metrics['drawdown_percent']:.2f}%")
+print(f"Volatility: {metrics['volatility_percent']:.2f}%")
+
+# 2. Approve trade with all risk checks
+approved, reason = approve_trade(
+    signal="UP",
+    market_data=market_data,
+    bot_state=bot_state,
+    price_history=price_history
+)
+
+if not approved:
+    print(f"Trade rejected: {reason}")
+    return
+
+# 3. Calculate safe position size
+max_size = calculate_max_trade_size(bot_state, market_data)
+print(f"Max trade size: ${max_size}")
+
+# 4. Execute trade (if approved)
+# ... execute trade with max_size
+```
+
+### Error Handling
+
+All risk functions return tuples of `(approved: bool, reason: Optional[str])`:
+- **Success**: `(True, None)` - validation passed
+- **Failure**: `(False, "detailed reason")` - validation failed with explanation
+
+Invalid inputs are caught and returned as rejections:
+```python
+# Invalid starting capital
+approved, reason = check_drawdown(
+    current_capital=Decimal("50.0"),
+    starting_capital=Decimal("0.0")
+)
+# Returns: (False, "Invalid starting capital: 0. Must be greater than 0.")
+
+# Empty price history
+approved, reason = check_volatility([])
+# Returns: (False, "Price history is empty. Cannot calculate volatility.")
+```
+
 Run tests:
 ```bash
 # All tests
@@ -1406,12 +1935,14 @@ pytest -v
 # Specific test files
 pytest tests/test_models.py -v
 pytest tests/test_market_data.py -v
+pytest tests/test_risk.py -v
 pytest tests/test_state.py -v
 pytest test_config.py test_polymarket_utils.py -v
 
 # With coverage
 pytest tests/test_models.py --cov=models --cov-report=html
 pytest tests/test_market_data.py --cov=market_data --cov-report=html
+pytest tests/test_risk.py --cov=risk --cov-report=html
 pytest tests/test_state.py --cov=state --cov-report=html
 pytest test_config.py -v --cov=config --cov-report=html
 pytest test_risk.py -v --cov=risk --cov-report=html
