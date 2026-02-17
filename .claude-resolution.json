@@ -1,6 +1,6 @@
 {
   "method": "ai-assisted",
-  "filesResolved": 4,
-  "summary": "Resolved all 4 merge conflicts by accepting origin/main version which contains critical fixes from code review including: proper HMAC request signing for API authentication, TA-Lib for MACD calculations, thread-safe WebSocket client with proper locking, comprehensive PolymarketClient implementation, and BTCPriceData model for BTC price tracking. The origin/main version was more complete and addressed all the critical bugs identified in the code review.",
-  "strategyUsed": "Chose origin/main (theirs) for all conflicts. The main branch contained critical security fixes (HMAC-SHA256 API signing), proper technical indicator implementation (TA-Lib for MACD), thread-safety improvements (Lock for WebSocket price buffer), and a more comprehensive implementation with PolymarketClient, BinanceWebSocket, and BTCPriceData model. The feature branch had a simpler implementation missing these critical fixes that were explicitly requested in the code review feedback."
+  "filesResolved": 1,
+  "summary": "Successfully resolved merge conflict in polymarket-bot/README.md by preserving both Risk Management and Capital Allocation features from their respective branches",
+  "strategyUsed": "preserved both changes - kept Risk Management section from HEAD and Capital Allocation section from origin/main, as both are complementary features that should coexist in the documentation. Also merged the project structure and test file listings to include both risk.py/test_risk.py and capital.py/test_capital.py"
 }
