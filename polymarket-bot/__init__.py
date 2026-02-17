@@ -32,7 +32,18 @@ from .market_data import (
     get_market_odds_by_id,
 )
 
-__version__ = "0.2.0"
+# Prediction Engine
+from .prediction import (
+    generate_signal,
+    generate_signal_from_market_data,
+    InsufficientDataError,
+    PredictionError,
+    SIGNAL_UP,
+    SIGNAL_DOWN,
+    SIGNAL_SKIP,
+)
+
+__version__ = "0.3.0"
 
 __all__ = [
     # Configuration
@@ -57,4 +68,12 @@ __all__ = [
     "PolymarketAPIError",
     "get_active_btc_markets",
     "get_market_odds_by_id",
+    # Prediction Engine
+    "generate_signal",
+    "generate_signal_from_market_data",
+    "InsufficientDataError",
+    "PredictionError",
+    "SIGNAL_UP",
+    "SIGNAL_DOWN",
+    "SIGNAL_SKIP",
 ]

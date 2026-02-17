@@ -12,10 +12,16 @@ Tests cover:
 """
 
 import pytest
+import sys
+from pathlib import Path
 from decimal import Decimal
 from datetime import datetime
 
-from polymarket_bot.prediction import (
+# Add parent directory to path for imports
+parent_dir = Path(__file__).parent.parent
+sys.path.insert(0, str(parent_dir))
+
+from prediction import (
     generate_signal,
     generate_signal_from_market_data,
     calculate_signal_from_rsi,
@@ -37,8 +43,8 @@ from polymarket_bot.prediction import (
     ORDERBOOK_BULLISH,
     ORDERBOOK_BEARISH
 )
-from polymarket_bot.models import MarketData
-from polymarket_bot.utils import ValidationError
+from models import MarketData
+from utils import ValidationError
 
 
 class TestCalculateSignalFromRSI:
