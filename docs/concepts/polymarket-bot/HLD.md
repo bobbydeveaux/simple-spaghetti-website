@@ -301,8 +301,8 @@ Do not assume perfect foresight. Assume realistic market behavior.
 - FR-001: Connect to Polymarket API and authenticate using provided credentials
 - FR-002: Fetch BTC 5-minute directional market odds and settlement times via API
 - FR-003: Retrieve BTC price feed from external source (Binance/CoinGecko) with <5s latency
-- FR-004: Calculate RSI (14-period), MACD (12,26,9), and order book imbalance from data inputs
-- FR-005: Generate UP prediction if RSI<30 AND MACD bullish crossover, DOWN if RSI>70 AND MACD bearish crossover
+- FR-004: Calculate RSI (configurable period, default 14), MACD (configurable periods, defaults 12,26,9), and order book imbalance from data inputs
+- FR-005: Generate UP prediction if RSI<oversold_threshold (default 30) AND MACD bullish crossover, DOWN if RSI>overbought_threshold (default 70) AND MACD bearish crossover (all thresholds configurable)
 - FR-006: Submit market orders to Polymarket with calculated position size before interval closes
 - FR-007: Track open position status and settlement outcome for each 5-minute interval
 - FR-008: Implement base position $5, win-streak multiplier 1.5x, max exposure $25 per trade
