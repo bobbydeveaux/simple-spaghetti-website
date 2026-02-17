@@ -879,7 +879,7 @@ class BinanceWebSocket:
             return BTCPriceData(
                 symbol=data.get('s', 'BTCUSDT'),
                 price=price,
-                timestamp=timestamp if timestamp.year > 1970 else datetime.utcnow(),
+                timestamp=timestamp if timestamp.year > 1970 else datetime.now(timezone.utc),
                 volume_24h=Decimal(str(volume_24h)) if volume_24h else None,
                 high_24h=Decimal(str(high_24h)) if high_24h else None,
                 low_24h=Decimal(str(low_24h)) if low_24h else None,
