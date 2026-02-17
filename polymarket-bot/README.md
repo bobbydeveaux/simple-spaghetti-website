@@ -2540,6 +2540,8 @@ The `execution.py` module handles order submission to Polymarket and settlement 
 
 Mock API client for submitting orders and checking settlement status.
 
+> **⚠️ IMPORTANT:** This is a MOCK implementation for development and testing purposes. In production, this client must be replaced with actual HTTP requests to the Polymarket API. The current implementation stores orders in memory and simulates settlement outcomes.
+
 **Features:**
 - Order submission with market and limit orders
 - Settlement status polling
