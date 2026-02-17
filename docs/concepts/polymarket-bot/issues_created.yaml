@@ -1,30 +1,24 @@
-GeneratedAt: "2026-02-17T08:38:43Z"
+GeneratedAt: "2026-02-17T13:34:24Z"
 Issues:
-- IssueNumber: 223
-  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/223
-  TaskID: task-polymarket-bot-feat-config-models-1
-- IssueNumber: 224
-  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/224
-  TaskID: task-polymarket-bot-feat-config-models-2
-- IssueNumber: 225
-  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/225
-  TaskID: task-polymarket-bot-feat-config-models-3
-- IssueNumber: 226
-  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/226
-  TaskID: task-polymarket-bot-feat-config-models-4
-- IssueNumber: 227
-  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/227
+- IssueNumber: 235
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/235
   TaskID: task-polymarket-bot-feat-market-data-1
-- IssueNumber: 228
-  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/228
+- IssueNumber: 236
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/236
   TaskID: task-polymarket-bot-feat-market-data-2
-- IssueNumber: 229
-  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/229
+- IssueNumber: 237
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/237
   TaskID: task-polymarket-bot-feat-market-data-3
-- IssueNumber: 230
-  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/230
-  TaskID: task-polymarket-bot-feat-market-data-4
-- IssueNumber: 231
-  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/231
+- IssueNumber: 238
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/238
   TaskID: task-polymarket-bot-feat-state-persistence-1
+- IssueNumber: 239
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/239
+  TaskID: task-polymarket-bot-feat-prediction-engine-1
+- IssueNumber: 240
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/240
+  TaskID: task-polymarket-bot-feat-risk-controls-1
+- IssueNumber: 241
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/241
+  TaskID: task-polymarket-bot-feat-capital-allocation-1
 Plan: polymarket-bot-plan
