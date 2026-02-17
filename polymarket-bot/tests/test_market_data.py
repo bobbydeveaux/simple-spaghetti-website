@@ -91,7 +91,7 @@ def sample_btc_markets():
             "no_price": 0.35,
             "active": True,
             "closed": False,
-            "end_date": (datetime.utcnow() + timedelta(days=30)).isoformat() + "Z"
+            "end_date": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat() + "Z"
         },
         {
             "id": "btc_market_2",
@@ -100,7 +100,7 @@ def sample_btc_markets():
             "no_price": 0.45,
             "active": True,
             "closed": False,
-            "end_date": (datetime.utcnow() + timedelta(days=60)).isoformat() + "Z"
+            "end_date": (datetime.now(timezone.utc) + timedelta(days=60)).isoformat() + "Z"
         },
         {
             "id": "btc_market_3",
@@ -109,7 +109,7 @@ def sample_btc_markets():
             "no_price": 0.20,
             "active": True,
             "closed": False,
-            "end_date": (datetime.utcnow() + timedelta(days=90)).isoformat() + "Z"
+            "end_date": (datetime.now(timezone.utc) + timedelta(days=90)).isoformat() + "Z"
         }
     ]
 
@@ -436,7 +436,7 @@ class TestBTCMarketFiltering:
             "question": "BTC price",
             "active": True,
             "closed": False,
-            "end_date": (datetime.utcnow() + timedelta(days=30)).isoformat() + "Z"
+            "end_date": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat() + "Z"
         }
         mock_search.return_value = [duplicate_market]
 
@@ -450,7 +450,7 @@ class TestBTCMarketFiltering:
     def test_get_btc_markets_filters_inactive(self, mock_search, polymarket_client):
         """Test BTC markets filters out inactive markets."""
         markets_with_inactive = [
-            {"id": "1", "question": "BTC", "active": True, "closed": False, "end_date": (datetime.utcnow() + timedelta(days=30)).isoformat() + "Z"},
+            {"id": "1", "question": "BTC", "active": True, "closed": False, "end_date": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat() + "Z"},
             {"id": "2", "question": "BTC", "active": False, "closed": False},
             {"id": "3", "question": "BTC", "active": True, "closed": True}
         ]
@@ -467,7 +467,7 @@ class TestBTCMarketFiltering:
         """Test BTC markets handles search errors gracefully."""
         # First call succeeds, second fails
         mock_search.side_effect = [
-            [{"id": "1", "question": "BTC", "active": True, "closed": False, "end_date": (datetime.utcnow() + timedelta(days=30)).isoformat() + "Z"}],
+            [{"id": "1", "question": "BTC", "active": True, "closed": False, "end_date": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat() + "Z"}],
             PolymarketAPIError("API error")
         ]
 
@@ -485,7 +485,7 @@ class TestMarketStatusChecks:
         market = {
             "closed": False,
             "active": True,
-            "end_date": (datetime.utcnow() + timedelta(days=30)).isoformat() + "Z"
+            "end_date": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat() + "Z"
         }
 
         assert polymarket_client._is_market_active(market) is True
@@ -510,7 +510,7 @@ class TestMarketStatusChecks:
 
     def test_is_market_active_past_end_date(self, polymarket_client):
         """Test market past end date is inactive."""
-        past_date = (datetime.utcnow() - timedelta(days=1)).isoformat() + "Z"
+        past_date = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat() + "Z"
         market = {
             "active": True,
             "closed": False,
@@ -702,7 +702,7 @@ class TestUtilityMethods:
     def test_parse_datetime_iso_format(self, polymarket_client):
         """Test parsing ISO format datetime."""
         date_str = "2024-12-31T23:59:59Z"
-        result = polymarket_client._parse_datetime(date_str, datetime.utcnow())
+        result = polymarket_client._parse_datetime(date_str, datetime.now(timezone.utc))
         assert result.year == 2024
         assert result.month == 12
         assert result.day == 31

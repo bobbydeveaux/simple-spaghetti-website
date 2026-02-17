@@ -388,7 +388,7 @@ class TestMarketData:
 
     def test_market_data_creation_valid(self):
         """Test creating valid MarketData."""
-        end_date = datetime.utcnow() + timedelta(days=30)
+        end_date = datetime.now(timezone.utc) + timedelta(days=30)
         market = MarketData(
             market_id="market_001",
             question="Will Bitcoin reach $100k in 2024?",
@@ -404,7 +404,7 @@ class TestMarketData:
 
     def test_market_data_validation_price_range(self):
         """Test that prices must be between 0 and 1."""
-        end_date = datetime.utcnow() + timedelta(days=30)
+        end_date = datetime.now(timezone.utc) + timedelta(days=30)
 
         with pytest.raises(ValidationError):
             MarketData(
@@ -417,7 +417,7 @@ class TestMarketData:
 
     def test_market_data_total_volume(self):
         """Test total volume calculation."""
-        end_date = datetime.utcnow() + timedelta(days=30)
+        end_date = datetime.now(timezone.utc) + timedelta(days=30)
         market = MarketData(
             market_id="market_003",
             question="Test question",
@@ -432,7 +432,7 @@ class TestMarketData:
 
     def test_market_data_price_spread(self):
         """Test price spread calculation."""
-        end_date = datetime.utcnow() + timedelta(days=30)
+        end_date = datetime.now(timezone.utc) + timedelta(days=30)
         market = MarketData(
             market_id="market_004",
             question="Test question",
@@ -445,7 +445,7 @@ class TestMarketData:
 
     def test_market_data_validate_prices_sum(self):
         """Test price sum validation."""
-        end_date = datetime.utcnow() + timedelta(days=30)
+        end_date = datetime.now(timezone.utc) + timedelta(days=30)
 
         # Valid - prices sum to 1.0
         market_valid = MarketData(
@@ -469,7 +469,7 @@ class TestMarketData:
 
     def test_market_data_to_dict(self):
         """Test serialization to dictionary."""
-        end_date = datetime.utcnow() + timedelta(days=30)
+        end_date = datetime.now(timezone.utc) + timedelta(days=30)
         market = MarketData(
             market_id="market_007",
             question="Test question",
@@ -488,7 +488,7 @@ class TestMarketData:
 
     def test_market_data_with_resolution(self):
         """Test market data with resolution."""
-        end_date = datetime.utcnow() - timedelta(days=1)
+        end_date = datetime.now(timezone.utc) - timedelta(days=1)
         market = MarketData(
             market_id="market_008",
             question="Resolved market",
@@ -594,7 +594,7 @@ class TestBTCPriceData:
         """Test creating BTCPriceData with minimal required fields."""
         price_data = BTCPriceData(
             price=Decimal("50000.00"),
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
         )
 
         assert price_data.symbol == "BTCUSDT"  # default value
@@ -608,7 +608,7 @@ class TestBTCPriceData:
         with pytest.raises(ValidationError) as exc_info:
             BTCPriceData(
                 price=Decimal("0.00"),
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
             )
 
         assert "greater than 0" in str(exc_info.value).lower()
@@ -618,7 +618,7 @@ class TestBTCPriceData:
         with pytest.raises(ValidationError) as exc_info:
             BTCPriceData(
                 price=Decimal("-100.00"),
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
             )
 
         assert "greater than 0" in str(exc_info.value).lower()
@@ -647,7 +647,7 @@ class TestBTCPriceData:
         """Test calculating mid-range price."""
         price_data = BTCPriceData(
             price=Decimal("45500.00"),
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             high_24h=Decimal("46000.00"),
             low_24h=Decimal("45000.00"),
         )
@@ -660,7 +660,7 @@ class TestBTCPriceData:
         """Test mid-range price returns None when high is missing."""
         price_data = BTCPriceData(
             price=Decimal("45500.00"),
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             low_24h=Decimal("45000.00"),
         )
 
@@ -672,7 +672,7 @@ class TestBTCPriceData:
         """Test mid-range price returns None when low is missing."""
         price_data = BTCPriceData(
             price=Decimal("45500.00"),
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             high_24h=Decimal("46000.00"),
         )
 
@@ -684,7 +684,7 @@ class TestBTCPriceData:
         """Test calculating volatility percentage."""
         price_data = BTCPriceData(
             price=Decimal("45500.00"),
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             high_24h=Decimal("46000.00"),
             low_24h=Decimal("45000.00"),
         )
@@ -699,7 +699,7 @@ class TestBTCPriceData:
         """Test volatility returns None when price range data is missing."""
         price_data = BTCPriceData(
             price=Decimal("45500.00"),
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
         )
 
         volatility = price_data.get_volatility_percent()
@@ -711,7 +711,7 @@ class TestBTCPriceData:
         metadata = {"exchange": "binance", "pair": "BTC/USDT"}
         price_data = BTCPriceData(
             price=Decimal("45678.90"),
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             metadata=metadata,
         )
 
@@ -721,7 +721,7 @@ class TestBTCPriceData:
         """Test BTCPriceData uses default symbol."""
         price_data = BTCPriceData(
             price=Decimal("45678.90"),
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
         )
 
         assert price_data.symbol == "BTCUSDT"
