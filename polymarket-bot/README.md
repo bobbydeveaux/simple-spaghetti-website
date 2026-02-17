@@ -87,6 +87,17 @@ This package provides:
 - ✅ **Automatic Streak Tracking**: Integration with StateManager for win/loss tracking
 - ✅ **Comprehensive Testing**: Full test coverage including edge cases and boundary conditions
 
+### Trade Execution and Settlement
+- ✅ **Order Submission**: Market and limit order placement on Polymarket
+- ✅ **Exponential Backoff Retry**: Automatic retry logic with 3 attempts max (2s, 4s, 8s delays)
+- ✅ **Settlement Polling**: Continuous polling until order is settled or timeout (300s default)
+- ✅ **Connection Pooling**: Efficient HTTP session management with connection reuse
+- ✅ **Error Handling**: Comprehensive handling of API errors, timeouts, and connection failures
+- ✅ **Trade Status Tracking**: Real-time order status updates and filled quantity tracking
+- ✅ **Configurable Timeouts**: Customizable retry attempts, delays, and settlement timeouts
+- ✅ **Convenience Functions**: Simple interfaces for common order types (market/limit)
+- ✅ **Comprehensive Testing**: 40+ test cases covering all execution scenarios and error conditions
+
 ### Technical Capabilities
 - **Environment Configuration**: Secure API key management using `.env` files
 - **WebSocket Streaming**: Real-time BTC/USDT price streaming from Binance with automatic reconnection
@@ -110,6 +121,7 @@ polymarket-bot/
 ├── prediction.py               # Prediction engine (RSI/MACD-based signal generation)
 ├── risk.py                     # Risk management system (drawdown, volatility, trade approval)
 ├── capital.py                  # Capital allocation with win-streak position sizing
+├── execution.py                # Trade execution engine (order submission, retry logic, settlement polling)
 ├── state.py                    # State persistence and logging
 ├── utils.py                    # Utility functions (retry, validation, error handling)
 ├── tests/                      # Comprehensive test suite
@@ -121,6 +133,7 @@ polymarket-bot/
 │   ├── test_capital.py         # Capital allocation tests
 │   └── test_state.py           # State persistence tests
 ├── test_config.py              # Configuration tests
+├── test_execution.py           # Trade execution tests
 ├── test_risk.py                # Risk management tests
 └── README.md                   # This file
 ```
@@ -996,6 +1009,182 @@ print(new_streak)  # Output: 0
 2. **Capital Safety Check**: Position size never exceeds 50% of current capital
 3. **Parameter Validation**: Invalid parameters raise `ValueError` on initialization
 4. **Negative Streak Protection**: Negative win streaks are rejected
+
+### Trade Execution Usage
+
+The `execution` module provides order submission and settlement tracking with automatic retry logic.
+
+#### Basic Order Submission
+
+```python
+from polymarket_bot.execution import ExecutionEngine, submit_market_order, submit_limit_order
+from polymarket_bot.models import OrderSide, OutcomeType
+from polymarket_bot.config import get_config
+from decimal import Decimal
+
+# Initialize execution engine
+config = get_config()
+engine = ExecutionEngine(config)
+
+# Submit a market order (buy YES shares)
+trade = engine.submit_order(
+    market_id="market_123",
+    side=OrderSide.BUY,
+    outcome=OutcomeType.YES,
+    quantity=Decimal("100.0"),
+    order_type=OrderType.MARKET
+)
+
+print(f"Order submitted: {trade.order_id}")
+print(f"Status: {trade.status.value}")
+print(f"Filled: {trade.filled_quantity}/{trade.quantity}")
+
+# Submit a limit order with specific price
+trade = engine.submit_order(
+    market_id="market_123",
+    side=OrderSide.SELL,
+    outcome=OutcomeType.NO,
+    quantity=Decimal("50.0"),
+    order_type=OrderType.LIMIT,
+    price=Decimal("0.75")  # Limit price (0.01 to 0.99)
+)
+
+# Close engine when done
+engine.close()
+```
+
+#### Convenience Functions
+
+For simple use cases, use the convenience functions:
+
+```python
+from polymarket_bot.execution import submit_market_order, submit_limit_order
+from polymarket_bot.models import OrderSide, OutcomeType
+from decimal import Decimal
+
+# Submit market order (automatically manages engine lifecycle)
+trade = submit_market_order(
+    market_id="market_123",
+    side=OrderSide.BUY,
+    outcome=OutcomeType.YES,
+    quantity=Decimal("100.0")
+)
+
+# Submit limit order
+trade = submit_limit_order(
+    market_id="market_123",
+    side=OrderSide.SELL,
+    outcome=OutcomeType.NO,
+    quantity=Decimal("50.0"),
+    price=Decimal("0.80")
+)
+```
+
+#### Settlement Polling
+
+Poll order status until settlement completes:
+
+```python
+from polymarket_bot.execution import ExecutionEngine
+
+engine = ExecutionEngine()
+
+# Submit order
+trade = engine.submit_order(
+    market_id="market_123",
+    side=OrderSide.BUY,
+    outcome=OutcomeType.YES,
+    quantity=Decimal("100.0")
+)
+
+# Poll until settled (max 300 seconds by default)
+try:
+    outcome = engine.poll_settlement(
+        order_id=trade.order_id,
+        timeout=300,        # Maximum wait time in seconds
+        poll_interval=10     # Seconds between status checks
+    )
+
+    if outcome == "WIN":
+        print("Trade won!")
+    elif outcome == "LOSS":
+        print("Trade lost")
+    elif outcome == "CANCELLED":
+        print("Order was cancelled")
+
+except OrderSettlementError as e:
+    print(f"Settlement error: {e}")
+
+finally:
+    engine.close()
+```
+
+#### Trade Status Updates
+
+Update an existing trade with latest status:
+
+```python
+from polymarket_bot.execution import ExecutionEngine
+from polymarket_bot.models import TradeStatus
+
+engine = ExecutionEngine()
+
+# Update trade status
+updated_trade = engine.update_trade_status(trade)
+
+print(f"Current status: {updated_trade.status.value}")
+print(f"Filled quantity: {updated_trade.filled_quantity}")
+print(f"Fee: {updated_trade.fee}")
+
+if updated_trade.status == TradeStatus.EXECUTED:
+    print(f"Executed at: {updated_trade.executed_at}")
+
+engine.close()
+```
+
+#### Error Handling
+
+The execution engine automatically retries failed requests with exponential backoff:
+
+```python
+from polymarket_bot.execution import ExecutionEngine, OrderExecutionError
+from polymarket_bot.utils import RetryError
+
+engine = ExecutionEngine()
+
+try:
+    # This will automatically retry up to 3 times on transient failures
+    # with delays of 2s, 4s, and 8s between attempts
+    trade = engine.submit_order(
+        market_id="market_123",
+        side=OrderSide.BUY,
+        outcome=OutcomeType.YES,
+        quantity=Decimal("100.0")
+    )
+
+except OrderExecutionError as e:
+    # Handle order execution failure
+    print(f"Order failed: {e}")
+
+except RetryError as e:
+    # All retry attempts exhausted
+    print(f"Max retries exceeded: {e}")
+
+finally:
+    engine.close()
+```
+
+#### Configuration
+
+Customize execution behavior via environment variables:
+
+```bash
+# .env file
+EXECUTION_MAX_RETRIES=3                    # Max retry attempts (default: 3)
+EXECUTION_RETRY_BASE_DELAY=2.0             # Base delay in seconds (default: 2.0)
+EXECUTION_SETTLEMENT_POLL_INTERVAL=10      # Seconds between polls (default: 10)
+EXECUTION_SETTLEMENT_TIMEOUT=300           # Max settlement wait time (default: 300s)
+```
 
 ### Prediction Engine Usage Example
 
