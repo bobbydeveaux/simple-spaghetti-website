@@ -6,16 +6,22 @@ This module provides functionality for:
 - BTC-related market filtering
 - Real-time market data fetching with retry logic
 - Market metadata and pricing data management
+- Binance WebSocket client for real-time BTC/USDT price feed
 """
 
 import logging
 import requests
-from typing import List, Dict, Any, Optional
+import json
+import threading
+import time
+from typing import List, Dict, Any, Optional, Callable
 from decimal import Decimal
 from datetime import datetime
+from collections import deque
+import websocket
 
 from .config import Config
-from .models import MarketData, OutcomeType
+from .models import MarketData, OutcomeType, BTCPriceData
 from .utils import (
     retry_with_backoff,
     validate_non_empty,
@@ -481,3 +487,309 @@ class PolymarketClient:
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit."""
         self.close()
+
+
+class BinanceWebSocketError(Exception):
+    """Exception raised for Binance WebSocket errors."""
+    pass
+
+
+class BinanceWebSocket:
+    """
+    WebSocket client for Binance BTC/USDT price feed.
+
+    Connects to Binance WebSocket API to receive real-time BTC/USDT price updates.
+    Implements automatic reconnection logic and maintains a history of recent prices
+    for technical indicator calculations.
+    """
+
+    # Binance WebSocket endpoints
+    STREAM_URL = "wss://stream.binance.com:9443/ws"
+    TICKER_STREAM = "btcusdt@ticker"
+
+    def __init__(
+        self,
+        on_price_update: Optional[Callable[[BTCPriceData], None]] = None,
+        history_size: int = 200
+    ):
+        """
+        Initialize Binance WebSocket client.
+
+        Args:
+            on_price_update: Optional callback function to call on each price update
+            history_size: Number of recent price updates to keep in history (default: 200)
+        """
+        self.on_price_update = on_price_update
+        self.history_size = history_size
+
+        # Price data storage
+        self.latest_price: Optional[BTCPriceData] = None
+        self.price_history: deque = deque(maxlen=history_size)
+
+        # WebSocket connection
+        self.ws: Optional[websocket.WebSocketApp] = None
+        self.ws_thread: Optional[threading.Thread] = None
+        self.is_connected: bool = False
+        self.should_reconnect: bool = True
+        self.reconnect_delay: int = 5  # seconds
+
+        # Connection tracking
+        self.connection_errors: int = 0
+        self.last_message_time: Optional[datetime] = None
+
+        logger.info(f"Initialized BinanceWebSocket with history size {history_size}")
+
+    def connect(self) -> None:
+        """
+        Connect to Binance WebSocket and start receiving price updates.
+
+        Starts the WebSocket connection in a background thread. Will automatically
+        reconnect on disconnection unless explicitly stopped.
+        """
+        if self.is_connected:
+            logger.warning("WebSocket is already connected")
+            return
+
+        self.should_reconnect = True
+        self._start_websocket()
+
+        logger.info("Started Binance WebSocket connection")
+
+    def _start_websocket(self) -> None:
+        """Start the WebSocket connection in a background thread."""
+        url = f"{self.STREAM_URL}/{self.TICKER_STREAM}"
+
+        self.ws = websocket.WebSocketApp(
+            url,
+            on_open=self._on_open,
+            on_message=self._on_message,
+            on_error=self._on_error,
+            on_close=self._on_close
+        )
+
+        # Run WebSocket in background thread
+        self.ws_thread = threading.Thread(
+            target=self._run_websocket,
+            daemon=True,
+            name="BinanceWebSocketThread"
+        )
+        self.ws_thread.start()
+
+    def _run_websocket(self) -> None:
+        """Run the WebSocket connection with automatic reconnection."""
+        while self.should_reconnect:
+            try:
+                logger.info("Connecting to Binance WebSocket...")
+                self.ws.run_forever()
+
+                # If we get here, connection was closed
+                if self.should_reconnect:
+                    logger.warning(
+                        f"WebSocket disconnected. Reconnecting in {self.reconnect_delay}s..."
+                    )
+                    time.sleep(self.reconnect_delay)
+                    self._start_websocket()
+                    break
+
+            except Exception as e:
+                self.connection_errors += 1
+                logger.error(f"WebSocket error: {e}")
+
+                if self.should_reconnect:
+                    # Exponential backoff for reconnection
+                    delay = min(self.reconnect_delay * (2 ** min(self.connection_errors - 1, 5)), 300)
+                    logger.warning(f"Reconnecting in {delay}s (attempt {self.connection_errors})...")
+                    time.sleep(delay)
+                else:
+                    break
+
+    def _on_open(self, ws) -> None:
+        """WebSocket connection opened callback."""
+        self.is_connected = True
+        self.connection_errors = 0
+        logger.info("WebSocket connection established")
+
+    def _on_message(self, ws, message: str) -> None:
+        """
+        WebSocket message received callback.
+
+        Args:
+            ws: WebSocket instance
+            message: JSON message from Binance
+        """
+        try:
+            self.last_message_time = datetime.utcnow()
+            data = json.loads(message)
+
+            # Parse Binance ticker data
+            price_data = self._parse_ticker_data(data)
+
+            # Update latest price and history
+            self.latest_price = price_data
+            self.price_history.append(price_data)
+
+            # Call user callback if provided
+            if self.on_price_update:
+                try:
+                    self.on_price_update(price_data)
+                except Exception as e:
+                    logger.error(f"Error in price update callback: {e}")
+
+            logger.debug(f"BTC price update: {price_data.price} USDT")
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse WebSocket message: {e}")
+        except Exception as e:
+            logger.error(f"Error processing WebSocket message: {e}")
+
+    def _on_error(self, ws, error) -> None:
+        """
+        WebSocket error callback.
+
+        Args:
+            ws: WebSocket instance
+            error: Error that occurred
+        """
+        logger.error(f"WebSocket error: {error}")
+        self.is_connected = False
+
+    def _on_close(self, ws, close_status_code, close_msg) -> None:
+        """
+        WebSocket connection closed callback.
+
+        Args:
+            ws: WebSocket instance
+            close_status_code: Close status code
+            close_msg: Close message
+        """
+        self.is_connected = False
+        logger.info(f"WebSocket connection closed (code: {close_status_code}, msg: {close_msg})")
+
+    def _parse_ticker_data(self, data: Dict[str, Any]) -> BTCPriceData:
+        """
+        Parse Binance ticker data into BTCPriceData model.
+
+        Args:
+            data: Raw ticker data from Binance WebSocket
+
+        Returns:
+            BTCPriceData model instance
+
+        Raises:
+            ValidationError: If required fields are missing or invalid
+        """
+        try:
+            # Extract price data from Binance 24hr ticker format
+            # Reference: https://binance-docs.github.io/apidocs/spot/en/#individual-symbol-ticker-streams
+            price = Decimal(str(data.get('c', data.get('lastPrice', 0))))
+            timestamp = datetime.fromtimestamp(int(data.get('E', 0)) / 1000)
+
+            # 24-hour statistics
+            volume_24h = data.get('q', data.get('quoteVolume'))
+            high_24h = data.get('h', data.get('highPrice'))
+            low_24h = data.get('l', data.get('lowPrice'))
+            price_change_24h = data.get('p', data.get('priceChange'))
+            price_change_percent_24h = data.get('P', data.get('priceChangePercent'))
+
+            return BTCPriceData(
+                symbol=data.get('s', 'BTCUSDT'),
+                price=price,
+                timestamp=timestamp if timestamp.year > 1970 else datetime.utcnow(),
+                volume_24h=Decimal(str(volume_24h)) if volume_24h else None,
+                high_24h=Decimal(str(high_24h)) if high_24h else None,
+                low_24h=Decimal(str(low_24h)) if low_24h else None,
+                price_change_24h=Decimal(str(price_change_24h)) if price_change_24h else None,
+                price_change_percent_24h=Decimal(str(price_change_percent_24h)) if price_change_percent_24h else None,
+                metadata=data
+            )
+
+        except (KeyError, ValueError, TypeError) as e:
+            raise ValidationError(f"Failed to parse Binance ticker data: {e}")
+
+    def get_latest_price(self) -> Optional[BTCPriceData]:
+        """
+        Get the most recent BTC price update.
+
+        Returns:
+            Latest BTCPriceData or None if no data received yet
+        """
+        return self.latest_price
+
+    def get_price_history(self, limit: Optional[int] = None) -> List[BTCPriceData]:
+        """
+        Get historical price data.
+
+        Args:
+            limit: Maximum number of price updates to return (default: all)
+
+        Returns:
+            List of BTCPriceData in chronological order
+        """
+        history = list(self.price_history)
+
+        if limit and limit < len(history):
+            return history[-limit:]
+
+        return history
+
+    def get_price_series(self, limit: Optional[int] = None) -> List[Decimal]:
+        """
+        Get price series as list of Decimal values.
+
+        Args:
+            limit: Maximum number of prices to return (default: all)
+
+        Returns:
+            List of price values in chronological order
+        """
+        history = self.get_price_history(limit)
+        return [price_data.price for price_data in history]
+
+    def is_healthy(self, max_message_age_seconds: int = 60) -> bool:
+        """
+        Check if WebSocket connection is healthy.
+
+        Args:
+            max_message_age_seconds: Maximum age of last message in seconds (default: 60)
+
+        Returns:
+            True if connection is healthy, False otherwise
+        """
+        if not self.is_connected:
+            return False
+
+        if not self.last_message_time:
+            return False
+
+        # Check if we've received a message recently
+        age = (datetime.utcnow() - self.last_message_time).total_seconds()
+        return age < max_message_age_seconds
+
+    def disconnect(self) -> None:
+        """
+        Disconnect from WebSocket and stop reconnection attempts.
+
+        Gracefully closes the WebSocket connection and stops the background thread.
+        """
+        logger.info("Disconnecting from Binance WebSocket...")
+
+        self.should_reconnect = False
+        self.is_connected = False
+
+        if self.ws:
+            self.ws.close()
+
+        # Wait for thread to finish (with timeout)
+        if self.ws_thread and self.ws_thread.is_alive():
+            self.ws_thread.join(timeout=5)
+
+        logger.info("Disconnected from Binance WebSocket")
+
+    def __enter__(self):
+        """Context manager entry."""
+        self.connect()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit."""
+        self.disconnect()
