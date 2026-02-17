@@ -108,18 +108,29 @@ locust -f tests/performance/test_load.py
 
 ## 🤖 Polymarket Bot
 
-An automated trading bot for Polymarket prediction markets with robust utility functions for API interactions, validation, and error handling.
+An automated trading bot for Polymarket prediction markets with validated data models, market data integration, and robust utility functions for API interactions.
 
 ### Features
 
+#### Market Data Integration
+- **Market Discovery**: Search and discover active BTC-related prediction markets
+- **Real-time Odds**: Fetch current Yes/No outcome prices from Polymarket API
+- **Market Filtering**: Filter markets by liquidity, volume, and activity status
+- **Retry Logic**: Automatic retry with exponential backoff for API reliability
+- **Error Handling**: Comprehensive error handling with detailed logging
+
+#### Core Data Models
+- **Type-Safe Models**: Validated Pydantic models for bot state, trades, positions, and markets
+- **Business Logic**: Built-in methods for P&L calculations, win rates, and metrics
+- **Serialization**: Easy conversion to/from dictionaries for logging and storage
+
 #### Core Utilities
-- **Retry Logic**: Exponential backoff decorator for resilient API calls
 - **Validation Functions**: Type checking, range validation, and data validation
-- **Error Handling**: Consistent error logging and handling across the bot
+- **Error Handling**: Consistent error logging across the bot
 - **Helper Functions**: Safe division, clamping, currency formatting, and more
 
 #### Technical Capabilities
-- **Modular Design**: Utilities can be imported independently
+- **Modular Design**: All components can be imported independently
 - **Type Safety**: Comprehensive type hints for all functions
 - **Decimal Precision**: Financial calculations using Python Decimal
 - **Comprehensive Testing**: Full test coverage with pytest
@@ -127,32 +138,50 @@ An automated trading bot for Polymarket prediction markets with robust utility f
 ### Quick Start
 
 ```python
-from polymarket_bot.utils import retry_with_backoff, validate_range, configure_logging
+from polymarket_bot import MarketDataService, get_active_btc_markets
+from polymarket_bot.utils import retry_with_backoff, configure_logging
+from decimal import Decimal
+import logging
 
 # Configure logging
 logger = configure_logging(level=logging.INFO, logger_name="polymarket_bot")
 
-# Use retry decorator for API calls
-@retry_with_backoff(max_attempts=5, base_delay=2.0)
-def fetch_market_data(market_id: str):
-    response = requests.get(f"https://api.polymarket.com/markets/{market_id}")
-    response.raise_for_status()
-    return response.json()
+# Initialize market data service
+service = MarketDataService()
 
-# Validate inputs
-validate_range(bet_amount, min_value=0, max_value=1000, field_name="bet_amount")
+# Discover active BTC markets
+markets = service.discover_markets(search_query="Bitcoin", active_only=True, limit=50)
+
+# Filter by liquidity and volume
+quality_markets = service.filter_btc_markets(
+    markets,
+    min_liquidity=Decimal("10000"),
+    min_volume=Decimal("50000")
+)
+
+# Get odds for a specific market
+market = service.get_market_odds("market_id_here")
+print(f"YES: {float(market.yes_price):.2%}, NO: {float(market.no_price):.2%}")
+
+# Or use convenience functions
+btc_markets = get_active_btc_markets(min_liquidity=Decimal("5000"))
 ```
 
 ### Documentation
 
-- [Utilities API Reference](docs/polymarket-bot/utilities.md)
 - [Module README](polymarket-bot/README.md)
+- [Utilities API Reference](docs/polymarket-bot/utilities.md)
 
 ### Testing
 
 ```bash
-# Run utility tests
-pytest test_polymarket_utils.py -v
+# Run all tests
+pytest -v
+
+# Run specific test suites
+pytest tests/test_models.py -v
+pytest tests/test_market_data.py -v
+pytest test_config.py test_polymarket_utils.py -v
 ```
 
 ## 📊 F1 Prediction Analytics

@@ -1,8 +1,9 @@
 """
 Polymarket Bot Package
 
-This package provides core data models, configuration management, and utilities
-for building automated trading bots for the Polymarket prediction market platform.
+This package provides core data models, configuration management, market data
+integration, and utilities for building automated trading bots for the
+Polymarket prediction market platform.
 """
 
 # Configuration
@@ -23,7 +24,15 @@ from .models import (
     OutcomeType,
 )
 
-__version__ = "0.1.0"
+# Market Data
+from .market_data import (
+    MarketDataService,
+    PolymarketAPIError,
+    get_active_btc_markets,
+    get_market_odds_by_id,
+)
+
+__version__ = "0.2.0"
 
 __all__ = [
     # Configuration
@@ -43,4 +52,9 @@ __all__ = [
     "TradeStatus",
     "PositionStatus",
     "OutcomeType",
+    # Market Data
+    "MarketDataService",
+    "PolymarketAPIError",
+    "get_active_btc_markets",
+    "get_market_odds_by_id",
 ]

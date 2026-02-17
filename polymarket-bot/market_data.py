@@ -5,10 +5,11 @@ This module provides real-time market data integration including:
 - Binance WebSocket client for BTC/USDT price streaming
 - Technical indicator calculations (RSI, MACD)
 - Order book imbalance metrics
-- Polymarket API integration for market discovery and odds
+- Polymarket API client for market discovery and odds
 
-The service manages WebSocket connections with automatic reconnection logic
-and provides fallback mechanisms for data retrieval.
+The service manages WebSocket connections with automatic reconnection logic,
+provides fallback mechanisms for data retrieval, and handles API interactions
+with retry logic and error handling.
 """
 
 import json
@@ -19,17 +20,30 @@ from typing import List, Tuple, Optional, Dict, Any
 from decimal import Decimal
 from threading import Thread, Lock
 from collections import deque
+from datetime import datetime
 import numpy as np
 import talib
 
 from websocket import WebSocketApp, WebSocketConnectionClosedException
 
-from models import MarketData
-from config import get_config
+from models import MarketData, OutcomeType
+from config import get_config, Config
+from utils import (
+    retry_with_backoff,
+    validate_non_empty,
+    validate_probability,
+    ValidationError,
+    RetryError
+)
 
 
 # Setup logging
 logger = logging.getLogger(__name__)
+
+
+class PolymarketAPIError(Exception):
+    """Exception raised for Polymarket API errors."""
+    pass
 
 
 class BinanceWebSocketClient:
@@ -209,112 +223,451 @@ class BinanceWebSocketClient:
 
 class PolymarketClient:
     """
-    REST API client for Polymarket integration.
+    Client for interacting with the Polymarket API.
 
-    Provides methods for market discovery and odds retrieval for BTC
-    prediction markets.
+    Provides methods for discovering active markets, fetching market odds,
+    and filtering BTC-related prediction markets.
     """
 
-    def __init__(self, api_key: str, api_secret: str):
+    def __init__(self, config: Config):
         """
-        Initialize Polymarket API client.
+        Initialize the Polymarket API client.
 
         Args:
-            api_key: Polymarket API key
-            api_secret: Polymarket API secret
+            config: Configuration object containing API credentials and base URL
         """
-        self.config = get_config()
-        self.api_key = api_key
-        self.api_secret = api_secret
-        self.base_url = self.config.polymarket_base_url
+        self.config = config
+        self.base_url = config.polymarket_base_url
+        self.api_key = config.polymarket_api_key
         self.session = requests.Session()
+
+        # Set default headers
         self.session.headers.update({
             'Authorization': f'Bearer {self.api_key}',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
         })
 
-        logger.info(f"Initialized PolymarketClient with base_url={self.base_url}")
+        logger.info(f"Initialized PolymarketClient with base URL: {self.base_url}")
 
-    def find_active_market(self) -> Optional[str]:
+    @retry_with_backoff(max_attempts=3, base_delay=1.0, exceptions=(requests.RequestException,))
+    def _make_request(
+        self,
+        method: str,
+        endpoint: str,
+        params: Optional[Dict[str, Any]] = None,
+        data: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """
-        Find an active BTC prediction market.
-
-        Searches for active markets related to BTC price movements with
-        5-minute intervals.
-
-        Returns:
-            Market ID if found, None otherwise
-        """
-        try:
-            # Query for active BTC markets
-            params = {
-                'asset': 'BTC',
-                'interval': '5m',
-                'status': 'active'
-            }
-
-            response = self.session.get(
-                f"{self.base_url}/markets",
-                params=params,
-                timeout=10
-            )
-            response.raise_for_status()
-
-            markets = response.json()
-
-            if markets and len(markets) > 0:
-                # Return the first active market
-                market_id = markets[0].get('market_id')
-                logger.info(f"Found active market: {market_id}")
-                return market_id
-
-            logger.warning("No active BTC markets found")
-            return None
-
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error finding active market: {e}")
-            return None
-
-    def get_market_odds(self, market_id: str) -> Tuple[float, float, Dict[str, Any]]:
-        """
-        Get current odds and metadata for a specific market.
+        Make an HTTP request to the Polymarket API with retry logic.
 
         Args:
-            market_id: Polymarket market identifier
+            method: HTTP method (GET, POST, etc.)
+            endpoint: API endpoint path
+            params: Query parameters
+            data: Request body data
 
         Returns:
-            Tuple of (yes_odds, no_odds, market_info) where market_info contains
-            additional data like end_date, question, etc.
+            JSON response from the API
 
         Raises:
-            ValueError: If market not found or invalid response
+            PolymarketAPIError: If the API request fails
         """
+        url = f"{self.base_url}{endpoint}"
+
         try:
-            response = self.session.get(
-                f"{self.base_url}/markets/{market_id}",
-                timeout=10
+            response = self.session.request(
+                method=method,
+                url=url,
+                params=params,
+                json=data,
+                timeout=30
             )
+
+            # Log rate limit information if available
+            if 'X-RateLimit-Remaining' in response.headers:
+                remaining = response.headers['X-RateLimit-Remaining']
+                logger.debug(f"API rate limit remaining: {remaining}")
+
             response.raise_for_status()
 
-            data = response.json()
+            return response.json()
 
-            yes_odds = float(data.get('odds_yes', 0.5))
-            no_odds = float(data.get('odds_no', 0.5))
+        except requests.HTTPError as e:
+            error_msg = f"HTTP error {e.response.status_code}: {e.response.text}"
+            logger.error(error_msg)
+            raise PolymarketAPIError(error_msg) from e
 
-            # Extract additional market metadata
-            market_info = {
-                'end_date': data.get('end_date'),
-                'question': data.get('question', f"BTC 5-min prediction market {market_id}"),
-                'created_date': data.get('created_date'),
-            }
+        except requests.RequestException as e:
+            error_msg = f"Request failed: {str(e)}"
+            logger.error(error_msg)
+            raise PolymarketAPIError(error_msg) from e
 
-            logger.info(f"Market {market_id} odds - YES: {yes_odds:.4f}, NO: {no_odds:.4f}")
+        except ValueError as e:
+            error_msg = f"Invalid JSON response: {str(e)}"
+            logger.error(error_msg)
+            raise PolymarketAPIError(error_msg) from e
 
-            return yes_odds, no_odds, market_info
+    def get_active_markets(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        closed: bool = False
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetch active markets from Polymarket.
 
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error fetching market odds: {e}")
-            raise ValueError(f"Failed to fetch odds for market {market_id}")
+        Args:
+            limit: Maximum number of markets to retrieve (default: 100)
+            offset: Number of markets to skip (default: 0)
+            closed: Whether to include closed markets (default: False)
+
+        Returns:
+            List of market data dictionaries
+
+        Raises:
+            PolymarketAPIError: If the API request fails
+        """
+        endpoint = "/markets"
+        params = {
+            "limit": limit,
+            "offset": offset,
+            "closed": "true" if closed else "false"
+        }
+
+        logger.info(f"Fetching active markets (limit={limit}, offset={offset})")
+
+        response = self._make_request("GET", endpoint, params=params)
+
+        # Handle different response formats
+        markets = response if isinstance(response, list) else response.get('markets', [])
+
+        logger.info(f"Retrieved {len(markets)} markets from Polymarket")
+
+        return markets
+
+    def get_market_by_id(self, market_id: str) -> Dict[str, Any]:
+        """
+        Fetch a specific market by ID.
+
+        Args:
+            market_id: Unique market identifier
+
+        Returns:
+            Market data dictionary
+
+        Raises:
+            PolymarketAPIError: If the API request fails
+            ValidationError: If market_id is invalid
+        """
+        validate_non_empty(market_id, "market_id")
+
+        endpoint = f"/markets/{market_id}"
+
+        logger.info(f"Fetching market {market_id}")
+
+        return self._make_request("GET", endpoint)
+
+    def search_markets(self, query: str, limit: int = 50) -> List[Dict[str, Any]]:
+        """
+        Search for markets matching a query string.
+
+        Args:
+            query: Search query string
+            limit: Maximum number of results (default: 50)
+
+        Returns:
+            List of matching market data dictionaries
+
+        Raises:
+            PolymarketAPIError: If the API request fails
+            ValidationError: If query is empty
+        """
+        validate_non_empty(query, "query")
+
+        endpoint = "/markets"
+        params = {
+            "query": query,
+            "limit": limit
+        }
+
+        logger.info(f"Searching markets with query: '{query}'")
+
+        response = self._make_request("GET", endpoint, params=params)
+
+        markets = response if isinstance(response, list) else response.get('markets', [])
+
+        logger.info(f"Found {len(markets)} markets matching '{query}'")
+
+        return markets
+
+    def get_btc_markets(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """
+        Fetch BTC-related prediction markets.
+
+        Searches for markets containing Bitcoin-related keywords and filters
+        for active markets with sufficient liquidity.
+
+        Args:
+            limit: Maximum number of markets to retrieve (default: 50)
+
+        Returns:
+            List of BTC-related market data dictionaries
+
+        Raises:
+            PolymarketAPIError: If the API request fails
+        """
+        # Search terms for BTC-related markets
+        btc_keywords = ["BTC", "Bitcoin", "bitcoin"]
+
+        all_markets = []
+        seen_ids = set()
+
+        for keyword in btc_keywords:
+            try:
+                markets = self.search_markets(keyword, limit=limit)
+
+                # Add unique markets
+                for market in markets:
+                    market_id = market.get('id') or market.get('market_id')
+                    if market_id and market_id not in seen_ids:
+                        all_markets.append(market)
+                        seen_ids.add(market_id)
+
+            except PolymarketAPIError as e:
+                logger.warning(f"Failed to search for '{keyword}': {e}")
+                continue
+
+        # Filter for active markets
+        active_btc_markets = [
+            market for market in all_markets
+            if self._is_market_active(market)
+        ]
+
+        logger.info(f"Found {len(active_btc_markets)} active BTC-related markets")
+
+        return active_btc_markets[:limit]
+
+    def _is_market_active(self, market: Dict[str, Any]) -> bool:
+        """
+        Check if a market is active for trading.
+
+        Args:
+            market: Market data dictionary
+
+        Returns:
+            True if market is active, False otherwise
+        """
+        # Check if market is explicitly closed
+        if market.get('closed') or market.get('is_closed'):
+            return False
+
+        # Check if market is active
+        if not market.get('active', True) and not market.get('is_active', True):
+            return False
+
+        # Check if market has ended
+        end_date_str = market.get('end_date') or market.get('end_time')
+        if end_date_str:
+            try:
+                end_date = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
+                if end_date < datetime.now(end_date.tzinfo):
+                    return False
+            except (ValueError, AttributeError):
+                # If we can't parse the date, assume it's active
+                pass
+
+        return True
+
+    def parse_market_data(self, market: Dict[str, Any]) -> MarketData:
+        """
+        Parse raw market data from API into MarketData model.
+
+        Args:
+            market: Raw market data dictionary from API
+
+        Returns:
+            MarketData model instance
+
+        Raises:
+            ValidationError: If required fields are missing or invalid
+        """
+        # Extract market ID
+        market_id = market.get('id') or market.get('market_id') or market.get('marketId')
+        if not market_id:
+            raise ValidationError("Market data missing 'id' field")
+
+        # Extract question/title
+        question = (
+            market.get('question') or
+            market.get('title') or
+            market.get('description', 'Unknown Market')
+        )
+
+        # Extract prices (probabilities)
+        yes_price = self._extract_price(market, 'yes')
+        no_price = self._extract_price(market, 'no')
+
+        # Ensure prices sum to approximately 1.0
+        if yes_price and no_price:
+            total = yes_price + no_price
+            if abs(total - Decimal("1.0")) > Decimal("0.05"):
+                logger.warning(
+                    f"Market {market_id} prices don't sum to 1.0: "
+                    f"yes={yes_price}, no={no_price}, total={total}"
+                )
+
+        # Extract volumes
+        yes_volume = self._extract_volume(market, 'yes')
+        no_volume = self._extract_volume(market, 'no')
+
+        # Extract liquidity
+        liquidity = Decimal(str(market.get('liquidity', 0)))
+
+        # Extract dates
+        created_date = self._parse_datetime(
+            market.get('created_at') or market.get('creation_date'),
+            datetime.utcnow()
+        )
+
+        end_date = self._parse_datetime(
+            market.get('end_date') or market.get('end_time'),
+            datetime.utcnow()
+        )
+
+        # Extract market status
+        is_active = self._is_market_active(market)
+        is_closed = market.get('closed', False) or market.get('is_closed', False)
+
+        # Extract resolution if available
+        resolution = None
+        if market.get('resolved'):
+            resolution_str = market.get('resolution') or market.get('winning_outcome')
+            if resolution_str:
+                resolution = (
+                    OutcomeType.YES if resolution_str.lower() == 'yes'
+                    else OutcomeType.NO if resolution_str.lower() == 'no'
+                    else None
+                )
+
+        # Extract metadata
+        category = market.get('category')
+        tags = market.get('tags', [])
+        if isinstance(tags, str):
+            tags = [tags]
+
+        description = market.get('description')
+
+        return MarketData(
+            market_id=str(market_id),
+            question=question,
+            description=description,
+            created_date=created_date,
+            end_date=end_date,
+            yes_price=yes_price,
+            no_price=no_price,
+            yes_volume=yes_volume,
+            no_volume=no_volume,
+            total_liquidity=liquidity,
+            is_active=is_active,
+            is_closed=is_closed,
+            resolution=resolution,
+            category=category,
+            tags=tags,
+            metadata=market
+        )
+
+    def _extract_price(self, market: Dict[str, Any], outcome: str) -> Decimal:
+        """Extract price for a specific outcome from market data."""
+        price_key = f"{outcome}_price"
+        price = market.get(price_key) or market.get(f"{outcome}Price")
+
+        # Try nested structure
+        if price is None and 'prices' in market:
+            price = market['prices'].get(outcome)
+
+        # Try outcomes array
+        if price is None and 'outcomes' in market:
+            for outcome_data in market['outcomes']:
+                if outcome_data.get('name', '').lower() == outcome.lower():
+                    price = outcome_data.get('price')
+                    break
+
+        if price is None:
+            # Default to 0.5 if not found
+            logger.warning(f"Could not find {outcome} price in market data, defaulting to 0.5")
+            price = 0.5
+
+        return Decimal(str(price))
+
+    def _extract_volume(self, market: Dict[str, Any], outcome: str) -> Decimal:
+        """Extract volume for a specific outcome from market data."""
+        volume_key = f"{outcome}_volume"
+        volume = market.get(volume_key) or market.get(f"{outcome}Volume")
+
+        # Try nested structure
+        if volume is None and 'volumes' in market:
+            volume = market['volumes'].get(outcome)
+
+        # Try outcomes array
+        if volume is None and 'outcomes' in market:
+            for outcome_data in market['outcomes']:
+                if outcome_data.get('name', '').lower() == outcome.lower():
+                    volume = outcome_data.get('volume')
+                    break
+
+        if volume is None:
+            volume = 0
+
+        return Decimal(str(volume))
+
+    def _parse_datetime(self, date_str: Optional[str], default: datetime) -> datetime:
+        """Parse datetime string from API response."""
+        if not date_str:
+            return default
+
+        try:
+            # Try ISO format
+            return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+        except (ValueError, AttributeError):
+            try:
+                # Try timestamp
+                return datetime.fromtimestamp(float(date_str))
+            except (ValueError, TypeError):
+                logger.warning(f"Could not parse datetime: {date_str}")
+                return default
+
+    def get_market_odds(self, market_id: str) -> tuple[Decimal, Decimal]:
+        """
+        Get current YES/NO odds for a specific market.
+
+        Args:
+            market_id: Unique market identifier
+
+        Returns:
+            Tuple of (yes_price, no_price) as Decimal values
+
+        Raises:
+            PolymarketAPIError: If the API request fails
+            ValidationError: If market_id is invalid
+        """
+        market = self.get_market_by_id(market_id)
+        market_data = self.parse_market_data(market)
+
+        return (market_data.yes_price, market_data.no_price)
+
+    def close(self):
+        """Close the HTTP session."""
+        self.session.close()
+        logger.info("Closed PolymarketClient session")
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit."""
+        self.close()
 
 
 def calculate_rsi(prices: List[float], period: int = 14) -> float:
@@ -489,45 +842,35 @@ def get_market_data(
 
     # Get Polymarket market and odds
     if market_id is None:
-        market_id = polymarket_client.find_active_market()
-        if market_id is None:
+        # Search for active BTC markets
+        btc_markets = polymarket_client.get_btc_markets(limit=10)
+        if not btc_markets:
             raise ValueError("No active Polymarket markets found")
-
-    try:
-        yes_odds, no_odds, market_info = polymarket_client.get_market_odds(market_id)
-    except Exception as e:
-        logger.error(f"Error fetching Polymarket odds: {e}")
-        raise ValueError(f"Failed to fetch market odds: {e}")
-
-    # Parse end_date from market info
-    from datetime import datetime
-    end_date_str = market_info.get('end_date')
-    if end_date_str:
-        # Parse ISO format datetime string
-        end_date = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
+        # Use the first active market
+        market_raw = btc_markets[0]
+        market_data = polymarket_client.parse_market_data(market_raw)
+        market_id = market_data.market_id
     else:
-        # Fallback: set end date to 5 minutes from now for 5-min markets
-        from datetime import timedelta
-        end_date = datetime.utcnow() + timedelta(minutes=5)
-
-    # Create MarketData object
-    market_data = MarketData(
-        market_id=market_id,
-        question=market_info.get('question', f"BTC 5-min prediction market {market_id}"),
-        end_date=end_date,
-        yes_price=Decimal(str(yes_odds)),
-        no_price=Decimal(str(no_odds))
-    )
+        # Get specific market
+        try:
+            yes_price, no_price = polymarket_client.get_market_odds(market_id)
+            # Get full market data for additional fields
+            market_raw = polymarket_client.get_market_by_id(market_id)
+            market_data = polymarket_client.parse_market_data(market_raw)
+        except Exception as e:
+            logger.error(f"Error fetching Polymarket odds: {e}")
+            raise ValueError(f"Failed to fetch market odds: {e}")
 
     # Add metadata with technical analysis
-    market_data.metadata = {
+    market_data.metadata = market_data.metadata or {}
+    market_data.metadata.update({
         'btc_price': latest_price,
         'rsi_14': rsi_value,
         'macd_line': macd_line,
         'macd_signal': macd_signal,
         'order_book_imbalance': order_book_imb,
         'price_buffer_size': len(prices)
-    }
+    })
 
     logger.info(
         f"Market data aggregated - BTC: ${latest_price:.2f}, "
