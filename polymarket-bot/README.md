@@ -24,6 +24,15 @@ This package provides:
 - ✅ **Business Logic Methods**: Built-in helpers for common calculations (P&L, win rate, etc.)
 - ✅ **Test Coverage**: Comprehensive test suite with 100% model coverage
 
+### Trade Execution
+- ✅ **Order Submission**: Submit market orders to Polymarket with YES/NO side mapping
+- ✅ **HMAC Authentication**: Secure API request signing with HMAC-SHA256
+- ✅ **Settlement Polling**: Configurable timeout and polling interval for order settlement
+- ✅ **Retry Logic**: Automatic retry with exponential backoff for API failures
+- ✅ **Error Handling**: Comprehensive error handling for API interactions
+- ✅ **Context Manager Support**: Clean resource management with Python context managers
+- ✅ **Comprehensive Tests**: 50+ test cases covering all execution paths
+
 ### Prediction Engine
 - ✅ **Rule-Based Signals**: Deterministic UP/DOWN/SKIP signal generation
 - ✅ **Technical Indicators**: RSI (overbought/oversold) and MACD (momentum) analysis
@@ -1308,6 +1317,370 @@ The WebSocket receives 24hr ticker data from Binance:
 ```
 
 This is automatically parsed into `BTCPriceData` model instances.
+
+## Trade Execution
+
+The `execution.py` module handles order submission and settlement polling for the Polymarket trading API. It implements secure authentication, retry logic, and comprehensive error handling.
+
+### PolymarketExecutionClient
+
+Main execution client for submitting orders and polling settlement status with HMAC-SHA256 authentication.
+
+**Features:**
+- Secure HMAC-SHA256 request signing for API authentication
+- Order submission with UP/DOWN direction mapping to YES/NO
+- Settlement polling with configurable timeout and polling interval
+- Automatic retry logic with exponential backoff (3 attempts, 2s base delay)
+- Comprehensive error handling for API failures
+- Context manager support for clean resource management
+- Order status checking and cancellation
+
+**Example Usage:**
+
+```python
+from execution import PolymarketExecutionClient
+from config import get_config
+
+# Initialize client
+config = get_config()
+client = PolymarketExecutionClient(config)
+
+# Submit a market order
+order_id = client.submit_order(
+    market_id="market_123",
+    direction="UP",  # "UP" for YES, "DOWN" for NO
+    size=100.0,
+    order_type="MARKET"
+)
+print(f"Order submitted: {order_id}")
+
+# Poll for settlement
+outcome = client.poll_settlement(
+    order_id=order_id,
+    timeout=300,  # 5 minutes
+    poll_interval=10  # Check every 10 seconds
+)
+print(f"Order settled: {outcome}")  # "WIN" or "LOSS"
+
+# Check order status
+status = client.get_order_status(order_id)
+print(f"Order status: {status}")
+
+# Close client
+client.close()
+```
+
+**Using as Context Manager:**
+
+```python
+from execution import PolymarketExecutionClient
+from config import get_config
+
+config = get_config()
+
+# Automatically closes connection
+with PolymarketExecutionClient(config) as client:
+    order_id = client.submit_order("market_123", "UP", 100.0)
+    outcome = client.poll_settlement(order_id, timeout=300)
+    print(f"Trade completed: {outcome}")
+```
+
+### Order Submission
+
+#### submit_order(market_id, direction, size, order_type)
+Submit an order to Polymarket with automatic direction mapping.
+
+**Direction Mapping:**
+- `"UP"` → YES outcome
+- `"DOWN"` → NO outcome
+
+```python
+# Submit a YES (UP) order
+order_id = client.submit_order(
+    market_id="market_123",
+    direction="UP",
+    size=100.0,
+    order_type="MARKET"
+)
+
+# Submit a NO (DOWN) order
+order_id = client.submit_order(
+    market_id="market_456",
+    direction="DOWN",
+    size=50.0,
+    order_type="MARKET"
+)
+
+# Direction is case-insensitive
+order_id = client.submit_order("market_789", "up", 75.0)
+```
+
+**Parameters:**
+- `market_id` (str): Unique market identifier
+- `direction` (str): Trade direction ("UP" or "DOWN")
+- `size` (float): Order size in USD
+- `order_type` (str): Order type (default: "MARKET")
+
+**Returns:**
+- `str`: Order ID from Polymarket API
+
+**Raises:**
+- `OrderSubmissionError`: If order submission fails
+- `ValidationError`: If parameters are invalid
+
+### Settlement Polling
+
+#### poll_settlement(order_id, timeout, poll_interval)
+Poll for order settlement status with configurable timeout and interval.
+
+```python
+# Wait up to 5 minutes for settlement
+outcome = client.poll_settlement(
+    order_id="order_123",
+    timeout=300,  # 5 minutes
+    poll_interval=10  # Check every 10 seconds
+)
+
+# Shorter timeout for testing
+outcome = client.poll_settlement(
+    order_id="order_456",
+    timeout=60,  # 1 minute
+    poll_interval=5  # Check every 5 seconds
+)
+```
+
+**Parameters:**
+- `order_id` (str): Order identifier to poll
+- `timeout` (int): Maximum time to wait in seconds (default: 300)
+- `poll_interval` (int): Seconds between polling attempts (default: 10)
+
+**Returns:**
+- `str`: Settlement outcome ("WIN" or "LOSS")
+
+**Raises:**
+- `SettlementTimeoutError`: If settlement doesn't occur within timeout
+- `ExecutionError`: If polling fails
+- `ValidationError`: If order_id is invalid
+
+**Settlement Detection:**
+The client recognizes orders as settled when status is:
+- `SETTLED`
+- `FILLED`
+- `COMPLETED`
+
+And determines WIN/LOSS from:
+- Explicit outcome field (`outcome`, `result`, `settlement`)
+- Profit/loss field (`pnl`, `profit_loss`)
+
+### Order Management
+
+#### get_order_status(order_id)
+Get current status of an order.
+
+```python
+status = client.get_order_status("order_123")
+print(f"Status: {status['status']}")
+print(f"Market: {status['market_id']}")
+```
+
+#### cancel_order(order_id)
+Cancel a pending order.
+
+```python
+success = client.cancel_order("order_123")
+if success:
+    print("Order cancelled successfully")
+else:
+    print("Order cancellation failed")
+```
+
+### Authentication
+
+The client uses HMAC-SHA256 request signing for secure API authentication:
+
+```python
+# Authentication headers are automatically generated
+# - Authorization: Bearer {API_KEY}
+# - X-Timestamp: Current timestamp in milliseconds
+# - X-Signature: HMAC-SHA256 signature
+
+# Signature message format:
+# {timestamp}{method}{path}{body}
+```
+
+### Convenience Functions
+
+Simplified functions for common operations without maintaining a client instance:
+
+#### submit_order()
+Submit an order without creating a client instance.
+
+```python
+from execution import submit_order
+
+order_id = submit_order(
+    market_id="market_123",
+    direction="UP",
+    size=100.0
+)
+```
+
+#### poll_settlement()
+Poll for settlement without creating a client instance.
+
+```python
+from execution import poll_settlement
+
+outcome = poll_settlement(
+    order_id="order_123",
+    timeout=300
+)
+```
+
+#### execute_trade()
+Execute a complete trade: submit order and optionally wait for settlement.
+
+```python
+from execution import execute_trade
+
+# Submit and wait for settlement
+order_id, outcome = execute_trade(
+    market_id="market_123",
+    direction="UP",
+    size=100.0,
+    wait_for_settlement=True,
+    settlement_timeout=300
+)
+print(f"Order {order_id} settled: {outcome}")
+
+# Submit without waiting
+order_id, _ = execute_trade(
+    market_id="market_456",
+    direction="DOWN",
+    size=50.0,
+    wait_for_settlement=False
+)
+print(f"Order {order_id} submitted")
+```
+
+### Error Handling
+
+The execution module includes comprehensive error handling:
+
+**Error Types:**
+- `ExecutionError`: Base exception for execution errors
+- `OrderSubmissionError`: Order submission failures
+- `SettlementTimeoutError`: Settlement timeout errors
+
+```python
+from execution import (
+    PolymarketExecutionClient,
+    ExecutionError,
+    OrderSubmissionError,
+    SettlementTimeoutError
+)
+from utils import ValidationError
+
+try:
+    client = PolymarketExecutionClient(config)
+
+    # Submit order
+    order_id = client.submit_order("market_123", "UP", 100.0)
+
+    # Poll for settlement
+    outcome = client.poll_settlement(order_id, timeout=300)
+
+except OrderSubmissionError as e:
+    print(f"Order submission failed: {e}")
+
+except SettlementTimeoutError as e:
+    print(f"Settlement timeout: {e}")
+
+except ExecutionError as e:
+    print(f"Execution error: {e}")
+
+except ValidationError as e:
+    print(f"Validation error: {e}")
+
+finally:
+    client.close()
+```
+
+### Retry Logic
+
+All API requests automatically retry with exponential backoff:
+- **Max attempts:** 3
+- **Base delay:** 2 seconds
+- **Exponential backoff:** 2x multiplier
+- **Handles:** Connection errors, timeouts, 5xx errors
+
+```python
+# Automatically retries on transient failures
+@retry_with_backoff(max_attempts=3, base_delay=2.0)
+def _make_request(self, method, endpoint, data=None, params=None):
+    # Request implementation with automatic retry
+    pass
+```
+
+### Complete Trading Example
+
+```python
+from execution import PolymarketExecutionClient, execute_trade
+from config import get_config
+from utils import ValidationError
+
+config = get_config()
+
+try:
+    # Execute complete trade with settlement wait
+    order_id, outcome = execute_trade(
+        market_id="market_123",
+        direction="UP",
+        size=100.0,
+        wait_for_settlement=True,
+        settlement_timeout=300
+    )
+
+    if outcome == "WIN":
+        print(f"✓ Trade successful! Order {order_id} won")
+    else:
+        print(f"✗ Trade lost. Order {order_id}")
+
+except OrderSubmissionError as e:
+    print(f"Failed to submit order: {e}")
+
+except SettlementTimeoutError as e:
+    print(f"Order settlement timed out: {e}")
+
+except ValidationError as e:
+    print(f"Invalid parameters: {e}")
+```
+
+### Testing
+
+The execution module includes comprehensive tests:
+
+```bash
+# Run execution tests
+pytest tests/test_execution.py -v
+
+# With coverage
+pytest tests/test_execution.py --cov=execution --cov-report=html
+
+# Specific test classes
+pytest tests/test_execution.py::TestPolymarketExecutionClient -v
+pytest tests/test_execution.py::TestSubmitOrder -v
+pytest tests/test_execution.py::TestPollSettlement -v
+```
+
+**Test Coverage:**
+- Order submission with UP/DOWN directions
+- Settlement polling with various scenarios
+- HMAC signature generation and authentication
+- Error handling and validation
+- Retry logic and timeouts
+- Convenience functions and context manager
+- 50+ test cases covering all execution paths
 
 ## Prediction Engine
 
