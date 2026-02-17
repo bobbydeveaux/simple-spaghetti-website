@@ -90,6 +90,12 @@ class Config:
         self.order_book_bearish_threshold = self._get_float_env('ORDER_BOOK_BEARISH_THRESHOLD', 0.9)
         self.prediction_confidence_score = self._get_float_env('PREDICTION_CONFIDENCE_SCORE', 0.75)
 
+        # Retry logic configuration with defaults
+        self.max_retries = self._get_int_env('MAX_RETRIES', 3)
+        self.initial_delay = self._get_float_env('INITIAL_DELAY', 1.0)
+        self.backoff_multiplier = self._get_float_env('BACKOFF_MULTIPLIER', 2.0)
+        self.max_delay = self._get_float_env('MAX_DELAY', 60.0)
+
         # Validate numeric ranges
         self._validate_ranges()
 
@@ -257,6 +263,32 @@ class Config:
         if not (0 <= self.prediction_confidence_score <= 1):
             raise ConfigurationError(
                 f"PREDICTION_CONFIDENCE_SCORE must be between 0 and 1, got: {self.prediction_confidence_score}"
+            )
+
+        # Validate retry configuration parameters
+        if self.max_retries <= 0:
+            raise ConfigurationError(
+                f"MAX_RETRIES must be greater than 0, got: {self.max_retries}"
+            )
+
+        if self.initial_delay <= 0:
+            raise ConfigurationError(
+                f"INITIAL_DELAY must be greater than 0, got: {self.initial_delay}"
+            )
+
+        if self.backoff_multiplier < 1.0:
+            raise ConfigurationError(
+                f"BACKOFF_MULTIPLIER must be >= 1.0, got: {self.backoff_multiplier}"
+            )
+
+        if self.max_delay <= 0:
+            raise ConfigurationError(
+                f"MAX_DELAY must be greater than 0, got: {self.max_delay}"
+            )
+
+        if self.initial_delay > self.max_delay:
+            raise ConfigurationError(
+                f"INITIAL_DELAY must be <= MAX_DELAY, got: {self.initial_delay} > {self.max_delay}"
             )
 
     def __repr__(self) -> str:
