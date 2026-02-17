@@ -242,14 +242,16 @@ class Config:
                 f"MACD_FAST_PERIOD must be less than MACD_SLOW_PERIOD"
             )
 
-        if self.order_book_bullish_threshold <= 0:
+        if self.order_book_bullish_threshold <= 1.0:
             raise ConfigurationError(
-                f"ORDER_BOOK_BULLISH_THRESHOLD must be greater than 0, got: {self.order_book_bullish_threshold}"
+                f"ORDER_BOOK_BULLISH_THRESHOLD must be greater than 1.0 (representing buying pressure), "
+                f"got: {self.order_book_bullish_threshold}"
             )
 
-        if self.order_book_bearish_threshold <= 0:
+        if self.order_book_bearish_threshold <= 0 or self.order_book_bearish_threshold >= 1.0:
             raise ConfigurationError(
-                f"ORDER_BOOK_BEARISH_THRESHOLD must be greater than 0, got: {self.order_book_bearish_threshold}"
+                f"ORDER_BOOK_BEARISH_THRESHOLD must be between 0 and 1.0 (representing selling pressure), "
+                f"got: {self.order_book_bearish_threshold}"
             )
 
         if not (0 <= self.prediction_confidence_score <= 1):

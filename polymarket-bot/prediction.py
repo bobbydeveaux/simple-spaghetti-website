@@ -280,7 +280,7 @@ def generate_signal_from_market_data(
     return engine.generate_signal(prices=prices, btc_price=btc_price)
 
 
-def validate_signal_conditions(
+def _validate_signal_conditions(
     rsi: float,
     macd_line: float,
     macd_signal: float,
@@ -288,7 +288,7 @@ def validate_signal_conditions(
     config: Optional[Config] = None
 ) -> SignalType:
     """
-    Test helper to validate signal conditions directly.
+    Internal test helper to validate signal conditions directly.
 
     Args:
         rsi: RSI value

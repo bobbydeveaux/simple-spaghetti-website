@@ -20,7 +20,7 @@ from prediction import (
     PredictionEngine,
     PredictionError,
     generate_signal_from_market_data,
-    validate_signal_conditions
+    _validate_signal_conditions
 )
 from models import PredictionSignal, SignalType
 from config import Config
@@ -219,7 +219,7 @@ class TestSignalGeneration:
         assert signal.signal == SignalType.UP
         assert signal.btc_price is None
 
-    @patch('polymarket_bot.prediction.calculate_rsi')
+    @patch('prediction.calculate_rsi')
     def test_generate_signal_rsi_error(
         self,
         mock_rsi,
@@ -232,8 +232,8 @@ class TestSignalGeneration:
         with pytest.raises(PredictionError, match="Failed to generate signal"):
             prediction_engine.generate_signal(sample_prices)
 
-    @patch('polymarket_bot.prediction.calculate_rsi')
-    @patch('polymarket_bot.prediction.calculate_macd')
+    @patch('prediction.calculate_rsi')
+    @patch('prediction.calculate_macd')
     def test_generate_signal_macd_error(
         self,
         mock_macd,
@@ -395,11 +395,11 @@ class TestConvenienceFunctions:
         )
 
     @patch('prediction.get_config')
-    def test_validate_signal_conditions_up(self, mock_get_config, mock_config):
+    def test__validate_signal_conditions_up(self, mock_get_config, mock_config):
         """Test validate_signal_conditions for UP signal."""
         mock_get_config.return_value = mock_config
 
-        signal = validate_signal_conditions(
+        signal = _validate_signal_conditions(
             rsi=25.0,
             macd_line=150.0,
             macd_signal=145.0,
@@ -410,11 +410,11 @@ class TestConvenienceFunctions:
         assert signal == SignalType.UP
 
     @patch('prediction.get_config')
-    def test_validate_signal_conditions_down(self, mock_get_config, mock_config):
+    def test__validate_signal_conditions_down(self, mock_get_config, mock_config):
         """Test validate_signal_conditions for DOWN signal."""
         mock_get_config.return_value = mock_config
 
-        signal = validate_signal_conditions(
+        signal = _validate_signal_conditions(
             rsi=75.0,
             macd_line=140.0,
             macd_signal=145.0,
@@ -425,11 +425,11 @@ class TestConvenienceFunctions:
         assert signal == SignalType.DOWN
 
     @patch('prediction.get_config')
-    def test_validate_signal_conditions_skip(self, mock_get_config, mock_config):
+    def test__validate_signal_conditions_skip(self, mock_get_config, mock_config):
         """Test validate_signal_conditions for SKIP signal."""
         mock_get_config.return_value = mock_config
 
-        signal = validate_signal_conditions(
+        signal = _validate_signal_conditions(
             rsi=50.0,
             macd_line=145.0,
             macd_signal=145.0,
@@ -601,7 +601,7 @@ class TestEdgeCases:
 class TestIntegration:
     """Integration tests for the full prediction pipeline."""
 
-    @patch('polymarket_bot.prediction.get_order_book_imbalance')
+    @patch('prediction.get_order_book_imbalance')
     def test_full_prediction_pipeline_real_calculations(
         self,
         mock_order_book,
