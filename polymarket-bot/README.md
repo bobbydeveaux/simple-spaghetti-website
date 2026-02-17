@@ -415,7 +415,7 @@ The `market_data` module provides comprehensive market data integration with Pol
 REST API client for discovering active markets and retrieving odds with built-in retry logic and error handling.
 
 **Key Features:**
-- Secure HMAC-SHA256 request signing for API authentication
+- Bearer token authentication for API access
 - Market discovery and search
 - BTC-related market filtering
 - Real-time odds retrieval
