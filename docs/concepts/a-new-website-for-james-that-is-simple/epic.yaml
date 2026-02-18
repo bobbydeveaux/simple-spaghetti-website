@@ -1,6 +1,7 @@
 Epic: a-new-website-for-james-that-is-simple
 Features:
-- dependencies: []
+- Sprint: 1
+  dependencies: []
   description: 'Create james.html at the repo root: a single static HTML file with
     inline CSS, yellow (#FFFF00) background, and a centered greeting for James.'
   estimatedComplexity: low

@@ -1,0 +1,9 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: a-new-website-for-james-that-is-simple-feat-james-page
+        name: James Personal Webpage
+        type: feature
+        files: [james.html]
