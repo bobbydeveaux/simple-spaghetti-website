@@ -2,6 +2,7 @@
 
 **Feature Count:** 1
 **Created:** 2026-02-18T14:56:49Z
+**Refined:** 2026-02-18
 
 ## Risks
 
@@ -29,7 +30,7 @@
 
 ## Assumptions
 
-1. **`james.html` is the correct filename** — not `index.html` as named in the HLD. *Validation: Confirm with the requester before writing the file.*
+1. **`james.html` is the correct filename** — not `index.html` as named in the HLD. The epic YAML and LLD both confirm `james.html`; the HLD's `index.html` reference is a documentation error. *Validation: Treat LLD and epic YAML as authoritative; flag HLD for correction.*
 
 2. **`#FFFF00` is the exact background color James wants** — no shade adjustment or approximation is acceptable. *Validation: Acceptance criterion in PRD confirms this; no further action needed unless James reviews and objects.*
 
@@ -39,13 +40,16 @@
 
 5. **No browser compatibility constraints beyond modern evergreen browsers** — the file uses standard HTML5/CSS, which is safe, but no explicit browser support matrix was defined. *Validation: Acceptable given the single-user, personal-page context; document this assumption in the feature.*
 
+6. **"Centered" means both horizontally and vertically within the viewport** — the PRD states "prominently centered" without axis qualification. Flexbox (`display: flex; justify-content: center; align-items: center; min-height: 100vh`) is the assumed approach. *Validation: Confirm with requester if horizontal-only centering is sufficient.*
+
 ---
 
 ## Mitigations
 
 **Risk 1 — Wrong filename delivered**
-- Explicitly override the HLD's `index.html` reference in the implementation ticket, citing the LLD as the authoritative source for `james.html`.
+- Explicitly override the HLD's `index.html` reference in the implementation ticket, citing both the LLD and epic YAML as authoritative sources for `james.html`.
 - Add a pre-merge checklist item: confirm the committed file is named `james.html`.
+- Update the HLD to correct `index.html` to `james.html` to remove the discrepancy at source.
 
 **Risk 2 — Color value drift**
 - Include `background-color: #FFFF00;` verbatim in the LLD's code snippet so implementers copy-paste rather than approximate.
@@ -60,284 +64,9 @@
 - Use a git pre-commit check or PR diff review to verify only one new file is added with no deletions.
 
 **Risk 5 — No defined hosting target**
-- Treat deployment as a separate, explicit follow-on task: select a host (GitHub Pages is already implied by repo context), configure it, and confirm James can load the URL.
+- Treat deployment as a separate, explicit follow-on task: select a host (GitHub Pages is implied by repo context), configure it, and confirm James can load the URL.
 - Do not mark the epic as complete until the URL is verified accessible.
 
 **Risk 6 — Acceptance not verified before merge**
 - Require a screenshot of the rendered page in the PR description, showing yellow background and centered greeting.
 - Assign a named reviewer responsible for visually confirming the screenshot matches acceptance criteria before approving the merge.
-
----
-
-## Appendix: Plan Documents
-
-### PRD
-# Product Requirements Document: A new website for James that is simple
-
-a simple yellow website for James
-
-**Created:** 2026-02-18T14:54:10Z
-**Status:** Draft
-
-## 1. Overview
-
-**Concept:** A new website for James that is simple
-
-a simple yellow website for James
-
-**Description:** A new website for James that is simple
-
-a simple yellow website for James
-
----
-
-## 2. Goals
-
-- Deliver a single-page website with a yellow background personalized for James
-- Page loads instantly with no dependencies or JavaScript
-
----
-
-## 3. Non-Goals
-
-- No backend, CMS, or dynamic content
-- No navigation, multiple pages, or complex layout
-
----
-
-## 4. User Stories
-
-- As James, I want a yellow webpage with my name so I have a personal web presence
-
----
-
-## 5. Acceptance Criteria
-
-- Given the page loads, it displays a yellow background and "James" prominently centered
-
----
-
-## 6. Functional Requirements
-
-- FR-001: Single HTML file with yellow (`#FFFF00`) background and centered text greeting James
-
----
-
-## 7. Non-Functional Requirements
-
-### Performance
-Page renders in under 1 second with no external requests.
-
-### Security
-Static HTML only — no user input, no attack surface.
-
-### Scalability
-Single static file; no scalability concerns.
-
-### Reliability
-No dependencies; 100% uptime as long as file is served.
-
----
-
-## 8. Dependencies
-
-None — pure HTML/CSS, no libraries or external APIs.
-
----
-
-## 9. Out of Scope
-
-- JavaScript, forms, databases, authentication, or multi-page navigation
-
----
-
-## 10. Success Metrics
-
-- Page renders correctly with yellow background and James's name visible
-
----
-
-## Appendix: Clarification Q&A
-
-### Clarification Questions & Answers
-
-### HLD
-# High-Level Design: simple-spaghetti-repo
-
-**Created:** 2026-02-18T14:54:56Z
-**Status:** Draft
-
-## 1. Architecture Overview
-
-Single static file. No server-side logic, no build pipeline, no framework.
-
----
-
-## 2. System Components
-
-- `index.html`: One file containing all HTML and inline CSS.
-
----
-
-## 3. Data Model
-
-None. No data entities.
-
----
-
-## 4. API Contracts
-
-None. No APIs.
-
----
-
-## 5. Technology Stack
-
-### Backend
-None.
-
-### Frontend
-HTML5 with inline CSS.
-
-### Infrastructure
-Any static file host (e.g., GitHub Pages, Netlify, or a plain web server).
-
-### Data Storage
-None.
-
----
-
-## 6. Integration Points
-
-None.
-
----
-
-## 7. Security Architecture
-
-No user input, no scripts, no external requests. Attack surface is zero.
-
----
-
-## 8. Deployment Architecture
-
-Drop `index.html` onto any static host. No build step required.
-
----
-
-## 9. Scalability Strategy
-
-Static files scale trivially via CDN or any HTTP server.
-
----
-
-## 10. Monitoring & Observability
-
-None required. Host-level access logs sufficient if needed.
-
----
-
-## 11. Architectural Decisions (ADRs)
-
-- **ADR-001**: Pure HTML/CSS chosen over any framework — complexity is unwarranted for a single greeting page.
-
----
-
-## Appendix: PRD Reference
-
-See PRD: *A new website for James that is simple*
-
-### LLD
-# Low-Level Design: simple-spaghetti-repo
-
-**Created:** 2026-02-18T14:55:22Z
-**Status:** Draft
-
-## 1. Implementation Overview
-
-Create `james.html` at the repo root — a single static HTML file with inline CSS displaying a personal greeting page for James.
-
----
-
-## 2. File Structure
-
-- `james.html` *(new)*: Single file, all HTML and CSS inline.
-
----
-
-## 3. Detailed Component Designs
-
-`james.html` structure:
-```
-<html>
-  <head> — charset, viewport, inline <style> </head>
-  <body> — centered greeting text, name, brief welcome message </body>
-</html>
-```
-
----
-
-## 4. Database Schema Changes
-
-None.
-
----
-
-## 5. API Implementation Details
-
-None.
-
----
-
-## 6. Function Signatures
-
-None. Static HTML only.
-
----
-
-## 7. State Management
-
-None.
-
----
-
-## 8. Error Handling Strategy
-
-None required. Static file; browser handles missing-file 404 at host level.
-
----
-
-## 9. Test Plan
-
-### Unit Tests
-None.
-
-### Integration Tests
-None.
-
-### E2E Tests
-Open `james.html` in a browser; verify greeting text renders and layout is centered.
-
----
-
-## 10. Migration Strategy
-
-Drop `james.html` into repo root and deploy alongside existing files. No changes to existing files.
-
----
-
-## 11. Rollback Plan
-
-Delete `james.html`. No other files affected.
-
----
-
-## 12. Performance Considerations
-
-Static file served directly by host. No optimization needed.
-
----
-
-## Appendix: Existing Repository Structure
-
-Root already contains `index.html`, `hello-world.html`, `spaghetti.html`. New file `james.html` follows the same pattern.
