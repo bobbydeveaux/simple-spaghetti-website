@@ -73,13 +73,14 @@ Epics:
     project: library-tutorial
     type: feature
   - dependencies:
+    - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-dashboard-comparison-ui
     - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-rest-api-endpoints
     - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-graphql-endpoint
     description: Static HTML page served at GET /tutorial containing annotated Go
       source code snippets explaining the N+1 problem, over-fetching pattern, and
-      GraphQL resolver structure. Uses pre/code blocks with no JavaScript required,
-      enabling developers to understand the REST vs GraphQL trade-offs from the actual
-      implementation.
+      GraphQL resolver structure. Uses pre/code blocks with shared style.css and no
+      additional JavaScript required, enabling developers to understand the REST vs
+      GraphQL trade-offs from the actual implementation.
     estimatedComplexity: low
     files:
     - library-tutorial/static/tutorial.html
@@ -106,6 +107,6 @@ Epics:
     name: Go Test Suite
     project: library-tutorial
     type: enabler
-  id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-epic-
-  name: ""
+  id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-epic-tutorial-website-on-graphql-api-for-a-library-with-mock-dat-epic
+  name: GraphQL vs REST Library Tutorial
 Version: v1alpha1
