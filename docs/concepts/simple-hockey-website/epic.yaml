@@ -3,7 +3,7 @@ Features:
 - dependencies: []
   description: Complete 3-page static website with standings, schedule, and history
     pages using dark blue/ice white theme
-  estimatedComplexity: low
+  estimatedComplexity: trivial
   files:
   - index.html
   - schedule.html
