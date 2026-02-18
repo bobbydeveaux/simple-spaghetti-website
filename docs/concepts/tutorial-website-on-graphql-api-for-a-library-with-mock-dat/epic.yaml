@@ -1,106 +1,111 @@
-Epic: tutorial-website-on-graphql-api-for-a-library-with-mock-dat
-Features:
-- dependencies: []
-  description: HTTP server entry point using net/http with route registration for
-    all API and static file endpoints, embed directive for bundling static files into
-    the binary, CORS middleware wrapper, and Go module definition with graph-gophers/graphql-go
-    dependency.
-  estimatedComplexity: low
-  files:
-  - library-tutorial/main.go
-  - library-tutorial/go.mod
-  - library-tutorial/go.sum
-  id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-go-server-infra
-  name: Go Server Infrastructure
-  project: library-tutorial
-  type: enabler
-- dependencies: []
-  description: 'In-memory Go structs defining Book, User, and Rental types with package-level
-    var slices initialized at startup: 5 books, 3 users, and 3 rentals (2 active)
-    with relational references between Rental.UserID and Rental.BookID.'
-  estimatedComplexity: low
-  files:
-  - library-tutorial/data.go
-  id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-mock-data-store
-  name: Mock Data Store
-  project: library-tutorial
-  type: enabler
-- dependencies:
-  - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-go-server-infra
-  - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-mock-data-store
-  description: Read-only REST handlers for GET /books, GET /users, GET /rentals, and
-    GET /library. Each handler serializes the relevant mock data slice to JSON with
-    200 status and application/json content type. The /library endpoint returns all
-    three collections combined as a kitchen-sink over-fetching demonstration. Includes
-    writeJSON helper used by all handlers.
-  estimatedComplexity: low
-  files:
-  - library-tutorial/handlers.go
-  id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-rest-api-endpoints
-  name: REST API Endpoints
-  project: library-tutorial
-  type: feature
-- dependencies:
-  - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-go-server-infra
-  - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-mock-data-store
-  description: POST /graphql endpoint using graph-gophers/graphql-go with a schema-first
-    definition. Implements QueryResolver, DashboardResolver, RentalResolver, BookResolver,
-    and UserResolver types. The dashboard query returns books, users, and rentals
-    with nested book and user relations resolved in-memory by ID, enabling precise
-    field selection and demonstrating the contrast with REST over-fetching.
-  estimatedComplexity: medium
-  files:
-  - library-tutorial/graphql.go
-  id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-graphql-endpoint
-  name: GraphQL Endpoint
-  project: library-tutorial
-  type: feature
-- dependencies:
-  - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-rest-api-endpoints
-  - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-graphql-endpoint
-  description: Vanilla JS dashboard page served at GET / that auto-runs on load. Fires
-    4 REST fetch calls (books, users, rentals, library) and 1 GraphQL POST in parallel,
-    measuring latency with performance.now() and payload size with TextEncoder. Renders
-    results in side-by-side panels showing request count, total bytes, elapsed time,
-    and collapsed JSON for each approach with a clear winner indicator. Shared CSS
-    styles included.
-  estimatedComplexity: medium
-  files:
-  - library-tutorial/static/index.html
-  - library-tutorial/static/style.css
-  id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-dashboard-comparison-ui
-  name: Dashboard Comparison UI
-  project: library-tutorial
-  type: feature
-- dependencies:
-  - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-rest-api-endpoints
-  - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-graphql-endpoint
-  description: Static HTML page served at GET /tutorial containing annotated Go source
-    code snippets explaining the N+1 problem, over-fetching pattern, and GraphQL resolver
-    structure. Uses pre/code blocks with no JavaScript required, enabling developers
-    to understand the REST vs GraphQL trade-offs from the actual implementation.
-  estimatedComplexity: low
-  files:
-  - library-tutorial/static/tutorial.html
-  id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-tutorial-page
-  name: Tutorial Page
-  project: library-tutorial
-  type: feature
-- dependencies:
-  - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-rest-api-endpoints
-  - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-graphql-endpoint
-  description: Go test files covering REST handlers (200 status, correct record counts,
-    flat rental structure), GraphQL resolvers (full dashboard query, partial field
-    selection, rental join correctness), and integration tests using httptest.NewServer
-    to verify CORS headers on all endpoints and confirm GraphQL payload is smaller
-    than the /library over-fetching response.
-  estimatedComplexity: low
-  files:
-  - library-tutorial/handlers_test.go
-  - library-tutorial/graphql_test.go
-  - library-tutorial/integration_test.go
-  id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-tests
-  name: Go Test Suite
-  project: library-tutorial
-  type: enabler
+Epics:
+- features:
+  - dependencies: []
+    description: HTTP server entry point using net/http with route registration for
+      all API and static file endpoints, embed directive for bundling static files
+      into the binary, CORS middleware wrapper, and Go module definition with graph-gophers/graphql-go
+      dependency.
+    estimatedComplexity: low
+    files:
+    - library-tutorial/main.go
+    - library-tutorial/go.mod
+    - library-tutorial/go.sum
+    id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-go-server-infra
+    name: Go Server Infrastructure
+    project: library-tutorial
+    type: enabler
+  - dependencies: []
+    description: 'In-memory Go structs defining Book, User, and Rental types with
+      package-level var slices initialized at startup: 5 books, 3 users, and 3 rentals
+      (2 active) with relational references between Rental.UserID and Rental.BookID.'
+    estimatedComplexity: low
+    files:
+    - library-tutorial/data.go
+    id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-mock-data-store
+    name: Mock Data Store
+    project: library-tutorial
+    type: enabler
+  - dependencies:
+    - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-go-server-infra
+    - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-mock-data-store
+    description: Read-only REST handlers for GET /books, GET /users, GET /rentals,
+      and GET /library. Each handler serializes the relevant mock data slice to JSON
+      with 200 status and application/json content type. The /library endpoint returns
+      all three collections combined as a kitchen-sink over-fetching demonstration.
+      Includes writeJSON helper used by all handlers.
+    estimatedComplexity: low
+    files:
+    - library-tutorial/handlers.go
+    id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-rest-api-endpoints
+    name: REST API Endpoints
+    project: library-tutorial
+    type: feature
+  - dependencies:
+    - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-go-server-infra
+    - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-mock-data-store
+    description: POST /graphql endpoint using graph-gophers/graphql-go with a schema-first
+      definition. Implements QueryResolver, DashboardResolver, RentalResolver, BookResolver,
+      and UserResolver types. The dashboard query returns books, users, and rentals
+      with nested book and user relations resolved in-memory by ID, enabling precise
+      field selection and demonstrating the contrast with REST over-fetching.
+    estimatedComplexity: medium
+    files:
+    - library-tutorial/graphql.go
+    id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-graphql-endpoint
+    name: GraphQL Endpoint
+    project: library-tutorial
+    type: feature
+  - dependencies:
+    - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-rest-api-endpoints
+    - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-graphql-endpoint
+    description: Vanilla JS dashboard page served at GET / that auto-runs on load.
+      Fires 4 REST fetch calls (books, users, rentals, library) and 1 GraphQL POST
+      in parallel, measuring latency with performance.now() and payload size with
+      TextEncoder. Renders results in side-by-side panels showing request count, total
+      bytes, elapsed time, and collapsed JSON for each approach with a clear winner
+      indicator. Shared CSS styles included.
+    estimatedComplexity: medium
+    files:
+    - library-tutorial/static/index.html
+    - library-tutorial/static/style.css
+    id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-dashboard-comparison-ui
+    name: Dashboard Comparison UI
+    project: library-tutorial
+    type: feature
+  - dependencies:
+    - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-rest-api-endpoints
+    - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-graphql-endpoint
+    description: Static HTML page served at GET /tutorial containing annotated Go
+      source code snippets explaining the N+1 problem, over-fetching pattern, and
+      GraphQL resolver structure. Uses pre/code blocks with no JavaScript required,
+      enabling developers to understand the REST vs GraphQL trade-offs from the actual
+      implementation.
+    estimatedComplexity: low
+    files:
+    - library-tutorial/static/tutorial.html
+    id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-tutorial-page
+    name: Tutorial Page
+    project: library-tutorial
+    type: feature
+  - dependencies:
+    - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-go-server-infra
+    - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-mock-data-store
+    - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-rest-api-endpoints
+    - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-graphql-endpoint
+    description: Go test files covering REST handlers (200 status, correct record
+      counts, flat rental structure), GraphQL resolvers (full dashboard query, partial
+      field selection, rental join correctness), and integration tests using httptest.NewServer
+      to verify CORS headers on all endpoints and confirm GraphQL payload is smaller
+      than the /library over-fetching response.
+    estimatedComplexity: low
+    files:
+    - library-tutorial/handlers_test.go
+    - library-tutorial/graphql_test.go
+    - library-tutorial/integration_test.go
+    id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-tests
+    name: Go Test Suite
+    project: library-tutorial
+    type: enabler
+  id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-epic-
+  name: ""
 Version: v1alpha1
