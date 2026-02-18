@@ -1,0 +1,22 @@
+GeneratedAt: "2026-02-18T09:00:30Z"
+Plan: a-simple-php-hello-worls-plan
+Sprints:
+- Features:
+  - FeatureID: a-simple-php-hello-worls-feat-hello-world-page
+    FeatureTitle: Hello World PHP Page
+    Tasks:
+    - AcceptanceCriteria:
+      - hello-php/index.php exists and contains a valid PHP echo statement
+      - Accessing the file via a web server returns 'Hello World' in the browser
+      - No PHP errors or warnings are produced
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Create the file hello-php/index.php containing a single PHP echo
+        statement that outputs 'Hello World' to the browser. This is the complete
+        implementation of the feature.
+      EstimatedEffort: S
+      Files:
+      - hello-php/index.php
+      ID: task-a-simple-php-hello-worls-feat-hello-world-page-1
+      Title: Create hello-php/index.php with Hello World output
+  Sprint: 1
