@@ -1,0 +1,19 @@
+# Project Timeline
+
+metadata:
+  generated: 2026-02-18T09:00:07Z
+  totalSprints: 1
+  totalDuration: 7 days
+
+sprints:
+  - number: 1
+    startDate: 2026-02-18
+    endDate: 2026-02-25
+    duration: 7 days
+    features:
+      - id: a-simple-php-hello-worls-feat-hello-world-page
+        name: Hello World PHP Page
+        type: feature
+
+criticalPath:
+  - a-simple-php-hello-worls-feat-hello-world-page

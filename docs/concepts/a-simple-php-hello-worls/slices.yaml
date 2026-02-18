@@ -1,0 +1,9 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: a-simple-php-hello-worls-feat-hello-world-page
+        name: Hello World PHP Page
+        type: feature
+        files: [hello-php/index.php]
