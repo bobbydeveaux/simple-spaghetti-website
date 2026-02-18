@@ -1,0 +1,17 @@
+Epic: simple-hockey-website
+Features:
+- dependencies: []
+  description: Complete 3-page static website with standings, schedule, and history
+    pages using dark blue/ice white theme
+  estimatedComplexity: low
+  files:
+  - index.html
+  - schedule.html
+  - history.html
+  - styles.css
+  - app.js
+  id: simple-hockey-website-feat-main
+  name: Hockey Fan Website
+  project: simple-hockey-website
+  type: feature
+Version: v1alpha1
