@@ -1,0 +1,18 @@
+Epics:
+- features:
+  - dependencies: []
+    description: Single HTML page with cottage photo, name, description, and hardcoded
+      contact information (email/phone). Includes linked CSS stylesheet and image
+      assets. Optional vanilla JS for smooth scroll.
+    estimatedComplexity: low
+    files:
+    - cottage.html
+    - cottage.css
+    - images/
+    id: cottage-website-feat-main
+    name: Static Cottage Page
+    project: simple-spaghetti-repo
+    type: feature
+  id: cottage-website-epic-main
+  name: Cottage Website
+Version: v1alpha1
