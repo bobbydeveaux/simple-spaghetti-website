@@ -14,8 +14,7 @@ Features:
   name: Go Server Infrastructure
   project: library-tutorial
   type: enabler
-- dependencies:
-  - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-go-server-infra
+- dependencies: []
   description: 'In-memory Go structs defining Book, User, and Rental types with package-level
     var slices initialized at startup: 5 books, 3 users, and 3 rentals (2 active)
     with relational references between Rental.UserID and Rental.BookID.'
