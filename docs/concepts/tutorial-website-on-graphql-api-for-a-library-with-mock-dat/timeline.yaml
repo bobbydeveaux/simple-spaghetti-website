@@ -1,0 +1,50 @@
+# Project Timeline
+
+metadata:
+  generated: 2026-02-18T21:56:16Z
+  totalSprints: 3
+  totalDuration: 23 days
+
+sprints:
+  - number: 1
+    startDate: 2026-02-18
+    endDate: 2026-02-25
+    duration: 7 days
+    features:
+      - id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-go-server-infra
+        name: Go Server Infrastructure
+        type: enabler
+      - id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-mock-data-store
+        name: Mock Data Store
+        type: enabler
+  - number: 2
+    startDate: 2026-02-26
+    endDate: 2026-03-05
+    duration: 7 days
+    features:
+      - id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-rest-api-endpoints
+        name: REST API Endpoints
+        type: feature
+      - id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-graphql-endpoint
+        name: GraphQL Endpoint
+        type: feature
+  - number: 3
+    startDate: 2026-03-06
+    endDate: 2026-03-13
+    duration: 7 days
+    features:
+      - id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-dashboard-comparison-ui
+        name: Dashboard Comparison UI
+        type: feature
+      - id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-tutorial-page
+        name: Tutorial Page
+        type: feature
+      - id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-tests
+        name: Go Test Suite
+        type: enabler
+
+criticalPath:
+  - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-go-server-infra
+  - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-rest-api-endpoints
+  - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-dashboard-comparison-ui
+  - tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-tutorial-page
