@@ -1,0 +1,13 @@
+Epic: a-new-website-for-james-that-is-simple
+Features:
+- dependencies: []
+  description: 'Create james.html at the repo root: a single static HTML file with
+    inline CSS, yellow (#FFFF00) background, and a centered greeting for James.'
+  estimatedComplexity: low
+  files:
+  - james.html
+  id: a-new-website-for-james-that-is-simple-feat-james-page
+  name: James Personal Webpage
+  project: simple-spaghetti-repo
+  type: feature
+Version: v1alpha1
