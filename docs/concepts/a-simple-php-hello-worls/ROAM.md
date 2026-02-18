@@ -2,6 +2,7 @@
 
 **Feature Count:** 1
 **Created:** 2026-02-18T08:57:57Z
+**Refined:** 2026-02-18T00:00:00Z
 
 ## Risks
 
@@ -15,6 +16,8 @@
 
 5. **Character Encoding / Output Issues** (Low): The server may not send a proper `Content-Type` header, causing browsers to misinterpret the output encoding, particularly if the server default differs from UTF-8.
 
+6. **Output Format Ambiguity** (Low): The acceptance criteria states "I see Hello World" but does not specify whether plain text or HTML-wrapped output is required. A bare `echo 'Hello World'` with no HTML structure may pass a `curl | grep` check but fail a stakeholder review expecting a rendered HTML page.
+
 ---
 
 ## Obstacles
@@ -22,6 +25,7 @@
 - **No defined runtime environment**: There is no specification of which web server (Apache vs. Nginx+FPM) will host the file, and no Docker/VM/container setup is documented, making it impossible to validate deployment without manual confirmation.
 - **No CI/CD pipeline**: The project has no automated test or deployment pipeline, so the integration test must be run manually each time a change is made.
 - **Deployment steps are informal**: The migration strategy ("copy `index.php` to web server document root") is undocumented in any runbook or deployment script, creating ambiguity for anyone other than the original developer.
+- **Acceptance criteria underspecified**: Neither the PRD nor the LLD defines whether "Hello World" must appear in an HTML document or as plain text, leaving room for interpretation at review time.
 
 ---
 
@@ -32,6 +36,7 @@
 3. **The document root maps to the `hello-php/` directory (or its parent)** — Validation: Confirm the server's `DocumentRoot` or `root` directive and adjust the file path accordingly before deployment.
 4. **No `.htaccess` or server config conflicts will block the request** — Validation: Check for existing `deny all` rules or directory restrictions in the server configuration.
 5. **The output "Hello World" is sufficient to satisfy acceptance criteria** — Validation: Confirm with the requester whether a plain-text output is acceptable or if wrapping in HTML (e.g., `<html><body>Hello World</body></html>`) is expected.
+6. **The repository directory `hello-php/` already exists or will be created** — Validation: Confirm directory structure in the target repo before creating `hello-php/index.php`; the epic lists no prerequisite for directory creation.
 
 ---
 
@@ -55,6 +60,9 @@
 
 **Risk 5 — Character Encoding / Output Issues**
 - Add `header('Content-Type: text/html; charset=utf-8');` before the `echo` statement in `index.php` to explicitly set the response type and encoding.
+
+**Risk 6 — Output Format Ambiguity**
+- Clarify with the requester before implementation whether a minimal HTML wrapper is required. If so, update `index.php` to output a valid HTML document rather than a bare string; this also resolves the `Content-Type` concern from Risk 5.
 
 ---
 
