@@ -1,0 +1,13 @@
+Epic: a-simple-php-hello-worls
+Features:
+- dependencies: []
+  description: Create hello-php/index.php with a single PHP echo statement that outputs
+    'Hello World' to the browser.
+  estimatedComplexity: low
+  files:
+  - hello-php/index.php
+  id: a-simple-php-hello-worls-feat-hello-world-page
+  name: Hello World PHP Page
+  project: simple-spaghetti-repo
+  type: feature
+Version: v1alpha1
