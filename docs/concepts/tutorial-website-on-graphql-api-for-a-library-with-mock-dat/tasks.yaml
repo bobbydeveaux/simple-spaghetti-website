@@ -1,0 +1,135 @@
+GeneratedAt: "2026-02-18T21:57:43Z"
+Plan: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-plan
+Sprints:
+- Features:
+  - FeatureID: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-go-server-infra
+    FeatureTitle: Go Server Infrastructure
+    Tasks:
+    - AcceptanceCriteria:
+      - go.mod declares module path and Go 1.21+ version
+      - graph-gophers/graphql-go is listed as a require directive
+      - go.sum is generated and contains valid checksums
+      - '`go mod verify` passes without errors'
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Create the Go module definition in library-tutorial/go.mod declaring
+        the module path and Go version, with graph-gophers/graphql-go as the sole
+        external dependency. Run go mod tidy to generate go.sum with checksums.
+      EstimatedEffort: S
+      Files:
+      - library-tutorial/go.mod
+      - library-tutorial/go.sum
+      ID: task-tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-go-server-infra-1
+      Title: Initialize Go module with dependencies
+    - AcceptanceCriteria:
+      - '`go run .` starts the server on :8080 without errors'
+      - All route prefixes (/books, /users, /rentals, /library, /graphql) are registered
+        and reachable
+      - CORS headers are present on every API response
+      - Static files (index.html, tutorial.html, style.css) are served from the embedded
+        FS without requiring external files at runtime
+      AgentType: backend-engineer
+      Dependencies:
+      - task-tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-go-server-infra-1
+      Description: Implement main.go with an embed directive bundling the static/
+        directory into the binary, a CORS middleware wrapper function, and net/http
+        route registration for all REST endpoints (/books, /users, /rentals, /library),
+        the GraphQL endpoint (/graphql), and the static file server. Server listens
+        on :8080.
+      EstimatedEffort: S
+      Files:
+      - library-tutorial/main.go
+      ID: task-tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-go-server-infra-2
+      Title: Implement HTTP server entry point with routing, CORS, and static file
+        embedding
+  - FeatureID: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-mock-data-store
+    FeatureTitle: Mock Data Store
+    Tasks:
+    - AcceptanceCriteria:
+      - Book, User, and Rental structs defined with all fields from the LLD (ID, Title,
+        Author, Genre, Year, ISBN, Available for Book; ID, Name, Email, MemberSince
+        for User; ID, UserID, BookID, RentedAt, DueAt, Returned for Rental)
+      - var Books contains exactly 5 entries, var Users contains exactly 3 entries,
+        var Rentals contains exactly 3 entries
+      - Exactly 2 Rental entries have Returned=false; all Rental.UserID and Rental.BookID
+        values match IDs present in the Users and Books slices
+      - File compiles cleanly as part of the library-tutorial package
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Create library-tutorial/data.go defining the three struct types
+        (Book, User, Rental) and package-level var slices populated with 5 books,
+        3 users, and 3 rentals (2 active). Rental entries must reference valid UserID
+        and BookID values from the other slices.
+      EstimatedEffort: S
+      Files:
+      - library-tutorial/data.go
+      ID: task-tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-mock-data-store-1
+      Title: Create mock data file with Book, User, and Rental types
+  Sprint: 1
+- Features:
+  - FeatureID: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-rest-api-endpoints
+    FeatureTitle: REST API Endpoints
+    Tasks:
+    - AcceptanceCriteria:
+      - GET /books returns JSON array of all Book records with status 200 and Content-Type
+        application/json
+      - GET /users and GET /rentals return their respective slices in the same manner
+      - GET /library returns a single JSON object containing books, users, and rentals
+        keys with all records
+      - writeJSON helper is used by all four handlers and sets correct headers before
+        encoding
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: 'Create library-tutorial/handlers.go with a writeJSON helper and
+        four read-only handlers: GET /books, GET /users, GET /rentals, and GET /library.
+        Each handler serializes the corresponding mock data slice to JSON with 200
+        status and application/json content type. The /library handler returns all
+        three collections combined in a single response object.'
+      EstimatedEffort: S
+      Files:
+      - library-tutorial/handlers.go
+      ID: task-tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-rest-api-endpoints-1
+      Title: Implement REST handlers in handlers.go
+  - FeatureID: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-graphql-endpoint
+    FeatureTitle: GraphQL Endpoint
+    Tasks:
+    - AcceptanceCriteria:
+      - graphql.go compiles with graph-gophers/graphql-go imported
+      - Schema string includes all fields referenced by the dashboard query (id, title,
+        author, genre, year, isbn, available, name, email, memberSince, rentedAt,
+        dueAt, returned)
+      - All five resolver structs are declared and hold the correct underlying data
+        types
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Create library-tutorial/graphql.go with the schema-first SDL string
+        constant covering Book, User, Rental, Dashboard, and Query types. Define the
+        Go resolver structs (QueryResolver, DashboardResolver, RentalResolver, BookResolver,
+        UserResolver) with pointer fields matching the mock data structs from data.go.
+      EstimatedEffort: S
+      Files:
+      - library-tutorial/graphql.go
+      ID: task-tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-graphql-endpoint-1
+      Title: Define GraphQL schema string and resolver struct types
+    - AcceptanceCriteria:
+      - POST /graphql with query '{ dashboard { books { title } rentals { book { title
+        } user { name } } } }' returns 200 with correctly nested JSON
+      - RentalResolver resolves nested book and user relations by ID without returning
+        null for valid IDs
+      - Handler sets Access-Control-Allow-Origin header consistent with other routes
+      - go run . starts without errors and the endpoint is reachable
+      AgentType: backend-engineer
+      Dependencies:
+      - task-tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-graphql-endpoint-1
+      Description: 'Add all resolver methods to each struct so graph-gophers/graphql-go
+        can satisfy the schema: scalar field getters on BookResolver/UserResolver,
+        nested Book() and User() methods on RentalResolver that look up by ID in the
+        in-memory slices, Dashboard() on QueryResolver returning all three collections,
+        and a top-level GraphQL HTTP handler registered on POST /graphql with CORS
+        support.'
+      EstimatedEffort: M
+      Files:
+      - library-tutorial/graphql.go
+      ID: task-tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-graphql-endpoint-2
+      Title: Implement resolver methods and register POST /graphql handler
+  Sprint: 2
