@@ -1,0 +1,23 @@
+GeneratedAt: "2026-02-18T14:59:21Z"
+Plan: a-new-website-for-james-that-is-simple-plan
+Sprints:
+- Features:
+  - FeatureID: a-new-website-for-james-that-is-simple-feat-james-page
+    FeatureTitle: James Personal Webpage
+    Tasks:
+    - AcceptanceCriteria:
+      - james.html exists at the repo root
+      - 'Page background is #FFFF00 (yellow)'
+      - Greeting text is horizontally and vertically centered
+      - File is valid HTML with charset and viewport meta tags
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create james.html at the repo root as a single static HTML file
+        with inline CSS. The page must have a yellow (#FFFF00) background and a centered
+        greeting for James.
+      EstimatedEffort: S
+      Files:
+      - james.html
+      ID: task-a-new-website-for-james-that-is-simple-feat-james-page-1
+      Title: Create james.html personal webpage
+  Sprint: 1
