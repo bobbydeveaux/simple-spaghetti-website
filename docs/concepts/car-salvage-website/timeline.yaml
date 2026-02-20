@@ -1,0 +1,31 @@
+# Project Timeline
+
+metadata:
+  generated: 2026-02-20T07:20:10Z
+  totalSprints: 2
+  totalDuration: 15 days
+
+sprints:
+  - number: 1
+    startDate: 2026-02-20
+    endDate: 2026-02-27
+    duration: 7 days
+    features:
+      - id: car-salvage-website-feat-foundation
+        name: Site Foundation and Mock Data
+        type: enabler
+  - number: 2
+    startDate: 2026-02-28
+    endDate: 2026-03-07
+    duration: 7 days
+    features:
+      - id: car-salvage-website-feat-listings
+        name: Listings Page with Filter
+        type: feature
+      - id: car-salvage-website-feat-detail-contact
+        name: Vehicle Detail and Contact Pages
+        type: feature
+
+criticalPath:
+  - car-salvage-website-feat-foundation
+  - car-salvage-website-feat-listings
