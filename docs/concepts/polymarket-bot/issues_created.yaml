@@ -1,27 +1,21 @@
-GeneratedAt: "2026-02-16T16:27:13Z"
+GeneratedAt: "2026-02-17T16:01:58Z"
 Issues:
-- IssueNumber: 208
-  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/208
-  TaskID: task-polymarket-bot-feat-config-models-1
-- IssueNumber: 209
-  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/209
-  TaskID: task-polymarket-bot-feat-config-models-2
-- IssueNumber: 210
-  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/210
-  TaskID: task-polymarket-bot-feat-config-models-3
-- IssueNumber: 211
-  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/211
-  TaskID: task-polymarket-bot-feat-market-data-1
-- IssueNumber: 212
-  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/212
-  TaskID: task-polymarket-bot-feat-market-data-2
-- IssueNumber: 213
-  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/213
-  TaskID: task-polymarket-bot-feat-market-data-3
-- IssueNumber: 214
-  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/214
-  TaskID: task-polymarket-bot-feat-market-data-4
-- IssueNumber: 215
-  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/215
-  TaskID: task-polymarket-bot-feat-state-persistence-1
+- IssueNumber: 275
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/275
+  TaskID: task-polymarket-bot-feat-trade-execution-1
+- IssueNumber: 276
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/276
+  TaskID: task-polymarket-bot-feat-trade-execution-2
+- IssueNumber: 277
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/277
+  TaskID: task-polymarket-bot-feat-trade-execution-3
+- IssueNumber: 278
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/278
+  TaskID: task-polymarket-bot-feat-orchestrator-1
+- IssueNumber: 279
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/279
+  TaskID: task-polymarket-bot-feat-orchestrator-2
+- IssueNumber: 280
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/280
+  TaskID: task-polymarket-bot-feat-orchestrator-3
 Plan: polymarket-bot-plan
