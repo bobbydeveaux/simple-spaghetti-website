@@ -1,0 +1,19 @@
+# Project Timeline
+
+metadata:
+  generated: 2026-02-17T10:46:10Z
+  totalSprints: 1
+  totalDuration: 7 days
+
+sprints:
+  - number: 1
+    startDate: 2026-02-17
+    endDate: 2026-02-24
+    duration: 7 days
+    features:
+      - id: a-little-python-app-that-says-hello-world-feat-hello-script
+        name: Hello World Script
+        type: feature
+
+criticalPath:
+  - a-little-python-app-that-says-hello-world-feat-hello-script

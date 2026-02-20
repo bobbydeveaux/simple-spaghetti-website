@@ -1,0 +1,13 @@
+Epic: a-little-python-app-that-says-hello-world
+Features:
+- Sprint: 1
+  dependencies: []
+  description: Create a Python script that prints 'Hello World' to stdout
+  estimatedComplexity: low
+  files:
+  - hello.py
+  id: a-little-python-app-that-says-hello-world-feat-hello-script
+  name: Hello World Script
+  project: a-little-python-app-that-says-hello-world
+  type: feature
+Version: v1alpha1

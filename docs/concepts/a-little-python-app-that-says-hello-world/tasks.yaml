@@ -1,0 +1,21 @@
+GeneratedAt: "2026-02-17T10:46:30Z"
+Plan: a-little-python-app-that-says-hello-world-plan
+Sprints:
+- Features:
+  - FeatureID: a-little-python-app-that-says-hello-world-feat-hello-script
+    FeatureTitle: Hello World Script
+    Tasks:
+    - AcceptanceCriteria:
+      - File hello.py exists in the project root
+      - Running 'python hello.py' outputs 'Hello World' to stdout
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Create a single Python file hello.py that prints 'Hello World'
+        to stdout. This is a simple script with one print statement and no additional
+        complexity.
+      EstimatedEffort: S
+      Files:
+      - hello.py
+      ID: task-a-little-python-app-that-says-hello-world-feat-hello-script-1
+      Title: Create hello.py script
+  Sprint: 1
