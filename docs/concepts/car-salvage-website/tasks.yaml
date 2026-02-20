@@ -1,0 +1,129 @@
+GeneratedAt: "2026-02-20T07:21:23Z"
+Plan: car-salvage-website-plan
+Sprints:
+- Features:
+  - FeatureID: car-salvage-website-feat-foundation
+    FeatureTitle: Site Foundation and Mock Data
+    Tasks:
+    - AcceptanceCriteria:
+      - data/cars.js exports a named `cars` array with 12-15 objects each containing
+        id, make, model, year, mileage, price, salvageCategory (Cat S or Cat N), motExpiry,
+        repairNotes, images, and sold fields
+      - At least one Cat S and one Cat N vehicle are present with realistic UK pricing
+        (£2000-£15000 range)
+      - css/style.css defines a responsive grid that collapses to single column on
+        mobile (<768px)
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create data/cars.js as an ES module exporting 12-15 hardcoded UK
+        salvage vehicle objects with all required fields (Cat S/N category, MOT expiry,
+        repair notes, pricing, sold status). Create css/style.css with global styles
+        including a responsive card grid layout for the listings page.
+      EstimatedEffort: S
+      Files:
+      - data/cars.js
+      - css/style.css
+      ID: task-car-salvage-website-feat-foundation-1
+      Title: Create mock vehicle data and global CSS styles
+    - AcceptanceCriteria:
+      - netlify.toml includes a [[headers]] block with a Content-Security-Policy header
+        covering script-src, style-src, and img-src directives
+      - 'Cache-Control: max-age=86400 is applied to /css/* and /js/* paths'
+      - A catch-all redirect or 404 page rule is defined
+      AgentType: devops-engineer
+      Dependencies: []
+      Description: Create netlify.toml defining Content-Security-Policy headers, Cache-Control
+        headers for CSS/JS assets (max-age=86400), and any necessary redirect rules
+        (e.g. pretty URLs or 404 handling).
+      EstimatedEffort: S
+      Files:
+      - netlify.toml
+      ID: task-car-salvage-website-feat-foundation-2
+      Title: Configure Netlify with CSP headers and redirect rules
+  Sprint: 1
+- Features:
+  - FeatureID: car-salvage-website-feat-listings
+    FeatureTitle: Listings Page with Filter
+    Tasks:
+    - AcceptanceCriteria:
+      - data/cars.js exports an array of 12-15 vehicles covering multiple makes, categories
+        (Cat S, Cat N, Cat B), and price ranges
+      - applyFilters(cars, { category, maxPrice, make }) returns correctly filtered
+        subset without mutating input
+      - sortCars(cars, sortKey) handles 'price-asc', 'price-desc', and 'year-desc'
+        keys without mutating input
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create data/cars.js exporting 12-15 vehicle objects with all required
+        fields (id, make, model, year, mileage, price, salvageCategory, motExpiry,
+        repairNotes, images, sold). Implement js/filter.js with pure applyFilters
+        and sortCars exported functions.
+      EstimatedEffort: S
+      Files:
+      - data/cars.js
+      - js/filter.js
+      ID: task-car-salvage-website-feat-listings-1
+      Title: Create car data module and filter/sort logic
+    - AcceptanceCriteria:
+      - All cards render on page load showing make, model, year, mileage, price, salvage
+        category badge, and MOT status
+      - Changing any filter or sort control re-renders the card list to show only
+        matching vehicles
+      - Empty filter result renders the 'No vehicles match your filters.' message
+        instead of cards
+      - Each card links to car.html?id={id} for the detail page
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-car-salvage-website-feat-listings-1
+      Description: Update index.html to import cars, applyFilters, and sortCars as
+        ES modules. Add filter controls for category, max price, make, and sort order.
+        Implement inline renderCards and buildCardHTML functions that render car cards
+        with all required fields including salvage category badge and MOT status;
+        show 'No vehicles match your filters.' when result is empty.
+      EstimatedEffort: M
+      Files:
+      - index.html
+      ID: task-car-salvage-website-feat-listings-2
+      Title: Build listings page with card rendering and filter controls
+  - FeatureID: car-salvage-website-feat-detail-contact
+    FeatureTitle: Vehicle Detail and Contact Pages
+    Tasks:
+    - AcceptanceCriteria:
+      - car.html?id=car-001 renders the correct vehicle title, price, MOT expiry,
+        and repair notes
+      - car.html?id=invalid and car.html (no param) both render 'Vehicle not found.'
+        message
+      - Image gallery displays all images from the vehicle's images array
+      - getCarById and renderDetail functions match the signatures defined in the
+        LLD
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create car.html that reads the ?id= URL param, imports cars from
+        data/cars.js, finds the matching vehicle, and renders full specs (make, model,
+        year, mileage, price, salvage category, MOT expiry), repair history notes,
+        and an image gallery. Render a 'Vehicle not found.' message if the id param
+        is missing or matches no vehicle.
+      EstimatedEffort: M
+      Files:
+      - car.html
+      ID: task-car-salvage-website-feat-detail-contact-1
+      Title: Build car.html vehicle detail page
+    - AcceptanceCriteria:
+      - Phone and email are visible as static content on the page
+      - Form submits via POST to the Formspree endpoint and redirects on success
+      - Visiting contact.html?id=car-001 pre-populates the hidden vehicle_id field
+        with 'car-001'
+      - Visiting contact.html without an id param leaves vehicle_id empty without
+        errors
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create contact.html displaying the business phone and email, plus
+        a Formspree-backed enquiry form using method='POST' and the correct action
+        URL. Add a hidden vehicle_id field that is auto-populated from the ?id= URL
+        param when present, allowing deep-links from car detail pages.
+      EstimatedEffort: S
+      Files:
+      - contact.html
+      ID: task-car-salvage-website-feat-detail-contact-2
+      Title: Build contact.html with Formspree enquiry form
+  Sprint: 2

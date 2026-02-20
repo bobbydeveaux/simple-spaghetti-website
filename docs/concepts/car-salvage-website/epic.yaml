@@ -1,0 +1,47 @@
+Epics:
+- Features:
+  - Sprint: 1
+    dependencies: null
+    description: Create the shared CSS styles, 12-15 hardcoded UK salvage vehicle
+      objects (Cat S/N, MOT status, repair notes, pricing), and Netlify config with
+      CSP headers and redirect rules.
+    estimatedComplexity: low
+    files:
+    - data/cars.js
+    - css/style.css
+    - netlify.toml
+    id: car-salvage-website-feat-foundation
+    name: Site Foundation and Mock Data
+    project: car-salvage-website
+    type: enabler
+  - Sprint: 2
+    dependencies:
+    - car-salvage-website-feat-foundation
+    description: Render all car cards on index.html with make, model, year, mileage,
+      price, salvage category badge, and MOT status. Implement client-side filter/sort
+      controls by category, price range, and make using filter.js.
+    estimatedComplexity: medium
+    files:
+    - index.html
+    - js/filter.js
+    id: car-salvage-website-feat-listings
+    name: Listings Page with Filter
+    project: car-salvage-website
+    type: feature
+  - Sprint: 2
+    dependencies:
+    - car-salvage-website-feat-foundation
+    description: Build car.html to render full specs, repair history, MOT expiry,
+      and image gallery from a URL ?id= param (with not-found fallback). Build contact.html
+      with phone/email display and a Formspree-backed enquiry form.
+    estimatedComplexity: low
+    files:
+    - car.html
+    - contact.html
+    id: car-salvage-website-feat-detail-contact
+    name: Vehicle Detail and Contact Pages
+    project: car-salvage-website
+    type: feature
+  ID: car-salvage-website-epic-main
+  Name: Car Salvage Website
+Version: v1alpha1
