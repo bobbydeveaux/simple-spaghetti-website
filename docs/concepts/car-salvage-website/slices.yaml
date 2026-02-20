@@ -1,0 +1,19 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: car-salvage-website-feat-foundation
+        name: Site Foundation and Mock Data
+        type: enabler
+        files: [data/cars.js css/style.css netlify.toml package.json package-lock.json tsconfig.json README.md .gitignore Dockerfile docker-compose.yml]
+  - number: 2
+    features:
+      - id: car-salvage-website-feat-listings
+        name: Listings Page with Filter
+        type: feature
+        files: [index.html js/filter.js package.json package-lock.json tsconfig.json README.md .gitignore Dockerfile docker-compose.yml]
+      - id: car-salvage-website-feat-detail-contact
+        name: Vehicle Detail and Contact Pages
+        type: feature
+        files: [car.html contact.html package.json package-lock.json tsconfig.json README.md .gitignore Dockerfile docker-compose.yml]
