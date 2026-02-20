@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact Us | UK Car Salvage</title>
+  <meta name="description" content="Get in touch with UK Car Salvage. Enquire about a specific vehicle, ask questions about our rebuilding process, or visit our workshop in Derby.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- =====================================================================
+       Site Header
+       ===================================================================== -->
+  <header class="site-header">
+    <div class="container">
+      <nav class="nav-inner" aria-label="Main navigation">
+
+        <a href="index.html" class="nav-brand" aria-label="UK Car Salvage — home">
+          <span class="nav-brand__name">UK Car Salvage</span>
+          <span class="nav-brand__tagline">Rebuilt. Inspected. Road Ready.</span>
+        </a>
+
+        <button
+          class="nav-toggle"
+          aria-expanded="false"
+          aria-controls="nav-links"
+          aria-label="Toggle navigation menu"
+          type="button"
+        >
+          <span class="nav-toggle__bar"></span>
+          <span class="nav-toggle__bar"></span>
+          <span class="nav-toggle__bar"></span>
+        </button>
+
+        <ul class="nav-links" id="nav-links" role="list">
+          <li><a href="index.html">Browse Cars</a></li>
+          <li><a href="contact.html" aria-current="page" class="nav-cta">Contact Us</a></li>
+        </ul>
+
+      </nav>
+    </div>
+  </header>
+
+  <!-- =====================================================================
+       Page Banner
+       ===================================================================== -->
+  <section class="page-banner" aria-label="Page title">
+    <div class="container">
+      <h1 class="page-banner__title">Contact Us</h1>
+      <p class="page-banner__breadcrumb">
+        <a href="index.html">Home</a>
+        <span aria-hidden="true"> &rsaquo; </span>
+        <span aria-current="page">Contact</span>
+      </p>
+    </div>
+  </section>
+
+  <!-- =====================================================================
+       Main Content
+       ===================================================================== -->
+  <main class="main-content" id="main">
+    <div class="container">
+
+      <div class="contact-grid">
+
+        <!-- -----------------------------------------------------------------
+             Contact Information
+             ----------------------------------------------------------------- -->
+        <aside class="contact-info" aria-label="Contact details">
+
+          <div class="contact-info__item">
+            <div class="contact-info__icon" aria-hidden="true">&#128222;</div>
+            <div>
+              <span class="contact-info__label">Phone</span>
+              <p class="contact-info__value">
+                <a href="tel:+441332567890">01332 567 890</a>
+              </p>
+              <p class="text-sm text-muted" style="margin-top:0.25rem;">
+                Mon–Fri 8:30am–5:30pm &bull; Sat 9:00am–3:00pm
+              </p>
+            </div>
+          </div>
+
+          <div class="contact-info__item">
+            <div class="contact-info__icon" aria-hidden="true">&#9993;</div>
+            <div>
+              <span class="contact-info__label">Email</span>
+              <p class="contact-info__value">
+                <a href="mailto:enquiries@ukcarsalvage.co.uk">enquiries@ukcarsalvage.co.uk</a>
+              </p>
+              <p class="text-sm text-muted" style="margin-top:0.25rem;">
+                We aim to respond within one working day
+              </p>
+            </div>
+          </div>
+
+          <div class="contact-info__item">
+            <div class="contact-info__icon" aria-hidden="true">&#128205;</div>
+            <div>
+              <span class="contact-info__label">Workshop Address</span>
+              <address class="contact-info__value" style="font-style:normal;">
+                12 Salvage Way<br>
+                Derby<br>
+                DE1 2AB
+              </address>
+            </div>
+          </div>
+
+          <div class="contact-info__item">
+            <div class="contact-info__icon" aria-hidden="true">&#128336;</div>
+            <div>
+              <span class="contact-info__label">Opening Hours</span>
+              <dl class="contact-info__value text-sm" style="display:grid;grid-template-columns:1fr 1fr;gap:0.25rem 1rem;">
+                <dt>Monday – Friday</dt>
+                <dd>8:30am – 5:30pm</dd>
+                <dt>Saturday</dt>
+                <dd>9:00am – 3:00pm</dd>
+                <dt>Sunday</dt>
+                <dd>Closed</dd>
+              </dl>
+            </div>
+          </div>
+
+          <!-- Trust indicators -->
+          <div class="info-card" style="margin-top:0;">
+            <h2 class="info-card__heading">Why Buy From Us?</h2>
+            <ul style="display:flex;flex-direction:column;gap:0.75rem;list-style:none;padding:0;font-size:0.875rem;color:var(--colour-dark-grey);">
+              <li>&#10003;&nbsp; All vehicles independently inspected</li>
+              <li>&#10003;&nbsp; Structural repair certificates provided</li>
+              <li>&#10003;&nbsp; Full MOT on every sale</li>
+              <li>&#10003;&nbsp; Transparent salvage category disclosure</li>
+              <li>&#10003;&nbsp; No-pressure viewing appointments</li>
+            </ul>
+          </div>
+
+        </aside>
+
+        <!-- -----------------------------------------------------------------
+             Enquiry Form
+             ----------------------------------------------------------------- -->
+        <div class="info-card">
+          <h2 class="info-card__heading">Send an Enquiry</h2>
+
+          <!-- Vehicle context banner — shown only when ?id= is in the URL -->
+          <p
+            id="vehicle-enquiry-summary"
+            hidden
+            style="
+              background-color:var(--colour-off-white);
+              border:1px solid var(--colour-light-grey);
+              border-left:4px solid var(--colour-primary);
+              border-radius:var(--radius-md);
+              padding:var(--space-3) var(--space-4);
+              font-size:var(--text-sm);
+              font-weight:var(--weight-semibold);
+              color:var(--colour-primary-dark);
+              margin-bottom:var(--space-5);
+            "
+          ></p>
+
+          <!--
+            Formspree endpoint — replace YOUR_FORM_ID with the actual ID from
+            your Formspree dashboard (e.g. https://formspree.io/f/abcd1234).
+          -->
+          <form
+            class="contact-form"
+            action="https://formspree.io/f/YOUR_FORM_ID"
+            method="POST"
+            novalidate
+            aria-label="Vehicle enquiry form"
+          >
+
+            <!-- Honeypot anti-spam field (hidden from real users) -->
+            <input type="text" name="_gotcha" tabindex="-1" aria-hidden="true" style="display:none;" autocomplete="off">
+
+            <!-- Hidden vehicle reference (auto-populated from URL ?id= param) -->
+            <input type="hidden" name="vehicle_id" id="field-vehicle-id" value="">
+
+            <!-- Full Name -->
+            <div class="form-group form-group--required">
+              <label for="field-name">Full Name</label>
+              <input
+                type="text"
+                id="field-name"
+                name="name"
+                autocomplete="name"
+                placeholder="Jane Smith"
+                required
+                aria-required="true"
+              >
+            </div>
+
+            <!-- Email Address -->
+            <div class="form-group form-group--required">
+              <label for="field-email">Email Address</label>
+              <input
+                type="email"
+                id="field-email"
+                name="email"
+                autocomplete="email"
+                placeholder="jane@example.com"
+                required
+                aria-required="true"
+              >
+            </div>
+
+            <!-- Phone Number -->
+            <div class="form-group">
+              <label for="field-phone">Phone Number <span class="text-muted font-normal">(optional)</span></label>
+              <input
+                type="tel"
+                id="field-phone"
+                name="phone"
+                autocomplete="tel"
+                placeholder="07700 900 000"
+              >
+            </div>
+
+            <!-- Subject / Vehicle of Interest -->
+            <div class="form-group">
+              <label for="field-subject">Subject</label>
+              <input
+                type="text"
+                id="field-subject"
+                name="subject"
+                placeholder="e.g. Enquiry about 2019 VW Golf"
+              >
+            </div>
+
+            <!-- Message -->
+            <div class="form-group form-group--required">
+              <label for="field-message">Message</label>
+              <textarea
+                id="field-message"
+                name="message"
+                rows="5"
+                placeholder="Please tell us what you'd like to know — specific questions, preferred viewing times, or anything else that might help us assist you."
+                required
+                aria-required="true"
+              ></textarea>
+            </div>
+
+            <!-- How did you hear -->
+            <div class="form-group">
+              <label for="field-referral">How did you hear about us? <span class="text-muted font-normal">(optional)</span></label>
+              <select id="field-referral" name="referral_source">
+                <option value="" disabled selected>Please select&hellip;</option>
+                <option value="google">Google search</option>
+                <option value="facebook">Facebook</option>
+                <option value="autotrader">AutoTrader</option>
+                <option value="word-of-mouth">Word of mouth</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <!-- Privacy notice -->
+            <p class="text-sm text-muted" style="line-height:var(--leading-relaxed);">
+              Your details will only be used to respond to your enquiry and will not be shared with third parties.
+            </p>
+
+            <!-- Submit -->
+            <div class="form-submit">
+              <button type="submit" class="btn btn--primary btn--lg">
+                Send Enquiry
+              </button>
+            </div>
+
+          </form>
+        </div><!-- /.info-card -->
+
+      </div><!-- /.contact-grid -->
+
+    </div><!-- /.container -->
+  </main>
+
+  <!-- =====================================================================
+       Site Footer
+       ===================================================================== -->
+  <footer class="site-footer">
+    <div class="container">
+
+      <div class="footer-grid">
+
+        <div class="footer-col">
+          <p class="footer-col__heading">UK Car Salvage</p>
+          <p>Professional salvage vehicle rebuilders based in Derby. Every car inspected, repaired to standard, and MOT'd before sale.</p>
+        </div>
+
+        <div class="footer-col">
+          <p class="footer-col__heading">Quick Links</p>
+          <ul class="footer-links" role="list">
+            <li><a href="index.html">Browse All Cars</a></li>
+            <li><a href="contact.html">Contact Us</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <p class="footer-col__heading">Salvage Categories</p>
+          <ul class="footer-links" role="list">
+            <li><a href="index.html?category=Cat+S">Category S (Structural)</a></li>
+            <li><a href="index.html?category=Cat+N">Category N (Non-structural)</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <p class="footer-col__heading">Contact</p>
+          <ul class="footer-links" role="list">
+            <li><a href="tel:+441332567890">01332 567 890</a></li>
+            <li><a href="mailto:enquiries@ukcarsalvage.co.uk">enquiries@ukcarsalvage.co.uk</a></li>
+            <li>12 Salvage Way, Derby, DE1 2AB</li>
+          </ul>
+        </div>
+
+      </div><!-- /.footer-grid -->
+
+      <div class="footer-bottom">
+        <p>&copy; <span id="footer-year">2026</span> UK Car Salvage Ltd. All rights reserved.</p>
+        <p>All vehicles sold with full disclosure of salvage history. Prices include VAT.</p>
+      </div>
+
+    </div><!-- /.container -->
+  </footer>
+
+  <script src="js/contact.js" type="module"></script>
+
+</body>
+</html>
