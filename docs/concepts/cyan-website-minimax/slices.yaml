@@ -1,0 +1,9 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: cyan-website-minimax-feat-hello-world-page
+        name: Hello World Static Page
+        type: feature
+        files: [docs/plans/simple-spaghetti-website/index.html]
