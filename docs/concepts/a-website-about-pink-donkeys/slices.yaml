@@ -1,0 +1,9 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: a-website-about-pink-donkeys-feat-single-page-website
+        name: Single-Page Pink Donkeys Website
+        type: feature
+        files: [pink-donkeys.html]
