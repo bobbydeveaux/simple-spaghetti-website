@@ -1,0 +1,14 @@
+Epic: purple-background-minimax
+Features:
+- Sprint: 1
+  dependencies: []
+  description: Create a single static HTML page with purple background (#800080) and
+    white 'Hello World' text centered horizontally and vertically using CSS flexbox
+  estimatedComplexity: low
+  files:
+  - docs/plans/simple-spaghetti-website/index.html
+  id: purple-background-minimax-feat-purple-page
+  name: Purple Background Hello World Page
+  project: simple-spaghetti-website
+  type: feature
+Version: v1alpha1
