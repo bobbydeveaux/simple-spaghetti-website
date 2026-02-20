@@ -1,12 +1,9 @@
 {
-  "prNumber": 291,
+  "prNumber": 337,
   "baseBranch": "main",
-  "headBranch": "feature/257-polymarket-bot-sprint-4-issue-257",
+  "headBranch": "feature/328-car-salvage-website-sprint-2-issue-328",
   "conflictedFiles": [
-    ".review-feedback.txt",
-    "polymarket-bot/README.md",
-    "polymarket-bot/execution.py",
-    "polymarket-bot/tests/test_execution.py"
+    "car-salvage/js/filter.js"
   ],
-  "conflictCount": 4
+  "conflictCount": 1
 }

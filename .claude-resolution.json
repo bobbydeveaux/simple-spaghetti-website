@@ -1,6 +1,6 @@
 {
   "method": "ai-assisted",
-  "filesResolved": 4,
-  "summary": "Resolved 4 conflicted files: .review-feedback.txt (deleted), polymarket-bot/README.md (merged feature descriptions), polymarket-bot/execution.py (merged ExecutionEngine and PolymarketAPIClient classes), polymarket-bot/tests/test_execution.py (merged all test cases from both versions)",
-  "strategyUsed": "Intelligent merge preserving functionality from both branches. For README.md: combined feature bullet points from both versions. For execution.py: merged ExecutionEngine class (with session management) from main and PolymarketAPIClient (with mock support and settlement tracking) from feature branch, keeping all functions from both. For tests: preserved all test classes and functions from both versions. Deleted .review-feedback.txt as it was removed in feature branch and no longer needed."
+  "filesResolved": 1,
+  "summary": "Resolved conflict in car-salvage/js/filter.js by merging both versions of applyFilters and sortCars. Preserved HEAD's additional fuelType filter parameter and extended sort keys (year-asc, mileage-asc) that were absent from origin/main.",
+  "strategyUsed": "preserved both changes — kept HEAD's richer feature set (fuelType filter, maxPrice null-check, year-asc and mileage-asc sort keys) while incorporating origin/main's cleaner JSDoc comment style into the merged result"
 }
