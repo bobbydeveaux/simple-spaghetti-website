@@ -1,0 +1,37 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-go-server-infra
+        name: Go Server Infrastructure
+        type: enabler
+        files: [library-tutorial/main.go library-tutorial/go.mod library-tutorial/go.sum]
+      - id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-mock-data-store
+        name: Mock Data Store
+        type: enabler
+        files: [library-tutorial/data.go]
+  - number: 2
+    features:
+      - id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-rest-api-endpoints
+        name: REST API Endpoints
+        type: feature
+        files: [library-tutorial/handlers.go]
+      - id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-graphql-endpoint
+        name: GraphQL Endpoint
+        type: feature
+        files: [library-tutorial/graphql.go]
+  - number: 3
+    features:
+      - id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-dashboard-comparison-ui
+        name: Dashboard Comparison UI
+        type: feature
+        files: [library-tutorial/static/index.html library-tutorial/static/style.css]
+      - id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-tutorial-page
+        name: Tutorial Page
+        type: feature
+        files: [library-tutorial/static/tutorial.html]
+      - id: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-tests
+        name: Go Test Suite
+        type: enabler
+        files: [library-tutorial/handlers_test.go library-tutorial/graphql_test.go library-tutorial/integration_test.go]

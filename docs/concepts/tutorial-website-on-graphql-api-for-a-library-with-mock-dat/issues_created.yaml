@@ -1,0 +1,21 @@
+GeneratedAt: "2026-02-18T21:58:08Z"
+Issues:
+- IssueNumber: 318
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/318
+  TaskID: task-tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-rest-api-endpoints-1
+- IssueNumber: 319
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/319
+  TaskID: task-tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-graphql-endpoint-1
+- IssueNumber: 320
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/320
+  TaskID: task-tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-graphql-endpoint-2
+- IssueNumber: 321
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/321
+  TaskID: task-tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-go-server-infra-1
+- IssueNumber: 322
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/322
+  TaskID: task-tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-go-server-infra-2
+- IssueNumber: 323
+  IssueURL: https://github.com/bobbydeveaux/simple-spaghetti-website/issues/323
+  TaskID: task-tutorial-website-on-graphql-api-for-a-library-with-mock-dat-feat-mock-data-store-1
+Plan: tutorial-website-on-graphql-api-for-a-library-with-mock-dat-plan
