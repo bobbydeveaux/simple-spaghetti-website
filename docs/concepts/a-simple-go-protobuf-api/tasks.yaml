@@ -1,0 +1,78 @@
+GeneratedAt: "2026-02-17T20:55:13Z"
+Plan: a-simple-go-protobuf-api-plan
+Sprints:
+- Features:
+  - FeatureID: a-simple-go-protobuf-api-feat-protobuf-service
+    FeatureTitle: Protobuf Service Definition and Code Generation
+    Tasks:
+    - AcceptanceCriteria:
+      - greeter.proto defines GreeterService with SayHello RPC, HelloRequest, and
+        HelloResponse messages
+      - buf.yaml and buf.gen.yaml are properly configured for Connect-Go generation
+      - go.mod includes connectrpc.com/connect and google.golang.org/protobuf dependencies
+      - buf generate successfully produces Connect-Go stubs in gen/ directory
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Create the GreeterService Protobuf definition in proto/greeter/v1/greeter.proto
+        with SayHello RPC. Configure Buf workspace (buf.yaml) and code generation
+        settings (buf.gen.yaml) for Connect-Go stub generation. Initialize Go module
+        with necessary dependencies.
+      EstimatedEffort: S
+      Files:
+      - proto/greeter/v1/greeter.proto
+      - buf.yaml
+      - buf.gen.yaml
+      - go.mod
+      ID: task-a-simple-go-protobuf-api-feat-protobuf-service-1
+      Title: Define Protobuf service and configure Buf tooling
+    - AcceptanceCriteria:
+      - GreeterServiceHandler implements SayHello method with correct signature
+      - HTTP server starts successfully on port 8080
+      - Connect handler is mounted at /greet.v1.GreeterService/ path
+      - Manual curl test returns valid greeting response
+      AgentType: backend-engineer
+      Dependencies:
+      - task-a-simple-go-protobuf-api-feat-protobuf-service-1
+      Description: Implement the GreeterServiceHandler in main.go that handles SayHello
+        RPC requests. Create HTTP server listening on :8080 and mount the Connect
+        handler at the appropriate path. Ensure the handler returns a proper greeting
+        response.
+      EstimatedEffort: S
+      Files:
+      - main.go
+      ID: task-a-simple-go-protobuf-api-feat-protobuf-service-2
+      Title: Implement GreeterService handler and HTTP server
+    - AcceptanceCriteria:
+      - Tests verify SayHello returns expected greeting message
+      - Tests validate Connect protocol headers and response format
+      - All tests pass with go test
+      AgentType: qa-engineer
+      Dependencies:
+      - task-a-simple-go-protobuf-api-feat-protobuf-service-2
+      Description: Create integration tests that verify the SayHello RPC works end-to-end.
+        Tests should cover successful greeting responses, proper Connect protocol
+        handling, and basic error scenarios.
+      EstimatedEffort: S
+      Files:
+      - main_test.go
+      ID: task-a-simple-go-protobuf-api-feat-protobuf-service-3
+      Title: Add integration tests for GreeterService
+  - FeatureID: a-simple-go-protobuf-api-feat-http-server
+    FeatureTitle: HTTP Server with Greeter Handler
+    Tasks:
+    - AcceptanceCriteria:
+      - GreeterServiceHandler implements SayHello returning 'Hello, {name}!'
+      - HTTP server listens on :8080 with Connect handler mounted
+      - Server can handle greeter requests via HTTP
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Implement the GreeterServiceHandler with SayHello method that returns
+        'Hello, {name}!' in main.go. Create HTTP server listening on :8080 with Connect
+        handler mounted at the appropriate path. This completes the HTTP server setup
+        with the greeter handler.
+      EstimatedEffort: S
+      Files:
+      - main.go
+      ID: task-a-simple-go-protobuf-api-feat-http-server-1
+      Title: Implement GreeterService handler and HTTP server
+  Sprint: 1

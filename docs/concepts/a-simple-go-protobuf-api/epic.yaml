@@ -1,0 +1,29 @@
+Epic: a-simple-go-protobuf-api
+Features:
+- Sprint: 1
+  dependencies: []
+  description: Create Protobuf service definition for GreeterService with SayHello
+    RPC, configure Buf for code generation, and generate Connect-Go stubs
+  estimatedComplexity: low
+  files:
+  - proto/greeter/v1/greeter.proto
+  - buf.yaml
+  - buf.gen.yaml
+  - go.mod
+  id: a-simple-go-protobuf-api-feat-protobuf-service
+  name: Protobuf Service Definition and Code Generation
+  project: a-simple-go-protobuf-api
+  type: enabler
+- Sprint: 1
+  dependencies:
+  - a-simple-go-protobuf-api-feat-protobuf-service
+  description: Implement GreeterService handler that returns 'Hello, {name}!' and
+    HTTP server listening on :8080 with Connect handler
+  estimatedComplexity: low
+  files:
+  - main.go
+  id: a-simple-go-protobuf-api-feat-http-server
+  name: HTTP Server with Greeter Handler
+  project: a-simple-go-protobuf-api
+  type: feature
+Version: v1alpha1
