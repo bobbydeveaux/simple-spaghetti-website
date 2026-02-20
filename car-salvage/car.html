@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Title and description are set dynamically by js/car.js -->
+    <title>Vehicle Detail — Phoenix Auto Salvage</title>
+    <meta
+      name="description"
+      content="Full vehicle specifications, repair history, MOT status, and pricing for this salvage-rebuilt car."
+    />
+
+    <link rel="stylesheet" href="css/style.css" />
+
+    <!--
+      js/car.js is loaded as an ES module (same-origin, CSP-safe).
+      It reads ?id= from the URL, fetches the vehicle from data/cars.js,
+      and renders the detail view into #vehicle-detail.
+    -->
+    <script type="module" src="js/car.js"></script>
+  </head>
+  <body>
+    <!-- ====================================================================
+         Site Header
+    ===================================================================== -->
+    <header class="site-header">
+      <nav
+        class="container nav-inner"
+        aria-label="Main navigation"
+      >
+        <a href="index.html" class="nav-brand" aria-label="Phoenix Auto Salvage — home">
+          <span class="nav-brand__name">
+            Phoenix Auto Salvage
+            <span class="nav-brand__tagline">Rebuilt. Tested. Trusted.</span>
+          </span>
+        </a>
+
+        <!-- Mobile hamburger toggle -->
+        <button
+          class="nav-toggle"
+          aria-controls="main-nav"
+          aria-expanded="false"
+          aria-label="Toggle navigation"
+          id="nav-toggle-btn"
+        >
+          <span class="nav-toggle__bar"></span>
+          <span class="nav-toggle__bar"></span>
+          <span class="nav-toggle__bar"></span>
+        </button>
+
+        <ul class="nav-links" id="main-nav" role="list">
+          <li><a href="index.html">All Cars</a></li>
+          <li><a href="contact.html" class="nav-cta">Enquire Now</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <!-- ====================================================================
+         Page Banner (populated by js/car.js after vehicle lookup)
+    ===================================================================== -->
+    <div id="page-banner-wrap">
+      <!-- Rendered by js/car.js -->
+    </div>
+
+    <!-- ====================================================================
+         Main Content
+    ===================================================================== -->
+    <main class="main-content" id="main">
+      <div class="container">
+        <!-- Vehicle detail is rendered here by js/car.js -->
+        <div id="vehicle-detail">
+          <p class="text-center text-muted">Loading vehicle details&hellip;</p>
+        </div>
+      </div>
+    </main>
+
+    <!-- ====================================================================
+         Trust Strip
+    ===================================================================== -->
+    <section class="trust-strip" aria-label="Why buy from us">
+      <div class="container">
+        <ul class="trust-strip__grid" role="list">
+          <li class="trust-item">
+            <span class="trust-item__icon" aria-hidden="true">&#10003;</span>
+            <span class="trust-item__label">MOT Tested</span>
+            <span class="trust-item__desc">Every car leaves with a valid UK MOT</span>
+          </li>
+          <li class="trust-item">
+            <span class="trust-item__icon" aria-hidden="true">&#128221;</span>
+            <span class="trust-item__label">Full Repair History</span>
+            <span class="trust-item__desc">Documented repair notes for every vehicle</span>
+          </li>
+          <li class="trust-item">
+            <span class="trust-item__icon" aria-hidden="true">&#128269;</span>
+            <span class="trust-item__label">Independent Inspection</span>
+            <span class="trust-item__desc">Cat S vehicles independently certified</span>
+          </li>
+          <li class="trust-item">
+            <span class="trust-item__icon" aria-hidden="true">&#128222;</span>
+            <span class="trust-item__label">Direct from Us</span>
+            <span class="trust-item__desc">No auction fees — buy direct and save</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         Site Footer
+    ===================================================================== -->
+    <footer class="site-footer" aria-label="Site footer">
+      <div class="container">
+        <div class="footer-grid">
+          <div class="footer-col">
+            <p class="footer-col__heading">Phoenix Auto Salvage</p>
+            <p>
+              UK's trusted salvage-to-roadworthy specialists. Every car fully
+              repaired, MOT'd, and ready to drive away.
+            </p>
+          </div>
+          <div class="footer-col">
+            <p class="footer-col__heading">Quick Links</p>
+            <ul class="footer-links" role="list">
+              <li><a href="index.html">Browse Cars</a></li>
+              <li><a href="contact.html">Contact Us</a></li>
+            </ul>
+          </div>
+          <div class="footer-col">
+            <p class="footer-col__heading">Contact</p>
+            <ul class="footer-links" role="list">
+              <li><a href="tel:+441234567890">01234 567 890</a></li>
+              <li>
+                <a href="mailto:sales@phoenixautosalvage.co.uk"
+                  >sales@phoenixautosalvage.co.uk</a
+                >
+              </li>
+              <li>Unit 12, Industrial Park, Birmingham, B1 1AA</li>
+            </ul>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <p>&copy; 2026 Phoenix Auto Salvage Ltd. All rights reserved.</p>
+          <p>
+            Registered in England &amp; Wales. All vehicles sold as seen unless
+            otherwise stated.
+          </p>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Mobile nav toggle script — inline-free: uses data attributes only -->
+    <script type="module">
+      const btn = document.getElementById('nav-toggle-btn');
+      const nav = document.getElementById('main-nav');
+      if (btn && nav) {
+        btn.addEventListener('click', () => {
+          const expanded = btn.getAttribute('aria-expanded') === 'true';
+          btn.setAttribute('aria-expanded', String(!expanded));
+          nav.classList.toggle('is-open');
+        });
+      }
+    </script>
+  </body>
+</html>
