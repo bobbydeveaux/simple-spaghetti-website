@@ -1,0 +1,9 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: a-website-about-kitchen-designing-feat-kitchen-page
+        name: Kitchen Design Single Page
+        type: feature
+        files: [src/components/KitchenDesign.jsx src/App.jsx src/App.css]
