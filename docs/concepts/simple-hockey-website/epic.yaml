@@ -1,0 +1,41 @@
+Epic: simple-hockey-website
+Features:
+- Sprint: 1
+  dependencies: []
+  description: 'Create base HTML structure: index.html with standings table, schedule.html
+    with games list, history.html with timeline. Include semantic HTML, viewport meta
+    tags, and navigation links between pages.'
+  estimatedComplexity: trivial
+  files:
+  - index.html
+  - schedule.html
+  - history.html
+  id: simple-hockey-website-feat-html-structure
+  name: HTML Page Structure
+  project: simple-hockey-website
+  type: feature
+- Sprint: 1
+  dependencies: []
+  description: Implement dark blue (#1a3a5c) / ice white (#e8f4f8) theme with CSS
+    custom properties, responsive layouts, table styling, and consistent navigation
+    across all pages.
+  estimatedComplexity: trivial
+  files:
+  - styles.css
+  id: simple-hockey-website-feat-styling
+  name: CSS Styling & Theme
+  project: simple-hockey-website
+  type: feature
+- Sprint: 1
+  dependencies: []
+  description: 'Add JavaScript for data rendering: standings array with 6 teams (W-L-Pts),
+    schedule array with 5+ games (date/opponent/time/venue), history array with 5+
+    milestones. Include DOMContentLoaded wrapper and render functions.'
+  estimatedComplexity: trivial
+  files:
+  - app.js
+  id: simple-hockey-website-feat-data-rendering
+  name: JavaScript Data Rendering
+  project: simple-hockey-website
+  type: feature
+Version: v1alpha1

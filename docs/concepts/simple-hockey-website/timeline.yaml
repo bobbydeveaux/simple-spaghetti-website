@@ -1,0 +1,25 @@
+# Project Timeline
+
+metadata:
+  generated: 2026-02-18T18:57:06Z
+  totalSprints: 1
+  totalDuration: 7 days
+
+sprints:
+  - number: 1
+    startDate: 2026-02-18
+    endDate: 2026-02-25
+    duration: 7 days
+    features:
+      - id: simple-hockey-website-feat-html-structure
+        name: HTML Page Structure
+        type: feature
+      - id: simple-hockey-website-feat-styling
+        name: CSS Styling & Theme
+        type: feature
+      - id: simple-hockey-website-feat-data-rendering
+        name: JavaScript Data Rendering
+        type: feature
+
+criticalPath:
+  - simple-hockey-website-feat-html-structure

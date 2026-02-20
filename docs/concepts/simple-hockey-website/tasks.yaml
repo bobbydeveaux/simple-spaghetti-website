@@ -1,0 +1,134 @@
+GeneratedAt: "2026-02-18T18:59:02Z"
+Plan: simple-hockey-website-plan
+Sprints:
+- Features:
+  - FeatureID: simple-hockey-website-feat-html-structure
+    FeatureTitle: HTML Page Structure
+    Tasks:
+    - AcceptanceCriteria:
+      - index.html contains valid semantic HTML5 structure
+      - Viewport meta tag present for mobile responsiveness
+      - Navigation links to schedule.html and history.html in header
+      - Standings table displays team rankings with appropriate columns
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create index.html with semantic HTML structure, viewport meta tag,
+        header with navigation links, and standings table. This establishes the base
+        template used across all pages.
+      EstimatedEffort: S
+      Files:
+      - index.html
+      ID: task-simple-hockey-website-feat-html-structure-1
+      Title: Create base HTML structure with index.html and standings table
+    - AcceptanceCriteria:
+      - schedule.html displays list of games with dates, teams, and scores
+      - history.html displays timeline of hockey events
+      - Both pages have consistent navigation linking to all three pages
+      - All pages have consistent header and semantic structure
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-hockey-website-feat-html-structure-1
+      Description: Create schedule.html with games list and history.html with timeline.
+        Both pages share the same base structure as index.html including navigation
+        and viewport meta.
+      EstimatedEffort: S
+      Files:
+      - schedule.html
+      - history.html
+      ID: task-simple-hockey-website-feat-html-structure-2
+      Title: Create schedule.html and history.html pages
+  - FeatureID: simple-hockey-website-feat-styling
+    FeatureTitle: CSS Styling & Theme
+    Tasks:
+    - AcceptanceCriteria:
+      - CSS custom properties defined for --color-dark-blue (#1a3a5c) and --color-ice-white
+        (#e8f4f8)
+      - Body background, text color, and font-family are set using custom properties
+      - styles.css is valid CSS with no syntax errors
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create styles.css with CSS custom properties for the dark blue
+        (#1a3a5c) and ice white (#e8f4f8) color theme. Include base resets, body styling,
+        typography defaults, and link styles using the theme variables.
+      EstimatedEffort: S
+      Files:
+      - styles.css
+      ID: task-simple-hockey-website-feat-styling-1
+      Title: Define CSS custom properties and base theme
+    - AcceptanceCriteria:
+      - Navigation bar uses dark blue background with ice white text and hover states
+      - Layout is responsive with a max-width container and appropriate breakpoints
+      - Navigation links are styled consistently with active-page indication
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-hockey-website-feat-styling-1
+      Description: Add header/navigation bar styling with the dark blue background
+        and ice white text. Include responsive layout rules using flexbox or grid,
+        consistent padding/margins, and a mobile-friendly navigation that works across
+        all pages.
+      EstimatedEffort: S
+      Files:
+      - styles.css
+      ID: task-simple-hockey-website-feat-styling-2
+      Title: Implement navigation and layout styles
+    - AcceptanceCriteria:
+      - Tables have styled headers with dark blue background and alternating row colors
+      - Tables are responsive and readable on mobile screens
+      - Content sections have consistent spacing and visual hierarchy
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-hockey-website-feat-styling-1
+      Description: Add table styling for standings and schedule data with alternating
+        row colors, proper borders, and header styling. Include any page-specific
+        component styles needed for the history page and general content sections.
+      EstimatedEffort: S
+      Files:
+      - styles.css
+      ID: task-simple-hockey-website-feat-styling-3
+      Title: Style tables and page-specific components
+  - FeatureID: simple-hockey-website-feat-data-rendering
+    FeatureTitle: JavaScript Data Rendering
+    Tasks:
+    - AcceptanceCriteria:
+      - standings array contains 6 teams with wins, losses, and points
+      - schedule array contains at least 5 games with date, opponent, time, and venue
+      - history array contains at least 5 milestones with year and description
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: 'Define the three data arrays in app.js: standings (6 teams with
+        W-L-Pts), schedule (5+ games with date/opponent/time/venue), and history (5+
+        milestones)'
+      EstimatedEffort: S
+      Files:
+      - app.js
+      ID: task-simple-hockey-website-feat-data-rendering-1
+      Title: Create hockey data arrays
+    - AcceptanceCriteria:
+      - renderStandings() function renders standings data to DOM
+      - renderSchedule() function renders schedule data to DOM
+      - renderHistory() function renders history data to DOM
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-hockey-website-feat-data-rendering-1
+      Description: Create render functions for each data type that populate the DOM
+        elements with the data arrays
+      EstimatedEffort: S
+      Files:
+      - app.js
+      ID: task-simple-hockey-website-feat-data-rendering-2
+      Title: Implement render functions
+    - AcceptanceCriteria:
+      - All code wrapped in DOMContentLoaded event listener
+      - Render functions called on page load
+      - Data displays correctly in browser
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-simple-hockey-website-feat-data-rendering-2
+      Description: Wrap all code in DOMContentLoaded event listener and ensure render
+        functions are called to display data on page load
+      EstimatedEffort: S
+      Files:
+      - app.js
+      ID: task-simple-hockey-website-feat-data-rendering-3
+      Title: Wire up DOMContentLoaded and integrate with HTML
+  Sprint: 1
