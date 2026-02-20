@@ -28,6 +28,15 @@ export function applyFilters(cars, { category = '', make = '', fuelType = '', ma
 /**
  * Return a sorted copy of the vehicles array.
  *
+ * Supported sort keys:
+ *   "price-asc"    — cheapest first
+ *   "price-desc"   — most expensive first
+ *   "year-desc"    — newest first
+ *   "year-asc"     — oldest first
+ *   "mileage-asc"  — lowest mileage first
+ *
+ * Unknown sort keys return a copy of the array in its original order.
+ *
  * @param {Array<Object>} cars    - Vehicle array to sort
  * @param {string}        sortKey - One of: "price-asc" | "price-desc" | "year-desc" | "year-asc" | "mileage-asc"
  * @returns {Array<Object>} New sorted array (original is not mutated)
