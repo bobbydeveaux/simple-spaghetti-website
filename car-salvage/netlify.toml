@@ -1,0 +1,58 @@
+# Netlify configuration for Car Salvage Website
+# Publish directory: car-salvage/
+
+[build]
+  publish = "."
+
+# -------------------------------------------------------------------
+# Security and cache headers
+# -------------------------------------------------------------------
+
+# Content-Security-Policy + cache for HTML pages
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https://placehold.co data:; form-action 'self' https://formspree.io; frame-ancestors 'none'"
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Long-lived cache for CSS assets
+[[headers]]
+  for = "/css/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, must-revalidate"
+
+# Long-lived cache for JS assets
+[[headers]]
+  for = "/js/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, must-revalidate"
+
+# Long-lived cache for data module
+[[headers]]
+  for = "/data/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, must-revalidate"
+
+# -------------------------------------------------------------------
+# Redirect rules
+# -------------------------------------------------------------------
+
+# Pretty URL: /car?id=* → car.html (pass query string through)
+[[redirects]]
+  from = "/car"
+  to = "/car.html"
+  status = 200
+
+# Pretty URL: /contact?id=* → contact.html (pass query string through)
+[[redirects]]
+  from = "/contact"
+  to = "/contact.html"
+  status = 200
+
+# 404 catch-all – return the listings page with a 404 status
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 404
