@@ -1,0 +1,9 @@
+# Sprint Slices (Horizontal Decomposition)
+
+sprints:
+  - number: 1
+    features:
+      - id: black-background-claude-feat-html-page
+        name: Black Background HTML Page
+        type: feature
+        files: [spaghetti.html]
