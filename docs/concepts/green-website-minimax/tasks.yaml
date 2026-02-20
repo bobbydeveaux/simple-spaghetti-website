@@ -1,0 +1,23 @@
+GeneratedAt: "2026-02-14T01:16:50Z"
+Plan: green-website-minimax-plan
+Sprints:
+- Features:
+  - FeatureID: green-website-minimax-feat-main
+    FeatureTitle: Core Implementation
+    Tasks:
+    - AcceptanceCriteria:
+      - File created at docs/plans/simple-spaghetti-website/index.html
+      - HTML is valid HTML5 with DOCTYPE, html, head, body tags
+      - Body contains exactly 'I love spagheeti' text
+      - No external dependencies, CSS, or JavaScript
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create the docs/plans/simple-spaghetti-website/ directory and the
+        index.html file with valid HTML5 markup displaying 'I love spagheeti' text.
+        No CSS, JavaScript, or external resources.
+      EstimatedEffort: S
+      Files:
+      - docs/plans/simple-spaghetti-website/index.html
+      ID: task-green-website-minimax-feat-main-1
+      Title: Create index.html with spagheeti content
+  Sprint: 1
